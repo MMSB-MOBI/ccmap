@@ -1,0 +1,12 @@
+rm -rf build;python setup.py build && python setup.py install
+rm -rf build;/software/mobi/pythonC_dvl/0.1/Python-2.7.13/valgrind/python setup.py build && /software/mobi/pythonC_dvl/0.1/Python-2.7.13/valgrind/python  setup.py install
+gcc -Wall -lm -I../include/ -o mesh.exe mesh.c main.c -std=c99
+gcc -Wall -lm -I../include/ -o mesh.exe mesh.c main.c -std=c99 -D DEBUG -pedantic
+gcc -Wall -lm -I../include/ -o pdbReader.exe mesh.c pdb_coordinates.c main.c -std=c99
+gcc -Wall -lm -I../include/ -o mesh.exe mesh.c main.c pdb_coordinates.c decoygen.c -std=c99 -D DEBUG -pedantic
+
+
+
+gcc -Wall -lm -I../include/ -o pdbReader.exe mesh.c main.c pdb_coordinates.c decoygen.c -std=c99 -D DEBUG -pedantic -g
+valgrind --track-origins=yes --suppressions=/Users/guillaumelaunay/work/DVL/leak_macos.supp --leak-check=full ./pdbReader.exe --euler 2.5,3.7,8.7 --trans 0.0,0.0,0.0 -a ../data/1a2y_u1.pdb -b ../data/1a2y_u2.988.pdb --dump transformed.pdb -d 4.5
+

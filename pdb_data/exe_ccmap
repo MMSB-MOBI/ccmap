@@ -1,0 +1,1 @@
+./$1 --rec 1HIA_r_u.pdb.ms_2 --lig 1HIA_l_u.pdb.ms_2 --dist 5 --transLigInit -10.787,-23.219,-0.275 --eulerLig 2.408554,0.727136,-1.633288 --transLig -7,-13,-12 --transRecInit -33.129,-24.024,-2.408 
