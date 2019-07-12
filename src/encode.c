@@ -32,16 +32,38 @@ void printChain(chainedInt_t *ContactList){
   }
 
 }
-chainedInt_t *encodeContactMap(residue_t *ResidueList, int lenLigList){
+void printTable(int *ContactList, int len){
+  printf("Contact Table :");
+  for (int i=0; i<len; i++){
+  printf(" %d ;" ,ContactList[i]);
+  }
+  printf("\n");
+}
+
+
+int *copyTable(int *table, int lenTable ){
+  int *newTable=NULL;
+  newTable= malloc(lenTable*sizeof(int));
+  if (newTable!=NULL){
+    for (int i=0; i<lenTable; i++){
+      newTable[i]=table[i];
+    }
+  }
+  return newTable;
+}
+
+int *encodeContactMap(residue_t *ResidueList, int lenLigList, int lenRecList, int *finalLen){
+    // Initiate table with maximal size
+    int *table=NULL;
+    table=malloc(lenLigList*lenRecList*sizeof(int));
+    int *newTable=NULL;
+    int o=-1;
     residue_t *next_residue=NULL;
     residue_t *residue= ResidueList;
     residue_t *contact= NULL;
-    chainedInt_t *contactIndexList=NULL;
-    chainedInt_t *previous_Index = NULL;
+
     while (residue->nextResidueList!= NULL){
-
-
-      // Check Residues indexes increment, else there is a change of protein
+      // Check Residues indexes increment, else there is a change of molecule
         next_residue=residue->nextResidueList;
         if (next_residue->index < residue->index){break;}
 
@@ -49,32 +71,19 @@ chainedInt_t *encodeContactMap(residue_t *ResidueList, int lenLigList){
         int nContacts= residue->nContacts;
         if(residue->nContacts > 0) {
             for (int i=0; i<nContacts; i++){
-
+              o++;
               contact = residue->contactResidueList[i];
-              printf(" Contact : ind1 = %d, ind2 = %d  , => %d \n",residue->index, contact->index, contactIndex(residue->index,contact->index, lenLigList));
-              chainedInt_t *Index = NULL;
-
-              // Create the ChainedInt object and allocate memory for it
-              Index=createChained_Int(contactIndex(residue->index,contact->index, lenLigList));
-
-              // If there is a previous Index object, set it's nextInt value to current pointer
-              printf("Adress %p", Index);
-              if (previous_Index!=NULL){previous_Index->nextInt=Index;}
-
-              // Set previous_Index value to current pointer
-              previous_Index=Index;
-
-              // Store first pointer
-              if (contactIndexList==NULL){ contactIndexList=Index; }
-
-              printf("My value is %d \n ",Index->index);
-
+              table[o]=contactIndex(residue->index,contact->index, lenLigList);
+              printf(" %d . Contact : ind1 = %d, ind2 = %d  , => %d \n", o, residue->index, contact->index, table[o]);
             }
         }
         residue=next_residue;
     }
-    printChain(contactIndexList);
-    return(contactIndexList);
+    *finalLen=o+1;
+    // Resize table with copyTable and free original table
+    newTable= copyTable(table,*finalLen);
+    free(table);
+    return newTable;
 }
 
 chainedInt_t *createChained_Int(int n) {
