@@ -71,8 +71,13 @@ void dumpBuffer(char *buffer, int bufSize) {
 // To communicate w/ python process
 // Return a JSON with residue index and contact
 // [ [1,2], [4,6] .. ]
+
 char *residueContactMap(atom_t * atomList, int nAtom, double ctc_dist) {
     residue_t *residueList = createResidueList(atomList);
+
+#ifdef AS_PYTHON_EXTENSION
+PySys_WriteStdout("Using residueContactMap function \n");
+#endif
 
 #ifdef DEBUG
 #ifdef AS_PYTHON_EXTENSION
@@ -165,7 +170,6 @@ char *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, in
     // 101_B_CE1 and 121_1_OE1 cell coordinates ?
     // printResidueCellProjection(" 101", 'B', results, iResidueList);
     //printResidueCellProjection(" 121", 'A', results, jResidueList);
-    // encodeContactMap(iResidueList);
     int nPairs;
     enumerate(results, ctc_dist, &nPairs, true);
 
@@ -173,6 +177,9 @@ char *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, in
     fuseResidueLists(iResidueList, jResidueList);
     int finalLen=0;
     int *encodedContactMap=encodeContactMap(iResidueList, jlen, ilen, &finalLen);
+#ifdef AS_PYTHON_EXTENSION
+PySys_WriteStdout("Using new Function \n");
+#endif
     printf("Number of contacts : %d\n", finalLen);
     printTable(encodedContactMap,finalLen);
     char *jsonString = jsonifyContactList(iResidueList);
@@ -182,9 +189,6 @@ char *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, in
     printf("%s\n", jsonString);
 #ifdef AS_PYTHON_EXTENSION
     PySys_WriteStderr("%s\n", jsonString);
-    for ( int i=o ; i< finalLen; i++){
-      PySys_WriteStderr("%d , " , encodedContactMap[i]);
-    }
     PySys_WriteStderr("\n" );
 #endif
 #endif
