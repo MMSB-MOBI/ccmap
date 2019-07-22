@@ -61,7 +61,7 @@ int *encodeContactMap(residue_t *ResidueList, int lenLigList, int lenRecList, in
     residue_t *next_residue=NULL;
     residue_t *residue= ResidueList;
     residue_t *contact= NULL;
-
+    *finalLen=0;
     while (residue->nextResidueList!= NULL){
       // Check Residues indexes increment, else there is a change of molecule
         next_residue=residue->nextResidueList;

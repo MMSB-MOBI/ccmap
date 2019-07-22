@@ -141,7 +141,7 @@ void atomListInContact(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAto
     results = destroyMeshContainer(results);
 }
 
-int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist) {
+int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, unsigned int *finalLen) {
     residue_t *iResidueList = createResidueList(iAtomList);
     residue_t *jResidueList = createResidueList(jAtomList);
 
@@ -151,15 +151,10 @@ int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int
 #endif
     printf("Computing residue contact map w/ %.2g Angstrom step\n", ctc_dist);
 #endif
-
     double step = ctc_dist;
     meshContainer_t *results = createMeshContainer(iAtomList, iAtom, jAtomList, jAtom, step);
-    /*residue_t *rec_residue= &iResidueList[0];
-    while (rec_residue->nextResidueList!= NULL){
-      printf("Receptor's Residue Index : %d \n", rec_residue->index);
-      rec_residue=rec_residue->nextResidueList;
-    }*/
-    /* Inspecting atom preojection */
+
+    /* Inspecting atom projection */
     // 101_B_CE1 and 121_1_OE1 cell coordinates ?
     // printResidueCellProjection(" 101", 'B', results, iResidueList);
     //printResidueCellProjection(" 121", 'A', results, jResidueList);
@@ -171,10 +166,10 @@ int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int
     int jlen=chainLen(jResidueList);
     int ilen=chainLen(iResidueList);
     fuseResidueLists(iResidueList, jResidueList);
-    int finalLen=0;
-    int *encodedContactMap=encodeContactMap(iResidueList, jlen, ilen, &finalLen);
-    printf("Number of contacts : %d\n", finalLen);
-    printTable(encodedContactMap,finalLen);
+
+    int *encodedContactMap=encodeContactMap(iResidueList, jlen, ilen, finalLen);
+    printf("Number of contacts : %d\n", *finalLen);
+    printTable(encodedContactMap,*finalLen);
     #ifdef AS_PYTHON_EXTENSION
     PySys_WriteStderr("New functions imported \n ");
     #endif

@@ -131,7 +131,7 @@ static int unpackChainID(PyObject *pListChainID, char **buffer) {
     for (i = 0; i < n ; i++) {
         pItem = PyList_GetItem(pListChainID, i);
         objectsRepresentation = PyObject_Repr(pItem);
-        s = PyString_AsString(objectsRepresentation);
+        s = PyBytes_AsString(objectsRepresentation);
         (*buffer)[i] = s[1];
     }
     return 1;
@@ -158,7 +158,7 @@ static int unpackString(PyObject *pListOfStrings, char ***buffer) {
     for (i = 0; i < n ; i++) {
         pItem = PyList_GetItem(pListOfStrings, i);
         objectsRepresentation = PyObject_Repr(pItem);
-        s = PyString_AsString(objectsRepresentation); // DOC says it must not be de allocated
+        s = PyBytes_AsString(objectsRepresentation); // DOC says it must not be de allocated
         sLen =  strlen(s); // This corresponds to the actual string surrounded by \' , ie : 'MYTSRING'
         //PySys_WriteStdout("--->%s[%d]\n", s, strlen(s));
         (*buffer)[i] = PyMem_New(char, sLen - 1);
@@ -316,7 +316,8 @@ ccmap_compute_zdock_pose(PyObject *self, PyObject *args) {
     double offsetREC[3]   = { 0.0, 0.0, 0.0 }; // translation to center receptor
 
     int nAtomsRec, nAtomsLig;
-    char *ccmap = NULL;
+    int *ccmap = NULL;
+    unsigned int finalLen=0;
     atom_t *atomListRec, *atomListLig;
 
     if (!PyArg_ParseTuple(args, "O!fO!O!O!O!", &PyTuple_Type, &pyMolStrucTuple, &userThreshold,
@@ -365,11 +366,12 @@ ccmap_compute_zdock_pose(PyObject *self, PyObject *args) {
     transformAtomList(atomListLig, NULL, translation);
 
 
-    ccmap = residueContactMap_DUAL(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold);
+    ccmap = residueContactMap_DUAL(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold, &finalLen);
     Py_END_ALLOW_THREADS
+
    // PyList_SetItem(PyList_results, i, Py_BuildValue("s", ccmap));
 
-    PyObject *pyString_ccmap = Py_BuildValue("s", ccmap);
+    PyObject *pyString_ccmap = Py_BuildValue("I", ccmap);
 
     if ( ! backMapCoordinates(atomListRec, pStructAsDictRec) ) {
         PyErr_SetString(PyExc_TypeError, "coordinates backmapping failed\n");
@@ -525,7 +527,7 @@ if (!PyArg_ParseTuple(args, "O!f", &PyList_Type, &pyDictList, &userThreshold)) {
     atom_t *atomListRec, *atomListLig;
     int nAtomsRec, nAtomsLig;
     int *ccmap = NULL;
-
+    int finalLen=0;
 
     //return Py_BuildValue("s", dummy);
 
@@ -550,7 +552,7 @@ if (!PyArg_ParseTuple(args, "O!f", &PyList_Type, &pyDictList, &userThreshold)) {
         PySys_WriteStdout("USED__REF COUNT pStructAsDictRec :: is %d\nUSED__REF COUNT pStructAsDictLig :: is %d\n", Py_REFCNT(pStructAsDictRec), Py_REFCNT(pStructAsDictLig));
 #endif
 
-        ccmap = residueContactMap_DUAL(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold);
+        ccmap = residueContactMap_DUAL(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold, &finalLen);
         PyList_SetItem(PyList_results, i, Py_BuildValue("I", ccmap));
 
         //PyList_SetItem(PyList_results, i, Py_BuildValue("s", "TOTOTO"));
@@ -684,6 +686,32 @@ static PyMethodDef CcmapMethods[] = {
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
+struct module_state {
+    PyObject *error;
+};
+
+#define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
+
+static int myextension_traverse(PyObject *m, visitproc visit, void *arg) {
+    Py_VISIT(GETSTATE(m)->error);
+    return 0;
+}
+
+static int myextension_clear(PyObject *m) {
+    Py_CLEAR(GETSTATE(m)->error);
+    return 0;
+}
+static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "ccmap",
+        NULL,
+        sizeof(struct module_state),
+        CcmapMethods,
+        NULL,
+        myextension_traverse,
+        myextension_clear,
+        NULL
+};
 PyMODINIT_FUNC
 initccmap(void)
 {
