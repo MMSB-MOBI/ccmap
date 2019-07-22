@@ -141,7 +141,7 @@ void atomListInContact(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAto
     results = destroyMeshContainer(results);
 }
 
-char *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist) {
+int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist) {
     residue_t *iResidueList = createResidueList(iAtomList);
     residue_t *jResidueList = createResidueList(jAtomList);
 
@@ -159,8 +159,6 @@ char *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, in
       printf("Receptor's Residue Index : %d \n", rec_residue->index);
       rec_residue=rec_residue->nextResidueList;
     }*/
-    int jlen=chainLen(jResidueList);
-    int ilen=chainLen(iResidueList);
     /* Inspecting atom preojection */
     // 101_B_CE1 and 121_1_OE1 cell coordinates ?
     // printResidueCellProjection(" 101", 'B', results, iResidueList);
@@ -170,11 +168,16 @@ char *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, in
     enumerate(results, ctc_dist, &nPairs, true);
 
     // Link the two residues list
+    int jlen=chainLen(jResidueList);
+    int ilen=chainLen(iResidueList);
     fuseResidueLists(iResidueList, jResidueList);
     int finalLen=0;
     int *encodedContactMap=encodeContactMap(iResidueList, jlen, ilen, &finalLen);
     printf("Number of contacts : %d\n", finalLen);
     printTable(encodedContactMap,finalLen);
+    #ifdef AS_PYTHON_EXTENSION
+    PySys_WriteStderr("New functions imported \n ");
+    #endif
     char *jsonString = jsonifyContactList(iResidueList);
 
 #ifdef DEBUG
@@ -182,15 +185,12 @@ char *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, in
     printf("%s\n", jsonString);
 #ifdef AS_PYTHON_EXTENSION
     PySys_WriteStderr("%s\n", jsonString);
-    for ( int i=o ; i< finalLen; i++){
-      PySys_WriteStderr("%d , " , encodedContactMap[i]);
-    }
     PySys_WriteStderr("\n" );
 #endif
 #endif
     iResidueList = destroyResidueList(iResidueList);
     results = destroyMeshContainer(results);
-    return jsonString;
+    return encodedContactMap;
 }
 
 // connect j with trailing i element

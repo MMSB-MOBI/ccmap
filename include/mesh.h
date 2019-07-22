@@ -83,7 +83,7 @@ void dumpBuffer(char *buffer, int bufSize);
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resSeq, char **resName, char **atomName);
 // this is the main computing function
 char *residueContactMap(atom_t * atomList, int nAtom, double ctc_dist);
-char *residueContactMap_DUAL(atom_t *iAtomList, int iNatom, atom_t *jAtomList, int jNatom, double ctc_dist);
+int *residueContactMap_DUAL(atom_t *iAtomList, int iNatom, atom_t *jAtomList, int jNatom, double ctc_dist);
 
 // Display structure content
 void printResidueList(residue_t *residueList);

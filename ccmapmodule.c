@@ -524,7 +524,7 @@ if (!PyArg_ParseTuple(args, "O!f", &PyList_Type, &pyDictList, &userThreshold)) {
 
     atom_t *atomListRec, *atomListLig;
     int nAtomsRec, nAtomsLig;
-    char *ccmap = NULL;
+    int *ccmap = NULL;
 
 
     //return Py_BuildValue("s", dummy);
@@ -551,7 +551,7 @@ if (!PyArg_ParseTuple(args, "O!f", &PyList_Type, &pyDictList, &userThreshold)) {
 #endif
 
         ccmap = residueContactMap_DUAL(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold);
-        PyList_SetItem(PyList_results, i, Py_BuildValue("s", ccmap));
+        PyList_SetItem(PyList_results, i, Py_BuildValue("I", ccmap));
 
         //PyList_SetItem(PyList_results, i, Py_BuildValue("s", "TOTOTO"));
 #ifdef DEBUG
