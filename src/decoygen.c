@@ -40,3 +40,4 @@ void translateAtom (float oldX, float oldY, float oldZ,
     *newY = oldY + yOffset;
     *newZ = oldZ + zOffset;
 }
+

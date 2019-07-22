@@ -4,6 +4,25 @@
 #include "mesh_io.h"
 #include "transform_mesh.h"
 
+
+struct module_state {
+    PyObject *error;
+};
+
+
+
+#define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
+
+//static struct module_state _state;
+
+static PyObject *
+error_out(PyObject *m) {
+    struct module_state *st = GETSTATE(m);
+    PyErr_SetString(st->error, "something bad happened");
+    return NULL;
+}
+
+
 /*
     Python C-API, pure-C  implementation interface
 */
@@ -126,14 +145,21 @@ static int unpackChainID(PyObject *pListChainID, char **buffer) {
     /*PyObject* objectsRepresentation = PyObject_Repr(yourObject);
     const char* s = PyString_AsString(objectsRepresentation);
     */
+
     PyObject* objectsRepresentation;
     const char* s;
     for (i = 0; i < n ; i++) {
         pItem = PyList_GetItem(pListChainID, i);
-        objectsRepresentation = PyObject_Repr(pItem);
-        s = PyBytes_AsString(objectsRepresentation);
+
+        objectsRepresentation = PyObject_Repr(pItem); //Now a unicode object
+        PyObject* pyStr = PyUnicode_AsUTF8String(objectsRepresentation);
+        s = PyBytes_AS_STRING(pyStr);
+        Py_XDECREF(pyStr);
+
         (*buffer)[i] = s[1];
     }
+    Py_XDECREF(pItem); // LAST MOD
+    Py_XDECREF(objectsRepresentation);
     return 1;
 }
 
@@ -157,8 +183,12 @@ static int unpackString(PyObject *pListOfStrings, char ***buffer) {
     int sLen;
     for (i = 0; i < n ; i++) {
         pItem = PyList_GetItem(pListOfStrings, i);
-        objectsRepresentation = PyObject_Repr(pItem);
-        s = PyBytes_AsString(objectsRepresentation); // DOC says it must not be de allocated
+
+        objectsRepresentation = PyObject_Repr(pItem); //Now a unicode object
+        PyObject* pyStr = PyUnicode_AsUTF8String(objectsRepresentation);
+        s = PyBytes_AS_STRING(pyStr);
+        Py_XDECREF(pyStr);
+
         sLen =  strlen(s); // This corresponds to the actual string surrounded by \' , ie : 'MYTSRING'
         //PySys_WriteStdout("--->%s[%d]\n", s, strlen(s));
         (*buffer)[i] = PyMem_New(char, sLen - 1);
@@ -166,7 +196,7 @@ static int unpackString(PyObject *pListOfStrings, char ***buffer) {
             (*buffer)[i][j - 1] = s[j];
         }
         (*buffer)[i][sLen - 2] = '\0';
-        Py_DECREF(objectsRepresentation);
+        Py_XDECREF(objectsRepresentation);
         //PySys_WriteStderr("NO DECFREF");
         //PySys_WriteStdout("translated to --->\"%s\"[%d]\n", (*buffer)[i], sLen - 1);
        // PySys_WriteStdout("translated to --->%s[%d]\n", (*buffer)[i]);
@@ -353,11 +383,13 @@ ccmap_compute_zdock_pose(PyObject *self, PyObject *args) {
          return NULL;
     }
 #ifdef DEBUG
-    PySys_WriteStdout("Unpacking euler %.2f %.2f %.2f||translation vectors %.2f %.2f %.2f\n", \
+    PySys_WriteStdout("KUnpacking euler %.2f %.2f %.2f||translation vectors %.2f %.2f %.2f\n", \
         eulerAngle[0], eulerAngle[1], eulerAngle[2], \
         translation[0], translation[1], translation[2]);
     //  PySys_WriteStdout("Unpacking %d rotation matrices [contact distance is %f]\n", (int)nRotMatrix, userThreshold);
 #endif
+
+PySys_WriteStderr("Using new Function \n");
 
 
     Py_BEGIN_ALLOW_THREADS
@@ -674,6 +706,10 @@ int PyList_IntoDoubleArray(PyObject *py_list, double *x, int size) {
     return 0;
 }
 
+/* MODULE DECLARATION */
+
+
+
 static PyMethodDef CcmapMethods[] = {
     //...
     {"compute",  ccmap_compute, METH_VARARGS,
@@ -686,11 +722,6 @@ static PyMethodDef CcmapMethods[] = {
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
-struct module_state {
-    PyObject *error;
-};
-
-#define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
 
 static int myextension_traverse(PyObject *m, visitproc visit, void *arg) {
     Py_VISIT(GETSTATE(m)->error);
@@ -701,6 +732,7 @@ static int myextension_clear(PyObject *m) {
     Py_CLEAR(GETSTATE(m)->error);
     return 0;
 }
+
 static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
         "ccmap",
@@ -712,22 +744,36 @@ static struct PyModuleDef moduledef = {
         myextension_clear,
         NULL
 };
+#define INITERROR return NULL
+
 PyMODINIT_FUNC
-initccmap(void)
+PyInit_ccmap(void)
 {
-    (void) Py_InitModule("ccmap", CcmapMethods);
+    PyObject *module = PyModule_Create(&moduledef);
+
+    if (module == NULL)
+        INITERROR;
+    struct module_state *st = GETSTATE(module);
+
+    st->error = PyErr_NewException("myextension.Error", NULL, NULL);
+    if (st->error == NULL) {
+        Py_DECREF(module);
+        INITERROR;
+    }
+    return module;
 }
 
 
-int
-main(int argc, char *argv[])
-{
+//
+//int
+//main(int argc, char *argv[])
+//{
     /* Pass argv[0] to the Python interpreter */
-    Py_SetProgramName(argv[0]);
+//    Py_SetProgramName(argv[0]);
 
     /* Initialize the Python interpreter.  Required. */
-    Py_Initialize();
+//    Py_Initialize();
 
     /* Add a static module */
-    initccmap();
-}
+//    init_ccmap();
+//}
