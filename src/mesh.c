@@ -170,23 +170,12 @@ int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int
     int jlen=chainLen(jResidueList);
     int ilen=chainLen(iResidueList);
     fuseResidueLists(iResidueList, jResidueList);
-<<<<<<< HEAD
-
     int *encodedContactMap=encodeContactMap(iResidueList, jlen, ilen, finalLen);
     printf("Number of contacts : %d\n", *finalLen);
     printTable(encodedContactMap,*finalLen);
     #ifdef AS_PYTHON_EXTENSION
     PySys_WriteStderr("New functions imported \n ");
     #endif
-=======
-    int finalLen=0;
-    int *encodedContactMap=encodeContactMap(iResidueList, jlen, ilen, &finalLen);
-#ifdef AS_PYTHON_EXTENSION
-PySys_WriteStdout("Using new Function \n");
-#endif
-    printf("Number of contacts : %d\n", finalLen);
-    printTable(encodedContactMap,finalLen);
->>>>>>> 2ea47c47a1a2f14fda4ada7312da52c32ad734ee
     char *jsonString = jsonifyContactList(iResidueList);
 
 #ifdef DEBUG
