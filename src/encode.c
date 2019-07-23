@@ -32,9 +32,9 @@ void printChain(chainedInt_t *ContactList){
   }
 
 }
-void printTable(int *ContactList, int len){
+void printTable(int *ContactList, unsigned int len){
   printf("Contact Table :");
-  for (int i=0; i<len; i++){
+  for (unsigned int i=0; i<len; i++){
   printf(" %d ;" ,ContactList[i]);
   }
   printf("\n");
@@ -52,7 +52,7 @@ int *copyTable(int *table, int lenTable ){
   return newTable;
 }
 
-int *encodeContactMap(residue_t *ResidueList, int lenLigList, int lenRecList, int *finalLen){
+int *encodeContactMap(residue_t *ResidueList, int lenLigList, int lenRecList, unsigned int *finalLen){
     // Initiate table with maximal size
     int *table=NULL;
     table=malloc(lenLigList*lenRecList*sizeof(int));
@@ -74,7 +74,7 @@ int *encodeContactMap(residue_t *ResidueList, int lenLigList, int lenRecList, in
               o++;
               contact = residue->contactResidueList[i];
               table[o]=contactIndex(residue->index,contact->index, lenLigList);
-              printf(" %d . Contact : ind1 = %d, ind2 = %d  , => %d \n", o, residue->index, contact->index, table[o]);
+              // printf(" %d . Contact : ind1 = %d, ind2 = %d  , => %d \n", o, residue->index, contact->index, table[o]);
             }
         }
         residue=next_residue;

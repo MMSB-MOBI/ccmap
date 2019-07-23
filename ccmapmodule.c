@@ -3,6 +3,7 @@
 #include "mesh.h"
 #include "mesh_io.h"
 #include "transform_mesh.h"
+#include "encode.h"
 
 
 struct module_state {
@@ -335,8 +336,7 @@ static atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
 }
 
 // Passing a list of two dictionaries, the Euler triplet and the translation triplet
-static PyObject *
-ccmap_compute_zdock_pose(PyObject *self, PyObject *args) {
+static PyObject *ccmap_compute_zdock_pose(PyObject *self, PyObject *args) {
 
     PyObject *pyMolStrucTuple, *eulerTuple, *translationTuple, *recOffset, *ligOffset;
     float userThreshold;
@@ -383,13 +383,12 @@ ccmap_compute_zdock_pose(PyObject *self, PyObject *args) {
          return NULL;
     }
 #ifdef DEBUG
-    PySys_WriteStdout("KUnpacking euler %.2f %.2f %.2f||translation vectors %.2f %.2f %.2f\n", \
+    PySys_WriteStdout("Unpacking euler %.2f %.2f %.2f||translation vectors %.2f %.2f %.2f\n", \
         eulerAngle[0], eulerAngle[1], eulerAngle[2], \
         translation[0], translation[1], translation[2]);
     //  PySys_WriteStdout("Unpacking %d rotation matrices [contact distance is %f]\n", (int)nRotMatrix, userThreshold);
 #endif
 
-PySys_WriteStderr("Using new Function \n");
 
 
     Py_BEGIN_ALLOW_THREADS
@@ -397,13 +396,23 @@ PySys_WriteStderr("Using new Function \n");
     transformAtomList(atomListLig, eulerAngle, offsetLIG);
     transformAtomList(atomListLig, NULL, translation);
 
-
+    // printf("Launching calculation \n ");
     ccmap = residueContactMap_DUAL(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold, &finalLen);
+    // printf("Number of contacts : %d \n ", finalLen);
+    // printTable(ccmap, finalLen);
     Py_END_ALLOW_THREADS
-
+    PyObject* python_ccmap= PyList_New(finalLen);
+    // printf("Size of list %ld \n", PyList_GET_SIZE(python_ccmap));
+    for (Py_ssize_t i=0; i<finalLen; i++){
+      // printf(" %p  ; %ld ; %d ", python_ccmap, i, ccmap[i] );
+      PyObject *py_value= NULL;
+      py_value = Py_BuildValue("i",ccmap[i]);
+      int res=PyList_SetItem(python_ccmap, i, py_value );
+      // printf("%d \n", res);
+    }
+    // printf("Created python object \n" );
    // PyList_SetItem(PyList_results, i, Py_BuildValue("s", ccmap));
 
-    PyObject *pyString_ccmap = Py_BuildValue("I", ccmap);
 
     if ( ! backMapCoordinates(atomListRec, pStructAsDictRec) ) {
         PyErr_SetString(PyExc_TypeError, "coordinates backmapping failed\n");
@@ -418,9 +427,7 @@ PySys_WriteStderr("Using new Function \n");
     destroyAtomList(atomListLig, nAtomsLig);
     free(ccmap);
 
-
-
-    return pyString_ccmap;
+    return python_ccmap;
 }
 
 // To fill up the thread we develop a function similar to ccmap_compute_zdock_pose
@@ -559,7 +566,7 @@ if (!PyArg_ParseTuple(args, "O!f", &PyList_Type, &pyDictList, &userThreshold)) {
     atom_t *atomListRec, *atomListLig;
     int nAtomsRec, nAtomsLig;
     int *ccmap = NULL;
-    int finalLen=0;
+    unsigned int finalLen=0;
 
     //return Py_BuildValue("s", dummy);
 

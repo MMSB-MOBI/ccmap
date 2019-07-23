@@ -170,25 +170,26 @@ int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int
     int jlen=chainLen(jResidueList);
     int ilen=chainLen(iResidueList);
     fuseResidueLists(iResidueList, jResidueList);
-    int *encodedContactMap=encodeContactMap(iResidueList, jlen, ilen, finalLen);
-    printf("Number of contacts : %d\n", *finalLen);
-    printTable(encodedContactMap,*finalLen);
-    #ifdef AS_PYTHON_EXTENSION
-    PySys_WriteStderr("New functions imported \n ");
-    #endif
-    char *jsonString = jsonifyContactList(iResidueList);
+    int *ccmap=encodeContactMap(iResidueList, jlen, ilen, finalLen);
+    // printf("Number of contacts : %d\n", *finalLen);
 
-#ifdef DEBUG
-    printContactList(iResidueList);
-    printf("%s\n", jsonString);
-#ifdef AS_PYTHON_EXTENSION
-    PySys_WriteStderr("%s\n", jsonString);
-    PySys_WriteStderr("\n" );
-#endif
-#endif
+    // #ifdef AS_PYTHON_EXTENSION
+    // PySys_WriteStderr("New functions imported \n ");
+    // #endif
+    // char *jsonString = jsonifyContactList(iResidueList);
+
+    // #ifdef DEBUG
+    //     printContactList(iResidueList);
+    //     printf("%s\n", jsonString);
+    // #ifdef AS_PYTHON_EXTENSION
+    //     PySys_WriteStderr("%s\n", jsonString);
+    //     PySys_WriteStderr("\n" );
+    // #endif
+    // #endif
+
     iResidueList = destroyResidueList(iResidueList);
     results = destroyMeshContainer(results);
-    return encodedContactMap;
+    return ccmap;
 }
 
 // connect j with trailing i element

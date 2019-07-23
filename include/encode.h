@@ -6,8 +6,8 @@ typedef struct ChainedInt {
 
 int chainLen(residue_t *ResidueList);
 int contactIndex(int index1, int index2, int max2);
-int *encodeContactMap(residue_t *ResidueList, int lenLigList, int lenRecList, int *finalLen);
+int *encodeContactMap(residue_t *ResidueList, int lenLigList, int lenRecList, unsigned int *finalLen);
 chainedInt_t *createChained_Int(int index);
-void printTable(int *ContactList, int len);
+void printTable(int *ContactList, unsigned int len);
 void printChain(chainedInt_t *ContactList);
 int *copyTable(int *table, int lenTable );
