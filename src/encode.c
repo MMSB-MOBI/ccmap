@@ -23,15 +23,6 @@ int chainLen(residue_t *ResidueList){
   return nResidues;
 }
 
-void printChain(chainedInt_t *ContactList){
-  chainedInt_t *contact= ContactList;
-  printf("Contact %d ; " ,contact->index);
-  while (contact->nextInt!= NULL){
-    contact=contact->nextInt;
-    printf("%d ; " ,contact->index);
-  }
-
-}
 void printTable(int *ContactList, unsigned int len){
   printf("Contact Table :");
   for (unsigned int i=0; i<len; i++){
@@ -86,18 +77,6 @@ int *encodeContactMap(residue_t *ResidueList, int lenLigList, int lenRecList, un
     return newTable;
 }
 
-chainedInt_t *createChained_Int(int n) {
-    chainedInt_t *indexInt = NULL;
-    indexInt=malloc(sizeof(chainedInt_t));
-    if (indexInt!=NULL){
-      indexInt->index = n;
-      indexInt->nextInt = NULL;
-    }
-    else{
-      exit(2);
-    }
-    return indexInt;
-}
 int contactIndex(int index1, int index2, int max2){
   return index1 *max2 + index2 ;
 }

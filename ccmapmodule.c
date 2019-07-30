@@ -592,7 +592,17 @@ if (!PyArg_ParseTuple(args, "O!f", &PyList_Type, &pyDictList, &userThreshold)) {
 #endif
 
         ccmap = residueContactMap_DUAL(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold, &finalLen);
-        PyList_SetItem(PyList_results, i, Py_BuildValue("I", ccmap));
+        PyObject* python_ccmap= PyList_New(finalLen);
+    // printf("Size of list %ld \n", PyList_GET_SIZE(python_ccmap));
+        for (Py_ssize_t i=0; i<finalLen; i++){
+      // printf(" %p  ; %ld ; %d ", python_ccmap, i, ccmap[i] );
+            PyObject *py_value= NULL;
+            py_value = Py_BuildValue("i",ccmap[i]);
+            int res=PyList_SetItem(python_ccmap, i, py_value );
+      // printf("%d \n", res);
+        }
+
+        PyList_SetItem(PyList_results, i, Py_BuildValue("O", python_ccmap));
 
         //PyList_SetItem(PyList_results, i, Py_BuildValue("s", "TOTOTO"));
 #ifdef DEBUG
