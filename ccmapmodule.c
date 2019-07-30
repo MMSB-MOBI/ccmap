@@ -398,7 +398,6 @@ static PyObject *ccmap_compute_zdock_pose(PyObject *self, PyObject *args) {
 
     // printf("Launching calculation \n ");
     ccmap = residueContactMap_DUAL(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold, &finalLen);
-    // printf("Number of contacts : %d \n ", finalLen);
     // printTable(ccmap, finalLen);
     Py_END_ALLOW_THREADS
     PyObject* python_ccmap= PyList_New(finalLen);
