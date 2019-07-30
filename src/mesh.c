@@ -171,8 +171,8 @@ int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int
     int *ccmap=encodeContactMap(iResidueList, jlen, ilen, finalLen);
     /*printf("Number of contacts : %d\n", *finalLen);*/
 
-
-    char *jsonString = jsonifyContactList(iResidueList);
+    // We dont jsonify anymore, relying on int encoding by Julia
+    //char *jsonString = jsonifyContactList(iResidueList);
 
     #ifdef DEBUG
         printContactList(iResidueList);
