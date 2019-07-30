@@ -74,7 +74,6 @@ void dumpBuffer(char *buffer, int bufSize) {
 
 char *residueContactMap(atom_t * atomList, int nAtom, double ctc_dist) {
     residue_t *residueList = createResidueList(atomList);
-
 #ifdef AS_PYTHON_EXTENSION
 PySys_WriteStdout("Using residueContactMap function \n");
 #endif
@@ -158,7 +157,6 @@ int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int
 #endif
     double step = ctc_dist;
     meshContainer_t *results = createMeshContainer(iAtomList, iAtom, jAtomList, jAtom, step);
-
     /* Inspecting atom projection */
     // 101_B_CE1 and 121_1_OE1 cell coordinates ?
     // printResidueCellProjection(" 101", 'B', results, iResidueList);
@@ -171,21 +169,20 @@ int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int
     int ilen=chainLen(iResidueList);
     fuseResidueLists(iResidueList, jResidueList);
     int *ccmap=encodeContactMap(iResidueList, jlen, ilen, finalLen);
-    // printf("Number of contacts : %d\n", *finalLen);
+    /*printf("Number of contacts : %d\n", *finalLen);*/
 
-    // #ifdef AS_PYTHON_EXTENSION
-    // PySys_WriteStderr("New functions imported \n ");
-    // #endif
-    // char *jsonString = jsonifyContactList(iResidueList);
 
-    // #ifdef DEBUG
-    //     printContactList(iResidueList);
-    //     printf("%s\n", jsonString);
-    // #ifdef AS_PYTHON_EXTENSION
-    //     PySys_WriteStderr("%s\n", jsonString);
-    //     PySys_WriteStderr("\n" );
-    // #endif
-    // #endif
+    char *jsonString = jsonifyContactList(iResidueList);
+
+    #ifdef DEBUG
+        printContactList(iResidueList);
+        printf("%s\n", jsonString);
+    #ifdef AS_PYTHON_EXTENSION
+        PySys_WriteStderr("%s\n", jsonString);
+        PySys_WriteStderr("\n" );
+    #endif
+    #endif
+
 
     iResidueList = destroyResidueList(iResidueList);
     results = destroyMeshContainer(results);
