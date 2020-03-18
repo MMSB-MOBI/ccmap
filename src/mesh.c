@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <assert.h>
 #include "mesh.h"
 #ifndef ENCODE
 #include "encode.h"
@@ -68,6 +69,8 @@ void dumpBuffer(char *buffer, int bufSize) {
         }
     }
 }
+
+
 // To communicate w/ python process
 // Return a JSON with residue index and contact
 // [ [1,2], [4,6] .. ]
@@ -88,7 +91,7 @@ PySys_WriteStdout("Using residueContactMap function \n");
     double step = ctc_dist;
     meshContainer_t *results = createMeshContainer(atomList, nAtom, NULL, 0, step);
     int nPairs;
-    enumerate(results, ctc_dist, &nPairs, false);
+    enumerate(results, ctc_dist, &nPairs, &pairwiseCellEnumerate, &updateContactListByResidue, NULL);
 
     char *jsonString = jsonifyContactList(residueList);
 
@@ -103,6 +106,46 @@ PySys_WriteStdout("Using residueContactMap function \n");
     results = destroyMeshContainer(results);
     return jsonString;
 }
+
+// TO implement
+//char *atomicContactMap(atom_t * atomList, int nAtom, double ctc_dist) {
+void atomicContactMap(atom_t * atomList, int nAtom, double ctc_dist) {
+    residue_t *residueList = createResidueList(atomList);
+#ifdef AS_PYTHON_EXTENSION
+PySys_WriteStdout("Using residueContactMap function \n");
+#endif
+
+#ifdef DEBUG
+#ifdef AS_PYTHON_EXTENSION
+        PySys_WriteStdout("Computing residue contact map w/ %.2g Angstrom step\n", ctc_dist);
+#endif
+    printf("Computing residue contact map w/ %.2g Angstrom step\n", ctc_dist);
+#endif
+
+    double step = ctc_dist;
+ 
+    meshContainer_t *results = createMeshContainer(atomList, nAtom, NULL, 0, step);
+    int nPairs;
+    
+    atomPair_t *atomPairRootPtr;
+    enumerate(results, ctc_dist, &nPairs, &pairwiseCellEnumerate, &updateContactListByAtomPair, &atomPairRootPtr);
+    // TO IMPLEMENT
+    //char *jsonString = jsonifyAtomPairList(residueList);
+
+#ifdef DEBUG
+    printContactList(residueList);
+    printf("%s\n", jsonString);
+#ifdef AS_PYTHON_EXTENSION
+    PySys_WriteStderr("%s\n", jsonString);
+#endif
+#endif
+    residueList = destroyResidueList(residueList);
+    results = destroyMeshContainer(results);
+    // TO IMPLEMENT
+    //return jsonString;
+    return;
+}
+
 // Debugging function to list the cell coordinates of a specified residues projected atoms
 static void printResidueCellProjection(char *resID, char chainID, meshContainer_t *meshContainer, residue_t *residueList) {
     char atomString[81];
@@ -162,7 +205,7 @@ int *residueContactMap_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int
     // printResidueCellProjection(" 101", 'B', results, iResidueList);
     //printResidueCellProjection(" 121", 'A', results, jResidueList);
     int nPairs;
-    enumerate(results, ctc_dist, &nPairs, true);
+    enumerate(results, ctc_dist, &nPairs, &pairwiseCellEnumerate_DUAL, &updateContactListByResidue, NULL);
 
     // Link the two residues list
     int jlen=chainLen(jResidueList);
@@ -462,17 +505,20 @@ void printMesh(mesh_t *mesh) {
 
 // Go through none empty cells
 // Get its following cells neighbours
-void enumerate(meshContainer_t *meshContainer, double ctc_dist, int *nPairs, bool dualBool) {
+void enumerate(meshContainer_t *meshContainer, double ctc_dist, int *nPairs, 
+                void (*pCellEnumerator)( cell_t*, cell_t*, double , int*, int*, 
+                    int (*pCtcUpdater)(atom_t*, atom_t*, atomPair_t**), 
+                    atomPair_t **),
+                int (*pCtcUpdater)(atom_t*, atom_t*, atomPair_t**),
+                atomPair_t **rootAtomPair
+            ) {
     mesh_t *mesh = meshContainer->mesh;
     cell_t **cellList = meshContainer->filledCells;
     int nCells = meshContainer->nFilled;
     //int (*functionPtr)(int,int);
-    void (*pCellEnumerator)(cell_t*, cell_t*, double , int*, int*);
-
-    if (dualBool)
-        pCellEnumerator = &pairwiseCellEnumerate_DUAL;
-    else
-        pCellEnumerator = &pairwiseCellEnumerate;
+/*    void (*pCellEnumerator)(cell_t*, cell_t*, double , int*, int*);
+    int (*updateCtcFn)(atom_t*, atom_t*, atomPair_t*);
+*/
 
     cell_t ***grid = mesh->grid;
     cell_t *cur_cell;
@@ -509,7 +555,7 @@ void enumerate(meshContainer_t *meshContainer, double ctc_dist, int *nPairs, boo
                         continue;
                     }
                     //parwiseCellEnumerate(cur_cell, &grid[i][j][k], ctc_dist, &nContacts, &nDist); // Enumerate contact w/ cell
-                    (*pCellEnumerator)(cur_cell, &grid[i][j][k], ctc_dist, &nContacts, &nDist);
+                    (*pCellEnumerator)(cur_cell, &grid[i][j][k], ctc_dist, &nContacts, &nDist, pCtcUpdater, rootAtomPair);
                 }
             }
         }
@@ -522,7 +568,10 @@ void enumerate(meshContainer_t *meshContainer, double ctc_dist, int *nPairs, boo
 #endif
 }
 
-void pairwiseCellEnumerate(cell_t *refCell, cell_t *targetCell, double ctc_dist, int *nContacts, int *nDist) {
+void pairwiseCellEnumerate(cell_t *refCell, cell_t *targetCell, double ctc_dist, int *nContacts, int *nDist, 
+                            int(*pCtcUpdater)(atom_t *iAtom, atom_t *jAtom, atomPair_t **lastAtomPair),
+                            atomPair_t **rootAtomPair
+                            ) {
     atom_t *iAtom, *jAtom;
 
     char iAtomString[81];
@@ -549,7 +598,7 @@ void pairwiseCellEnumerate(cell_t *refCell, cell_t *targetCell, double ctc_dist,
                 stringifyAtom(jAtom, jAtomString);
             #endif
                 if(distance(iAtom, jAtom) < ctc_dist) {
-                    (*nContacts) += updateContactList(iAtom, jAtom);
+                    (*nContacts) += pCtcUpdater(iAtom, jAtom, rootAtomPair);
                 }
                 (*nDist) = (*nDist)+ 1;
 #ifdef DEBUG
@@ -640,7 +689,16 @@ void pairwiseCellEnumerate_DUAL(cell_t *refCell, cell_t *targetCell, double ctc_
 
 }
 
-int updateContactList(atom_t *iAtom, atom_t *jAtom){
+// ATOM here
+// Arbitrary, chunck realloc *atomicCtc using array and not chained list ?
+int updateContactListByAtomPair(atom_t *iAtom, atom_t *jAtom, atomPair_t *atomCtcRoot){
+    assert(atomCtcRoot == NULL);
+}
+// Residue lvl contact registring
+int updateContactListByResidue(atom_t *iAtom, atom_t *jAtom, atomPair_t *atomicCtc){
+
+    assert(atomicCtc == NULL); // Will be untouched here
+
     if(iAtom->belongsTo == jAtom->belongsTo) return 0;
 
     residue_t *iResidue = iAtom->belongsTo->index < jAtom->belongsTo->index ? iAtom->belongsTo : jAtom->belongsTo;
@@ -951,7 +1009,7 @@ void meshDummy(int a, int b, int c) {
     dum_results->filledCells = dummy_filledCells;
     dum_results->nFilled = dum_mesh->n;
 
-    enumerate(dum_results, -1, NULL, false);
+    enumerate(dum_results, -1, NULL, &pairwiseCellEnumerate, &updateContactListByResidue, NULL);
 
     destroyMeshContainer(dum_results);
     return;

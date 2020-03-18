@@ -110,7 +110,9 @@ residue_t *destroyResidue(residue_t *residue);
 atom_t *destroyAtomList(atom_t *atomList, int nAtom);
 atom_t *destroyAtom(atom_t *atom);
 
-int updateContactList(atom_t *iAtom, atom_t *jAtom);
+int updateContactListByResidue(atom_t *iAtom, atom_t *jAtom, atomPair_t *atomicCtc);
+int updateContactListByAtomPair(atom_t *iAtom, atom_t *jAtom, atomPair_t *atomicCtc);
+
 int updateContactList_DUAL(atom_t *iAtom, atom_t *jAtom);
 
 mesh_t *createMesh(int iDim, int jDim, int kDim);
@@ -118,8 +120,22 @@ meshContainer_t *destroyMeshContainer(meshContainer_t *container);
 mesh_t *destroyMesh(mesh_t *i_mesh);
 
 void printMesh(mesh_t *mesh);
-void enumerate(meshContainer_t *meshContainer, double ctc_dist, int *nPairs, bool dualBool);
-void pairwiseCellEnumerate(cell_t *refCell, cell_t *targetCell, double ctc_dist, int *nContacts, int *nDist);
+//void enumerate(meshContainer_t *meshContainer, double ctc_dist, int *nPairs, bool dualBool, bool atomicBool);
+// Mesh Level enumerator
+// Takes cell-lvl enumerator and update function as *fn parameters
+// The updateFn must be passed to the enumeratorFn, hence the cumbersome prototype
+// The *pCtcUpdater named updateContactListByAtomPair is the only one which will edit the atomPair_t* parameter
+
+void enumerate( meshContainer_t *meshContainer, double ctc_dist, int *nPairs, 
+                void (*pCellEnumerator)( cell_t*, cell_t*, double , int*, int*, 
+                                        int (*pCtcUpdater)(atom_t*, atom_t*, atomPair_t**),
+                                        atomPair_t ** ),
+                int (*pCtcUpdater)(atom_t*, atom_t*, atomPair_t**),
+                atomPair_t **rootAtomPair);
+
+void pairwiseCellEnumerate(cell_t *refCell, cell_t *targetCell, double ctc_dist, int *nContacts, int *nDist, 
+        int(*pCtcUpdater)(atom_t *iAtom, atom_t *jAtom, atomPair_t **lastAtomPair),
+        atomPair_t **rootAtomPair );
 void pairwiseCellEnumerate_DUAL(cell_t *refCell, cell_t *targetCell, double ctc_dist, int *nContacts, int *nDist);
 void getBoundariesCartesian(atom_t * atomList, int nAtom, atom_t *minCoor, atom_t *maxCoor);
 void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t minCoor);
