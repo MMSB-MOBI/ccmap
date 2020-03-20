@@ -144,10 +144,10 @@ void createAtomRecord(char *recordString, atomRecord_t *newAtom) {
     newAtom->tempFactor = atof(buf);
 
     memcpy( newAtom->element, &recordString[76], 2 );
-    newAtom->element[3] = '\0';
+    newAtom->element[2] = '\0';
 
     memcpy( newAtom->charge, &recordString[78], 2 );
-    newAtom->charge[3] = '\0';
+    newAtom->charge[2] = '\0';
 
     //return newAtom;
 }
@@ -209,6 +209,24 @@ void stringifyAtomRecord(atomRecord_t *atomRecord, char *atomRecordString) {
 
 }
 
+char *pdbContainerToString(pdbCoordinateContainer_t *pdbCoordinateContainer) {
+    char buffer[120];
+    stringifyAtomRecord(&pdbCoordinateContainer->atomRecordArray[0], buffer);
+    int lineLen = strlen(buffer); // The '\n' while overwrite the place reserved for the '\0', strlen adds +1 for '\0'
+    int nLines = pdbCoordinateContainer->atomCount;
+    int nChar = lineLen *  nLines + 1; // one for '\0'
+    char *pdbString = malloc( nChar * sizeof(char) );
+    //memset(pdbString, '\0', sizeof(pdbString));
+    int ccPos = 0;
+    for (int i = 0 ; i < pdbCoordinateContainer->atomCount; i++) {
+        stringifyAtomRecord( &pdbCoordinateContainer->atomRecordArray[i], buffer);
+        strcpy( &(pdbString[ i * lineLen]), buffer);
+        pdbString[ (i + 1) * lineLen  - 1] = '\n';
+    }
+    pdbString[nChar - 1] = '\0';
+    return pdbString;
+}
+
 void pdbContainerToFile(pdbCoordinateContainer_t *pdbCoordinateContainer, char *fname, char *mode) {
     FILE *fp;
 
@@ -252,3 +270,98 @@ int pdbContainerToArrays(pdbCoordinateContainer_t *pdbCoordinateContainer, doubl
     }
     return n;
 }
+
+
+// We dont add iCode here, see wheter it is added to resSeq ou resName
+
+int legacy_readPdbFile(char *fname, double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name) {
+    pdbCoordinateContainer_t *pdbCoordinateContainer = pdbFileToContainer(fname);
+
+    int n = pdbCoordinateContainer->atomCount;
+
+    *x = malloc(n * sizeof(double));
+    *y = malloc(n * sizeof(double));
+    *z = malloc(n * sizeof(double));
+    *chainID = malloc(n * sizeof(char));
+    *resID = malloc(n * sizeof(char*));
+    *resName = malloc(n * sizeof(char*));
+    *name = malloc(n * sizeof(char*));
+    for (int i = 0 ; i < n ; i++) {
+
+        (*chainID)[i] = pdbCoordinateContainer->atomRecordArray[i].chainID;
+        (*x)[i] = pdbCoordinateContainer->atomRecordArray[i].x;
+        (*y)[i] = pdbCoordinateContainer->atomRecordArray[i].y;
+        (*z)[i] = pdbCoordinateContainer->atomRecordArray[i].z;
+        (*resID)[i] = malloc((strlen(pdbCoordinateContainer->atomRecordArray[i].resSeq) + 1) * sizeof(char));
+        strcpy((*resID)[i], pdbCoordinateContainer->atomRecordArray[i].resSeq);
+        (*resName)[i] = malloc((strlen(pdbCoordinateContainer->atomRecordArray[i].resName) + 1) * sizeof(char));
+        strcpy((*resName)[i], pdbCoordinateContainer->atomRecordArray[i].resName);
+        (*name)[i] = malloc((strlen(pdbCoordinateContainer->atomRecordArray[i].name) + 1) * sizeof(char));
+        strcpy((*name)[i], pdbCoordinateContainer->atomRecordArray[i].name);
+    }
+
+    destroyPdbCoordinateContainer(pdbCoordinateContainer);
+
+    return n;
+}
+
+int legacy_readFile(char *fname, double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name) {
+    double xBuffer[20000];
+    double yBuffer[20000];
+    double zBuffer[20000];
+    char resIDBuffer[20000][6];
+    char chainIDBuffer[20000];
+    char resNameBuffer[20000][4];
+    char nameBuffer[20000][5];
+
+    FILE *fp;
+    fp = fopen(fname, "r");
+    char string[100];
+    int n = 0;
+    char * pch;
+
+    while(fgets(string, 100, fp)) {
+        pch = strtok (string,",\n");
+        int nF = 0;
+        while (pch != NULL) {
+            if (nF == 0) chainIDBuffer[n] = pch[0];
+            if (nF == 1)
+                strcpy(resIDBuffer[n], pch);
+            if (nF == 2) xBuffer[n] = atof(pch);
+            if (nF == 3) yBuffer[n] = atof(pch);
+            if (nF == 4) zBuffer[n] = atof(pch);
+            if (nF == 5)
+                strcpy(resNameBuffer[n], pch);
+            if (nF == 6)
+                strcpy(nameBuffer[n], pch);
+
+            pch = strtok (NULL, ",\n");
+            nF++;
+        }
+        n++;
+    }
+
+    *x = malloc(n * sizeof(double));
+    *y = malloc(n * sizeof(double));
+    *z = malloc(n * sizeof(double));
+    *chainID = malloc(n * sizeof(char));
+    *resID = malloc(n * sizeof(char*));
+    *resName = malloc(n * sizeof(char*));
+    *name = malloc(n * sizeof(char*));
+    for (int i = 0 ; i < n ; i++) {
+        (*x)[i] = 2.45;
+        (*chainID)[i] = chainIDBuffer[i];
+        (*x)[i] = xBuffer[i];
+        (*y)[i] = yBuffer[i];
+        (*z)[i] = zBuffer[i];
+        (*resID)[i] = malloc((strlen(resIDBuffer[i]) + 1) * sizeof(char));
+        strcpy((*resID)[i], resIDBuffer[i]);
+        (*resName)[i] = malloc((strlen(resNameBuffer[i]) + 1) * sizeof(char));
+        strcpy((*resName)[i], resNameBuffer[i]);
+        (*name)[i] = malloc((strlen(nameBuffer[i]) + 1) * sizeof(char));
+        strcpy((*name)[i], nameBuffer[i]);
+    }
+    fclose(fp);
+    return n;
+}
+
