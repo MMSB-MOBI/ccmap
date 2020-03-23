@@ -109,10 +109,10 @@ bool updateResidueContact(cellCrawler_t *cellCrawler, atom_t *iAtom, atom_t *jAt
 */
 void pairwiseCellEnumerate(cellCrawler_t *cellCrawler, cell_t *refCell, cell_t *targetCell) {                            
     atom_t *iAtom, *jAtom;
-
+ #ifdef DEBUG
     char iAtomString[81];
     char jAtomString[81];
-   
+#endif
 
     if(refCell->memberCount == 0 || targetCell->memberCount == 0) return;
 #ifdef DEBUG
@@ -143,10 +143,10 @@ void pairwiseCellEnumerate(cellCrawler_t *cellCrawler, cell_t *refCell, cell_t *
 
 void pairwiseCellEnumerateDual(cellCrawler_t *cellCrawler, cell_t *refCell, cell_t *targetCell) {
     atom_t *iAtom, *jAtom;
-
+#ifdef DEBUG
     char iAtomString[81];
     char jAtomString[81];
-
+#endif
     if(refCell->memberCount == 0 || targetCell->memberCount == 0) return;
 #ifdef DEBUG
     printf("\n*********\nDUAL Pairwise cell atom enumeration: [%d %d %d]// [%d %d %d]\n", refCell->i, refCell->j, refCell->k, targetCell->i, targetCell->j, targetCell->k);

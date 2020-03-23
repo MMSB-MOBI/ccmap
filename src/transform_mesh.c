@@ -38,10 +38,11 @@ void transformAtomList(atom_t *atomListRoot, double euler[3], double translation
             PySys_WriteStdout("Applying translation %g, %g, %g\n", translation[0], translation[1], translation[2]);
         #endif
         while (atomCurrent != NULL) {
+            #ifdef DEBUG
             float oX = atomCurrent->x;
             float oY = atomCurrent->y;
             float oZ = atomCurrent->z;
-
+            #endif
             atomCurrent->x += translation[0];
             atomCurrent->y += translation[1];
             atomCurrent->z += translation[2];

@@ -28,13 +28,17 @@ void printResidue(residue_t *residue) {
 }
 
 void printAtomList(atom_t *atomList) {
+    printf("PAL\n");
     atom_t *curr_atom = &atomList[0];
+    printf("PAL1\n");
     char atomString[81];
     while(curr_atom->nextAtomList != NULL) {
+        printf("PAL2\n");
         stringifyAtom(curr_atom, atomString);
         printf("%s\n", atomString);
         curr_atom = curr_atom->nextAtomList;
     }
+   
     stringifyAtom(curr_atom, atomString);
     printf("%s\n", atomString);
 }
@@ -55,25 +59,33 @@ void jsonArrayifyAtom(atom_t *atom, char *atomString, bool bCoordinates) {
     if (bCoordinates)
         sprintf(atomString, "[ \"%s\", \"%s\", \"%s\", \"%c\", %g, %g, %g ]", atom->name, atom->resName, atom->resID, atom->chainID, atom->x, atom->y, atom->z);
     else 
-        sprintf(atomString, "[ \"%6s\", \"%3s\", \"%s\", \"%c\" ]", atom->name, atom->resName, atom->resID, atom->chainID);
+        sprintf(atomString, "[ \"%s\", \"%s\", \"%s\", \"%c\" ]", atom->name, atom->resName, atom->resID, atom->chainID);
 }
 void jsonifyAtomPair(atomPair_t *atomPair, char *jsonString) {
+    bool bCoordinates = false;
     char atomA[1024];
     char atomB[1024];
-    jsonArrayifyAtom(atomPair->a, atomA);
-    jsonArrayifyAtom(atomPair->b, atomB);
+    jsonArrayifyAtom(atomPair->a, atomA, bCoordinates);
+    jsonArrayifyAtom(atomPair->b, atomB, bCoordinates);
     sprintf(jsonString, "[ %s, %s, %5.3g }", atomA, atomB, atomPair->dist);
 }
 
 
 residue_t *createResidue(atom_t *atom, int n) {
+    printf("NINJA\n");
     residue_t *residue = malloc(sizeof(residue_t));
     residue->nAtoms = n;
     residue->nContacts = 0;
+    if (atom->name == NULL)
+        printf("OUPS\n");
+    printf("NINJA %s\n", atom->name);
     residue->resName = malloc( (strlen(atom->resName) + 1) * sizeof(char) );
+    printf("NINJA\n");
     strcpy(residue->resName, atom->resName);
+    printf("NINJA\n");
     residue->resID = malloc( (strlen(atom->resID) + 1) * sizeof(char) );
     strcpy(residue->resID, atom->resID);
+    
     residue->chainID = atom->chainID;
     residue->elements = atom;
     residue->elements->nextResidueAtom = NULL;
@@ -87,20 +99,22 @@ residue_t *createResidue(atom_t *atom, int n) {
 
 
 residue_t *createResidueList(atom_t * atomList) {
+    //assert(atomList == NULL);
+    printf("ZOUM\n");
     residue_t *residue_root = NULL;
     residue_t *residue_head = NULL;
     atom_t *curr_atom = atomList;//&atomList[0];
     atom_t *prev_atom = NULL;
     int nResidue = 0;
-
     residue_root = createResidue(curr_atom, nResidue);
     residue_head = residue_root;
-
+printf("ZOUM\n");
     curr_atom->belongsTo = residue_head;
     prev_atom = curr_atom;
     curr_atom = curr_atom->nextAtomList;
 
     while(curr_atom != NULL) {
+        printf("ZOUING\n");
         if (strcmp(curr_atom->resID, residue_head->resID) == 0
             && curr_atom->chainID == residue_head->chainID) {
             prev_atom->nextResidueAtom = curr_atom;
@@ -120,6 +134,7 @@ residue_t *createResidueList(atom_t * atomList) {
 #ifdef DEBUG
     printf("Created %d residues\n", nResidue);
 #endif
+    printf("ZIM\n");
     return residue_root;
 }
 
@@ -207,7 +222,7 @@ int CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContai
     char **resSeq;
     char **resName;
     char **atomName;
-    atom_t *atomList = NULL;
+    //atom_t *atomList = NULL;
     int nAtom = pdbContainerToArrays(pdbCoordinateContainer, &x, &y, &z, &chainID, &resSeq, &resName, &atomName);
     atomList = readFromArrays(nAtom, x, y, z, chainID, resSeq, resName, atomName);
     
@@ -233,6 +248,7 @@ void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, 
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name) {
     atom_t *atomList = malloc(nAtoms * sizeof(atom_t));
     for (int n = 0 ; n < nAtoms ; n++) {
+        printf("ZZ%d\n", n);
         atomList[n].nextAtomList = NULL;
         atomList[n].belongsTo = NULL;
         atomList[n].inCell = NULL;

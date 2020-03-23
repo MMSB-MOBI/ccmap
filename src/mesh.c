@@ -6,7 +6,9 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
     ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic);
     ccmapView_t *ccmapView = createCcmapView();
     
-    ccmapView->asJSON = jsonifyAtomPairList(ccmapResults);
+    string_t *jsonString = jsonifyAtomPairList(ccmapResults);
+    strcpy(ccmapView->asJSON, jsonString->value);
+    destroyString(jsonString);
     
     return ccmapView;
 }
@@ -14,23 +16,25 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
 // ENCODED single residue set currently DISABLED
 ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded) {
     bool bAtomic = false;
+     fprintf(stderr, "POUET\n");
     ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic);
+     fprintf(stderr, "POUET\n");
     ccmapView_t *ccmapView = createCcmapView();
-
+    fprintf(stderr, "POUET\n");
     if (jAtomList != NULL) { 
     // Link the two residues list
-        int jlen = chainLen(ccmapResults->jResidueList);
-        int ilen = chainLen(ccmapResults->iResidueList);
         fuseResidueLists(ccmapResults->iResidueList, ccmapResults->jResidueList);
         ccmapResults->fused = true;
-    } else {
+    } else {
         assert(!bEncoded); // MUST CHECK FOR encoding one residueList integrity
     }
     if (bEncoded) {
         unsigned int finalLen;
-        ccmapResults->asENCODE = encodeContactMap(ccmapResults->iResidueList, jlen, ilen, &finalLen);
+        int jlen = chainLen(ccmapResults->jResidueList);
+        int ilen = chainLen(ccmapResults->iResidueList);
+        ccmapView->asENCODE = encodeContactMap(ccmapResults->iResidueList, jlen, ilen, &finalLen);
     } else {
-        ccmapResults->asJSON = jsonifyContactList(ccmapResults->iResidueList);
+        ccmapView->asJSON = jsonifyContactList(ccmapResults->iResidueList);
     }
     destroyCcmapResults(ccmapResults);
     return ccmapView;
@@ -57,13 +61,16 @@ ccmapResults_t *destroyCcmapResults (ccmapResults_t *results){
     if (!results->fused)
         results->jResidueList = destroyResidueList(results->jResidueList);
     destroyCellCrawler(results->cellCrawler);
+    free(results);
+    return results;
 }
 
 ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bAtomic) {
     
-    residue_t *iResidueList = createResidueList(iAtomList);
-    residue_t *jResidueList = createResidueList(jAtomList) ? jAtomList != NULL : NULL;
-
+    residue_t *iResidueList                     = createResidueList(iAtomList);
+    fprintf(stderr, "POUM\n");
+    residue_t *jResidueList = jAtomList != NULL ? createResidueList(jAtomList) : NULL;
+    fprintf(stderr, "POUM\n");
 #ifdef DEBUG
 #ifdef AS_PYTHON_EXTENSION
         PySys_WriteStdout("Computing residue contact map w/ %.2g Angstrom step\n", ctc_dist);
@@ -79,10 +86,10 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
     bool dual = jResidueList != NULL;
     cellCrawler_t cellCrawler = createCellCrawler(bAtomic, dual, ctc_dist);
     meshCrawler(meshContainer, &cellCrawler);
-    ccmapResults_t results;
-    results.iResidueList = iResidueList;
-    results.jResidueList = jResidueList;
-    results.cellCrawler = &cellCrawler;
+    ccmapResults_t *results = malloc(sizeof(results));
+    results->iResidueList = iResidueList;
+    results->jResidueList = jResidueList;
+    results->cellCrawler = &cellCrawler;
     
     meshContainer = destroyMeshContainer(meshContainer);
 
@@ -95,7 +102,7 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
     #endif
     #endif
 
-    return &results;
+    return results;
 }
 
 char *jsonifyContactList(residue_t *residueList) {
@@ -157,18 +164,22 @@ The size of the buffer should be large enough to contain the entire resulting st
 
 A terminating null character is automatically appended after the content.
 */
-char *jsonifyAtomPairList(ccmapResults_t *ccmapResults) {
+string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults) {
     fprintf(stderr, "FINALLY\n");
-    char *jsonString;
-    char *buffer[1024];
+    string_t *jsonString = createString();
+    char buffer[1024];
     atomPair_t *atomPair = ccmapResults->cellCrawler->updater->atomContactList;
     uint64_t nAtomPair = ccmapResults->cellCrawler->updater->totalByAtom;
+    
+    jsonString->append(jsonString, "{ \"type\":\"atomic\", \"data\" : [");
     if (nAtomPair == 0)
         fprintf(stderr, "No atomic contact to jsonify\n");
-
-    jsonifyAtomPair(atomPair[0], buffer, false);
-    fprintf(stderr, "atomPair array repr strlen is %ul\n", strlen(buffer));
-    return "{ \"type\":\"atomic\", \"data\" : [] }";
+    for (int i = 0 ; i  < nAtomPair ; i++) {
+            jsonifyAtomPair(&(atomPair[i]), buffer);
+            jsonString->append(jsonString, buffer);
+    }
+    jsonString->append(jsonString, "]}");
+    return jsonString;
 }   
 
 // MESH ITERATOR
@@ -184,9 +195,9 @@ void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
     int kStart, jStart;
     bool extractBool = cellCrawler->threshold > 0.0;
 
+#ifdef DEBUG
     int nDist = 0;
     int nContacts = 0;
-#ifdef DEBUG
     printf("Enumerating Distance between %d grid cells (Grid step is %g)\n", nCells, meshContainer->step);
 #endif
     for (int c = 0 ; c < nCells ; c++) {
@@ -538,7 +549,7 @@ void meshDummy(int a, int b, int c) {
     return;
 }
 
-static void printResidueCellProjection(char *resID, char chainID, meshContainer_t *meshContainer, residue_t *residueList) {
+void printResidueCellProjection(char *resID, char chainID, meshContainer_t *meshContainer, residue_t *residueList) {
     char atomString[81];
 
     residue_t *residuePtr = residueList;

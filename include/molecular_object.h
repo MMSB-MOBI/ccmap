@@ -8,6 +8,7 @@
 #include <string.h>
 #include <assert.h>
 #include "pdb_coordinates.h"
+#include "default.h"
 
 typedef struct residue {
     struct atom *elements;
@@ -54,6 +55,8 @@ void stringifyAtom(atom_t *atom, char *atomString);
 void stringifyResidue(residue_t *residue, char *residueString);
 void jsonifyResidue(residue_t *residue, char *jsonString);
 void jsonArrayifyAtom(atom_t *atom, char *atomString, bool bCoordinates);
+void jsonifyAtomPair(atomPair_t *atomPair, char *jsonString);
+
 
 residue_t *createResidue(atom_t *atom, int n);
 residue_t *createResidueList(atom_t * atomList);

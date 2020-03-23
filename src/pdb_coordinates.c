@@ -217,7 +217,7 @@ char *pdbContainerToString(pdbCoordinateContainer_t *pdbCoordinateContainer) {
     int nChar = lineLen *  nLines + 1; // one for '\0'
     char *pdbString = malloc( nChar * sizeof(char) );
     //memset(pdbString, '\0', sizeof(pdbString));
-    int ccPos = 0;
+  //  int ccPos = 0;
     for (int i = 0 ; i < pdbCoordinateContainer->atomCount; i++) {
         stringifyAtomRecord( &pdbCoordinateContainer->atomRecordArray[i], buffer);
         strcpy( &(pdbString[ i * lineLen]), buffer);

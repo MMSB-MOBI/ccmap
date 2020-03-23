@@ -15,6 +15,7 @@
 typedef struct ccmapView {
     char *asJSON;
     int *asENCODE;
+    size_t encodeLen;
 } ccmapView_t;
 
 typedef struct ccmapResults {
@@ -44,12 +45,14 @@ typedef struct mesh {
 ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded);
 ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded);
 //Results display
-char *jsonifyContactList(residue_t *residueList);
-char *jsonifyAtomPairList(ccmapResults_t *ccmapResults);
+char *jsonifyContactList(residue_t *residueList); // BUMP TO string_t* TO DO
+string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults);
 ccmapView_t *createCcmapView();
 ccmapView_t *destroyCcmapView(ccmapView_t *);
 
 // Mesh engine Fn
+ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bAtomic);
+ccmapResults_t *destroyCcmapResults (ccmapResults_t *results);
 void meshCrawler(meshContainer_t *meshContainer,  cellCrawler_t *cellCrawler);
 cell_t ** vectorizeMesh(mesh_t *mesh);
 // Constructors/Destructors
