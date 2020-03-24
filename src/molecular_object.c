@@ -27,20 +27,24 @@ void printResidue(residue_t *residue) {
     printf("--------------------\n");
 }
 
-void printAtomList(atom_t *atomList) {
-    printf("PAL\n");
+void printAtomList(atom_t *atomList, FILE *stream) {
+    #ifdef DEBUG
+    fprintf(stderr, "Starting printAtomList\n");
+    #endif
     atom_t *curr_atom = &atomList[0];
-    printf("PAL1\n");
     char atomString[81];
     while(curr_atom->nextAtomList != NULL) {
-        printf("PAL2\n");
         stringifyAtom(curr_atom, atomString);
-        printf("%s\n", atomString);
+        fprintf(stream == NULL ? stdout : stream,\
+                "%s\n", atomString);
         curr_atom = curr_atom->nextAtomList;
     }
    
     stringifyAtom(curr_atom, atomString);
     printf("%s\n", atomString);
+    #ifdef DEBUG
+    fprintf(stderr, "Exiting printAtomList\n");
+    #endif
 }
 
 void stringifyAtom(atom_t *atom, char *atomString) {
@@ -67,22 +71,21 @@ void jsonifyAtomPair(atomPair_t *atomPair, char *jsonString) {
     char atomB[1024];
     jsonArrayifyAtom(atomPair->a, atomA, bCoordinates);
     jsonArrayifyAtom(atomPair->b, atomB, bCoordinates);
-    sprintf(jsonString, "[ %s, %s, %5.3g }", atomA, atomB, atomPair->dist);
+    sprintf(jsonString, "[ %s, %s, %5.3g ]", atomA, atomB, atomPair->dist);
 }
 
 
 residue_t *createResidue(atom_t *atom, int n) {
-    printf("NINJA\n");
+    #ifdef DEBUG
+    char atomString[81];
+    stringifyAtom(atom, atomString);
+    printf("Starting createResidue with %s\n", atomString);
+    #endif
     residue_t *residue = malloc(sizeof(residue_t));
     residue->nAtoms = n;
     residue->nContacts = 0;
-    if (atom->name == NULL)
-        printf("OUPS\n");
-    printf("NINJA %s\n", atom->name);
     residue->resName = malloc( (strlen(atom->resName) + 1) * sizeof(char) );
-    printf("NINJA\n");
     strcpy(residue->resName, atom->resName);
-    printf("NINJA\n");
     residue->resID = malloc( (strlen(atom->resID) + 1) * sizeof(char) );
     strcpy(residue->resID, atom->resID);
     
@@ -99,8 +102,10 @@ residue_t *createResidue(atom_t *atom, int n) {
 
 
 residue_t *createResidueList(atom_t * atomList) {
+    #ifdef DEBUG
+    fprintf(stderr, "Entering createResidueList\n");
+    #endif
     //assert(atomList == NULL);
-    printf("ZOUM\n");
     residue_t *residue_root = NULL;
     residue_t *residue_head = NULL;
     atom_t *curr_atom = atomList;//&atomList[0];
@@ -108,13 +113,11 @@ residue_t *createResidueList(atom_t * atomList) {
     int nResidue = 0;
     residue_root = createResidue(curr_atom, nResidue);
     residue_head = residue_root;
-printf("ZOUM\n");
     curr_atom->belongsTo = residue_head;
     prev_atom = curr_atom;
     curr_atom = curr_atom->nextAtomList;
 
     while(curr_atom != NULL) {
-        printf("ZOUING\n");
         if (strcmp(curr_atom->resID, residue_head->resID) == 0
             && curr_atom->chainID == residue_head->chainID) {
             prev_atom->nextResidueAtom = curr_atom;
@@ -132,9 +135,8 @@ printf("ZOUM\n");
         curr_atom = curr_atom->nextAtomList;
     }
 #ifdef DEBUG
-    printf("Created %d residues\n", nResidue);
+    fprintf(stderr, "Created %d residues, exiting createResidueList\n", nResidue + 1);
 #endif
-    printf("ZIM\n");
     return residue_root;
 }
 
@@ -151,8 +153,9 @@ void fuseResidueLists(residue_t *iResidueList, residue_t *jResidueList) {
 // Move to end of the chain and free residues in a backward motion
 residue_t *destroyResidueList(residue_t *residueList) {
 #ifdef DEBUG
-    printf("Destroying residue list\n");
+    fprintf(stderr, "Destroying residue list\n");
 #endif
+    assert(residueList != NULL);
     residue_t *curr_residue = residueList;
     while (curr_residue->nextResidueList != NULL) {
         curr_residue = curr_residue->nextResidueList;
@@ -163,7 +166,7 @@ residue_t *destroyResidueList(residue_t *residueList) {
     }
     curr_residue = destroyResidue(curr_residue);
 #ifdef DEBUG
-    printf("Ok\n");
+    fprintf(stderr, "Destroying residue list: OK\n");
 #endif
     return curr_residue;
 }
@@ -214,7 +217,10 @@ atom_t *destroyAtom(atom_t *atom){
 return NULL;
 }
 
-int CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, atom_t *atomList) {
+atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom) {
+    #ifdef DEBUG
+    fprintf(stderr, "Entering CreateAtomListFromPdbContainer\n");
+    #endif
     double *x;
     double *y;
     double *z;
@@ -223,11 +229,14 @@ int CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContai
     char **resName;
     char **atomName;
     //atom_t *atomList = NULL;
-    int nAtom = pdbContainerToArrays(pdbCoordinateContainer, &x, &y, &z, &chainID, &resSeq, &resName, &atomName);
-    atomList = readFromArrays(nAtom, x, y, z, chainID, resSeq, resName, atomName);
+    *nAtom = pdbContainerToArrays(pdbCoordinateContainer, &x, &y, &z, &chainID, &resSeq, &resName, &atomName);
+    atom_t *atomList = readFromArrays(*nAtom, x, y, z, chainID, resSeq, resName, atomName);
     
-    freeAtomListCreatorBuffers(x, y, z, chainID, resSeq, resName, atomName, nAtom);
-    return nAtom;
+    freeAtomListCreatorBuffers(x, y, z, chainID, resSeq, resName, atomName, *nAtom);
+    #ifdef DEBUG
+    fprintf(stderr, "Exiting CreateAtomListFromPdbContainer\n");
+    #endif
+    return atomList;
 }
 
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n) {
@@ -246,9 +255,11 @@ void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, 
 }
 // MEMORY ALLOCATION OF atom LIST
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name) {
+    #ifdef DEBUG
+    fprintf(stderr, "Entering readFromArrays\n");
+    #endif
     atom_t *atomList = malloc(nAtoms * sizeof(atom_t));
     for (int n = 0 ; n < nAtoms ; n++) {
-        printf("ZZ%d\n", n);
         atomList[n].nextAtomList = NULL;
         atomList[n].belongsTo = NULL;
         atomList[n].inCell = NULL;
@@ -271,6 +282,12 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
         if (n > 0)
             atomList[n - 1].nextAtomList = &atomList[n];
     }
+    #ifdef DEBUG
+    fprintf(stderr, "Read from array done for %d\n", nAtoms);
+    fprintf(stderr, "Trying to show atom_t *atomList content\n");
+    printAtomList(atomList, stderr);
+    fprintf(stderr, "Exiting readFromArrays\n");
+    #endif
     return atomList;
 }
 

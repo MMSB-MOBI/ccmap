@@ -47,7 +47,7 @@ void dumpString (string_t* this) {
 bool appendString(string_t *this, char *word) {
     size_t wLen = strlen(word);
     if (this->length + wLen >= this->capacity) { //>= to rpeserve 1 slot for '\0'
-        fprintf(stderr, "Extending string from %lu to %lu\n", this->capacity, this->capacity + STRING_CHUNCK);
+     //   fprintf(stderr, "Extending string from %lu to %lu\n", this->capacity, this->capacity + STRING_CHUNCK);
         this->capacity += STRING_CHUNCK;
         char *_value = realloc(this->value, this->capacity);
         assert(_value != NULL);
@@ -77,9 +77,15 @@ string_t *createString() {
     this->append = &appendString;
     this->copy = &copyString;
     this->dump = &dumpString;
+    this->toChar = &toCharString;
     return this;
 } 
 
+char *toCharString(string_t *this) {
+    char *asChar = malloc((this->length + 1) * sizeof(char));
+    strcpy(asChar, this->value);
+    return asChar;
+}
 string_t *destroyString(string_t *this) {
     free(this->value);
     free(this);

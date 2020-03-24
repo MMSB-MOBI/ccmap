@@ -47,12 +47,10 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
 //Results display
 char *jsonifyContactList(residue_t *residueList); // BUMP TO string_t* TO DO
 string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults);
-ccmapView_t *createCcmapView();
-ccmapView_t *destroyCcmapView(ccmapView_t *);
 
 // Mesh engine Fn
 ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bAtomic);
-ccmapResults_t *destroyCcmapResults (ccmapResults_t *results);
+
 void meshCrawler(meshContainer_t *meshContainer,  cellCrawler_t *cellCrawler);
 cell_t ** vectorizeMesh(mesh_t *mesh);
 // Constructors/Destructors
@@ -60,6 +58,10 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
 mesh_t *createMesh(int iDim, int jDim, int kDim);
 meshContainer_t *destroyMeshContainer(meshContainer_t *container);
 mesh_t *destroyMesh(mesh_t *i_mesh);
+ccmapResults_t *createCcmapResults(cellCrawler_t *, residue_t *, residue_t *);
+ccmapResults_t *destroyCcmapResults (ccmapResults_t *results);
+ccmapView_t *createCcmapView();
+ccmapView_t *destroyCcmapView(ccmapView_t *);
 // Utilities
 void getBoundariesCartesian_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, atom_t *minCoor, atom_t *maxCoor);
 void getBoundariesCartesian(atom_t * atomList, int nAtom, atom_t *minCoor, atom_t *maxCoor);

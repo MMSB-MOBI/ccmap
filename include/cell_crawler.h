@@ -45,7 +45,7 @@ struct cellCrawler {
 
 bool processPairwiseDistance(cellCrawler_t*, atom_t*, atom_t*);
 
-cellCrawler_t createCellCrawler(bool atomic, bool dual, double dist);
+cellCrawler_t *createCellCrawler(bool atomic, bool dual, double dist);
 void extendCellCrawler(cellCrawler_t *cellCrawler);
 cellCrawler_t *destroyCellCrawler(cellCrawler_t *cellCrawler);
 

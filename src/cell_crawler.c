@@ -5,31 +5,37 @@ Create a cellCrawler struct to perform pariwse cell operations featuring:
 - Dual OR not-dual atom pair enumeration 
 - Residue OR atom level contact registering 
 */
-cellCrawler_t createCellCrawler(bool atomic, bool dual, double dist) {
-    cellCrawler_t cellCrawler;
-    cellCrawler.atomPairProcess = &processPairwiseDistance;
-    cellCrawler.threshold = dist;
+cellCrawler_t *createCellCrawler(bool atomic, bool dual, double dist) {
+    #ifdef DEBUG
+    fprintf(stderr, "Starting createCellCrawler(%s, %s, %g)\n", \
+                                            atomic ? "true" : "false",\
+                                            dual   ? "true" : "false", dist);
+    #endif
+    cellCrawler_t *cellCrawler = malloc(sizeof(cellCrawler_t));
+    cellCrawler->atomPairProcess = &processPairwiseDistance;
+    cellCrawler->threshold = dist;
     
-    cellCrawler.enumerator = &pairwiseCellEnumerate;
+    cellCrawler->enumerator = &pairwiseCellEnumerate;
     if (dual)
-        cellCrawler.enumerator = &pairwiseCellEnumerateDual;
-    cellCrawler.dual = dual;
+        cellCrawler->enumerator = &pairwiseCellEnumerateDual;
+    cellCrawler->dual = dual;
 
-    updaterStruct_t updater;
-    updater.maxSize = ATOM_CC_LIST_CHUNCK;
-    updater.atomContactList = malloc( (size_t)ATOM_CC_LIST_CHUNCK * sizeof(atomPair_t) );
-    updater.totalByAtom = 0;
-    updater.totalByResidue = 0;
-    updater.updaterFn =  &updateResidueContact;
+    updaterStruct_t *updater = malloc(sizeof(updaterStruct_t));
+    updater->maxSize = ATOM_CC_LIST_CHUNCK;
+    updater->atomContactList = malloc( (size_t)ATOM_CC_LIST_CHUNCK * sizeof(atomPair_t) );
+    updater->totalByAtom = 0;
+    updater->totalByResidue = 0;
+    updater->updaterFn =  &updateResidueContact;
     if (atomic)
-        updater.updaterFn  = &updateAtomContact;
+        updater->updaterFn  = &updateAtomContact;
     
-    cellCrawler.updater = &updater;
+    cellCrawler->updater = updater;
     return cellCrawler;
 }
 
 cellCrawler_t *destroyCellCrawler(cellCrawler_t *cellCrawler) {
     free (cellCrawler->updater->atomContactList);
+    free (cellCrawler->updater);
     free (cellCrawler);
     return cellCrawler;
 }
@@ -43,41 +49,62 @@ void extendCellCrawler(cellCrawler_t *cellCrawler) {
 }
 
 bool processPairwiseDistance(cellCrawler_t* cellCrawler, atom_t* iAtom, atom_t* jAtom) {
+    #ifdef DEBUG
+    char iAtomString[81];
+    char jAtomString[81];
+    stringifyAtom(iAtom, iAtomString);
+    stringifyAtom(jAtom, jAtomString);
+    fprintf(stderr, "Starting processPairwiseDistance T:%g\n", cellCrawler->threshold);
+    #endif
     double currDist = distance(iAtom, jAtom);
+    #ifdef DEBUG
+    fprintf(stderr, "DD: %g %g || %s || %s \n", currDist, cellCrawler->threshold, iAtomString, jAtomString);
+    #endif
     bool isNewContact = false;
     if(currDist <= cellCrawler->threshold) {     
+        #ifdef DEBUG
+        fprintf(stderr, "Contact found at %g A\n", currDist);
+        #endif
         isNewContact = cellCrawler->updater->updaterFn(cellCrawler, iAtom, jAtom, currDist);
         if(isNewContact) {// Usefull to resize atomContactList only, ...
-            cellCrawler->updater->totalByAtom++;
-            #ifdef DEBUG
-                char iAtomString[81];
-                char jAtomString[81];
-                stringifyAtom(iAtom, iAtomString);
-                stringifyAtom(jAtom, jAtomString);
-                printf("%s [[Dnum %d]] %s  %s  ==> %.2g\n", cellCrawler->dual ? "dual" : "", iAtomString, jAtomString, currDist);
+            //cellCrawler->updater->totalByAtom++;
+            #ifdef DEBUG 
+                fprintf(stderr, "%s CC_DIST %s  %s  ==> %.2g\n", cellCrawler->dual ? "dual" : "", iAtomString, jAtomString, currDist);
                 #ifdef AS_PYTHON_EXTENSION
                     PySys_WriteStdout("%s [[Dnum %d]] %s  %s  ==> %.2g\n", cellCrawler->dual ? "dual" : "", iAtomString, jAtomString, currDist);
                 #endif
             #endif
         }
     }
+    #ifdef DEBUG 
+    fprintf(stderr, "Exiting processPairwiseDistance\n");
+    #endif
     return isNewContact;
 }
 
-bool updateAtomContact(cellCrawler_t *cellCrawler, atom_t *a, atom_t *b, double dist) {
-    updaterStruct_t *updater = cellCrawler->updater;
 
+bool updateAtomContact(cellCrawler_t *cellCrawler, atom_t *a, atom_t *b, double dist) {
+    #ifdef DEBUG 
+    fprintf(stderr, "Entering updateAtomContact\n");
+    #endif
+    updaterStruct_t *updater = cellCrawler->updater;
     if(updater->totalByAtom == updater->maxSize)
         extendCellCrawler(cellCrawler);
 
     updater->atomContactList[updater->totalByAtom].a    = a;
     updater->atomContactList[updater->totalByAtom].b    = b;
     updater->atomContactList[updater->totalByAtom].dist = dist;
-    
+    #ifdef DEBUG 
+    fprintf(stderr, "Exiting updateAtomContact\n");
+    #endif
+    updater->totalByAtom++; // For mem managment
     return true;
 }
 
 bool updateResidueContact(cellCrawler_t *cellCrawler, atom_t *iAtom, atom_t *jAtom, double dist) {
+    #ifdef DEBUG 
+    fprintf(stderr, "Starting updateResidueContact\n");
+    #endif
     if(iAtom->belongsTo == jAtom->belongsTo) return false;
 
     residue_t *iResidue = iAtom->belongsTo;
@@ -97,6 +124,10 @@ bool updateResidueContact(cellCrawler_t *cellCrawler, atom_t *iAtom, atom_t *jAt
     iResidue->nContacts++;
     iResidue->contactResidueList = realloc( iResidue->contactResidueList, iResidue->nContacts * sizeof(residue_t*) );
     iResidue->contactResidueList[iResidue->nContacts - 1] = jResidue;
+    #ifdef DEBUG
+    fprintf(stderr, "Exiting updateResidueContact\n");
+    #endif
+    cellCrawler->updater->totalByResidue++; // For logging
     return true;
 }
 
@@ -107,21 +138,26 @@ bool updateResidueContact(cellCrawler_t *cellCrawler, atom_t *iAtom, atom_t *jAt
     pairwiseCellEnumerate
     pairwiseCellEnumerate_DUAL
 */
-void pairwiseCellEnumerate(cellCrawler_t *cellCrawler, cell_t *refCell, cell_t *targetCell) {                            
-    atom_t *iAtom, *jAtom;
- #ifdef DEBUG
+void pairwiseCellEnumerate(cellCrawler_t *cellCrawler, cell_t *refCell, cell_t *targetCell) {    
+    #ifdef DEBUG                        
+    fprintf(stderr, "Starting pairwiseCellEnumerate\n");
+    fprintf(stderr, "\n*********\nPairwise cell atom enumeration: [%d %d %d] %d elts // [%d %d %d] %d elts\n", \
+                                                        refCell->i, refCell->j, refCell->k, refCell->memberCount,\
+                                                        targetCell->i, targetCell->j, targetCell->k, targetCell->memberCount);
+    #ifdef AS_PYTHON_EXTENSION
+    PySys_WriteStdout("\n*********\nPairwise cell atom enumeration: [%d %d %d] %d elts // [%d %d %d] %delts\n", \
+                                                        refCell->i, refCell->j, refCell->k, refCell->memberCount,\
+                                                        targetCell->i, targetCell->j, targetCell->k, targetCell->memberCount);
+   #endif
     char iAtomString[81];
     char jAtomString[81];
-#endif
-
+    #endif
+    
     if(refCell->memberCount == 0 || targetCell->memberCount == 0) return;
-#ifdef DEBUG
-    printf("\n*********\nPairwise cell atom enumeration: [%d %d %d]// [%d %d %d]\n", refCell->i, refCell->j, refCell->k, targetCell->i, targetCell->j, targetCell->k);
-#ifdef AS_PYTHON_EXTENSION
-    PySys_WriteStdout("Pairwise cell atom enumeration: [%d %d %d]// [%d %d %d]\n", refCell->i, refCell->j, refCell->k, targetCell->i, targetCell->j, targetCell->k);
-#endif
-#endif
+
+    atom_t *iAtom, *jAtom;
     iAtom = refCell->members;
+
     while(iAtom != NULL) {
 
     #ifdef DEBUG
@@ -131,7 +167,8 @@ void pairwiseCellEnumerate(cellCrawler_t *cellCrawler, cell_t *refCell, cell_t *
         while(jAtom != NULL) {
             if (jAtom != iAtom) {
                 #ifdef DEBUG
-                    stringifyAtom(jAtom, jAtomString);
+                stringifyAtom(jAtom, jAtomString);
+                fprintf(stderr, "calling atomPairProcess for  %s VS %s\n", iAtomString, jAtomString);
                 #endif
                 cellCrawler->atomPairProcess(cellCrawler, iAtom, jAtom);
             }
@@ -193,7 +230,7 @@ void pairwiseCellEnumerateDual(cellCrawler_t *cellCrawler, cell_t *refCell, cell
         }
         iAtom = iAtom->nextCellAtom;
     }
-
+    printf("Exiting pairwiseCellEnumerate\n");
 }
 
 double distance(atom_t *iAtom, atom_t *jAtom) {

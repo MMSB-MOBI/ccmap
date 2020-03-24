@@ -50,7 +50,7 @@ typedef struct atomPair {
 // Display molecular objects content
 void printResidueList(residue_t *residueList);
 void printResidue(residue_t *residue);
-void printAtomList(atom_t *atomList);
+void printAtomList(atom_t *atomList, FILE *stream);
 void stringifyAtom(atom_t *atom, char *atomString);
 void stringifyResidue(residue_t *residue, char *residueString);
 void jsonifyResidue(residue_t *residue, char *jsonString);
@@ -66,7 +66,7 @@ residue_t *destroyResidue(residue_t *residue);
 atom_t *destroyAtomList(atom_t *atomList, int nAtom);
 atom_t *destroyAtom(atom_t *atom);
 
-int CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, atom_t *atomList);
+atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom);
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name);
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
 

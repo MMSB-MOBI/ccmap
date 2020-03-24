@@ -17,7 +17,7 @@
                       
     ccmapView_t *ccmap = atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded)
 }*/
-void computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordinateContainer_t *pdbCoordinateContainerJ,
+char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordinateContainer_t *pdbCoordinateContainerJ,
                     float dist, bool bEncode, bool bAtomic) {
     ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtomic\
                         ? &atomicContactMap
@@ -27,23 +27,49 @@ void computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordin
     atom_t *jAtomList = NULL;
     int iAtom = 0;
     int jAtom = 0;
-    iAtom = CreateAtomListFromPdbContainer(pdbCoordinateContainerI, iAtomList);
-    printAtomList(iAtomList);
+    iAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerI, &iAtom);
+    #ifdef DEBUG
+    printAtomList(iAtomList, stderr);
+    #endif
+
     if(pdbCoordinateContainerJ != NULL) 
-        jAtom = CreateAtomListFromPdbContainer(pdbCoordinateContainerJ, jAtomList);
+        jAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerJ, &jAtom);
     printf("Computing %s ccmap with %d pdb records as %s...\n", \
                             bAtomic?"atomic":"residue",\
                             pdbCoordinateContainerJ != NULL?2:1,\
                             bEncode?"integers vector":"JSON");
     ccmapView_t *ccmapView = computeMap(iAtomList, iAtom, jAtomList, jAtom, dist, bEncode);
-    
-    if (bEncode)
-        printf("USE encodeLen\n");
-    else 
-        printf("%s\n", ccmapView->asJSON);
-    
+    #ifdef DEBUG
+    printf("JSON ccmapView:\n%s\n", ccmapView->asJSON);
+    #endif
+
+    char *ccmapAsChar;
+    if (bEncode) {
+        if(bAtomic){
+            char msg[] = "USE encodeLen";
+            ccmapAsChar = malloc(1024 * sizeof(char));
+            strcpy(ccmapAsChar, msg);
+        }
+        string_t *encodeVector = createString();
+        encodeVector->append(encodeVector, "{ \"type\" : \"encodeVector\", \"data\" : [");
+        char buffer[81];
+        for (int i = 0; i < ccmapView->encodeLen ; i++) {
+            if (i != 0)
+                encodeVector->append(encodeVector, ", ");
+            sprintf(buffer, "%d",ccmapView->asENCODE[i]);
+            encodeVector->append(encodeVector, buffer);
+        }
+        encodeVector->append(encodeVector, " ]}");
+        ccmapAsChar = encodeVector->toChar(encodeVector);
+        destroyString(encodeVector);
+    } else  {
+        ccmapAsChar = malloc( (strlen(ccmapView->asJSON) + 1)  * sizeof(char) );
+        strcpy(ccmapAsChar, ccmapView->asJSON);
+    }
     destroyCcmapView(ccmapView);
+    return ccmapAsChar;
 }
+
 void displayPdbRecord(char *fileName){
         pdbCoordinateContainer_t *pdbCoordinateContainer = pdbFileToContainer(fileName);
         char *pdbString = pdbContainerToString(pdbCoordinateContainer);
@@ -58,6 +84,7 @@ void displayHelp() {
     --rec / a, ReceptorPdbFile\n\
     --lig / b, LigandPdbFile\n\
     --dst / d, Treshold distance to compute contact\n\
+    --out / o, Valid File path to write resulting contact map\n\
     --tli / u, (TransLigInit) Initial x,y,z translation vector to origin\n\
     --elg / v,  eulerLig Euler angle combination to final ligand orientation (intended to be performed w/ ligant centered onto origin)\n\
     --tl  / k, transLig Final x,y,z translation vector from rotated/centered pose to final ligand pose\n\
@@ -85,6 +112,7 @@ int main (int argc, char *argv[]) {
     char *translateREC = NULL;
     char *translateLIG = NULL;
     char *translateLIG2 = NULL;
+    char *optResultFile = NULL;
     extern char *optarg;
     extern int optind, optopt, opterr;
     char *optDist = NULL;
@@ -103,7 +131,7 @@ int main (int argc, char *argv[]) {
     int (*readerFunc)(char*, double**, double**, double**, char**, char***, char***, char***) = NULL;
     readerFunc = &readPdbFile;
     */
-    const char    *short_opt = "hcea:b:t:f:d:w:";
+    const char    *short_opt = "hcea:b:t:f:d:w:o:";
     struct option   long_opt[] =
     {
         {"help",               no_argument, NULL, 'h'},
@@ -121,6 +149,7 @@ int main (int argc, char *argv[]) {
         {"dump",          required_argument, NULL, 'w'},
         {"enc",               no_argument, NULL, 'e'},
         {"atm",               no_argument, NULL, 'c'},
+        {"out",               no_argument, NULL, 'o'},
 
         {NULL,            0,                NULL, 0  }
     };
@@ -164,7 +193,9 @@ int main (int argc, char *argv[]) {
             case 'e':
                 bEncode = true;
                 break;
-                
+            case 'o':
+                optResultFile = strdup(optarg);
+            break; 
             case 'h':
                 displayHelp();
                 return(0);
@@ -226,10 +257,17 @@ int main (int argc, char *argv[]) {
         eulerAngleLIG[0],  eulerAngleLIG[1] , eulerAngleLIG[2] , \
         translationLIG2[0], translationLIG2[1], translationLIG2[2]);
     #endif
-
+    
+    
     if (optDist != NULL) {
-            double step = atof(optDist);
-            computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, step, bEncode, bAtomic);
+        double step = atof(optDist);
+        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, step, bEncode, bAtomic);
+        FILE *fp = optResultFile != NULL       \
+                    ? fopen(optResultFile, "w") \
+                    : fopen("ccmap.json", "w");
+        fprintf(fp, "%s", ccmap);
+        free(ccmap); 
+        fclose(fp);
     } else {
         fprintf(stderr, "No contact distance specified, No cc map computed\n");
     }

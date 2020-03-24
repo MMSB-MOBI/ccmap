@@ -21,6 +21,7 @@ struct string {
     bool (*append)(string_t *, char *);
     void (*dump)(string_t *);
     string_t *(*copy)(string_t *);
+    char*(*toChar)(string_t *);
 };
 
 //Utility functions
@@ -32,5 +33,6 @@ string_t *copyString(string_t *this);
 string_t *createString(); 
 string_t *destroyString(string_t *);
 void dumpString(string_t *);
+char *toCharString(string_t *);
 
 #endif

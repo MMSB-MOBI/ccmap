@@ -7,6 +7,7 @@ DEBUG=-g -D DEBUG
 all: ccmap string
 
 debug: GCC_FLAGS += $(DEBUG)
+debug : ccmap
 
 ccmap: src/ccmap.c
 	gcc -o bin/$@ $< $(GCC_FLAGS) src/cell_crawler.c src/default.c src/molecular_object.c \
