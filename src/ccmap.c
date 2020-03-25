@@ -67,6 +67,10 @@ char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordi
         strcpy(ccmapAsChar, ccmapView->asJSON);
     }
     destroyCcmapView(ccmapView);
+    iAtomList = destroyAtomList(iAtomList, iAtom);
+    if (jAtomList != NULL)
+        jAtomList = destroyAtomList(jAtomList, jAtom);
+    assert(iAtomList == NULL && jAtomList == NULL);
     return ccmapAsChar;
 }
 
