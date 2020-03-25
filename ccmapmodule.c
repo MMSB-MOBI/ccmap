@@ -552,7 +552,7 @@ float userThreshold = 4.5;
 PyObject *coorDictI;
 PyObject *coorDictJ = NULL;
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
-                                "O!|O!fO0", kwlist,\
+                                "O!|O!fOO", kwlist,\
                                 &PyDict_Type, &coorDictI, \
                                 &PyDict_Type, &coorDictJ, \
                                 &userThreshold, \
@@ -595,8 +595,19 @@ ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtom
                     : &residueContactMap;
 ccmapView_t *ccmapView = computeMap(iAtomList, iLen, jAtomList, jLen, userThreshold, bEncode);
 
-PyObject *rValue = Py_BuildValue("s", ccmapView->asJSON);
-
+// Build returned pyObject
+PyObject *rValue;
+if (bEncode) { // ccmap is int Vec<int> form, we build/return an pyList from it
+    rValue = PyList_New(ccmapView->encodeLen);
+    for (Py_ssize_t i = 0; i < ccmapView->encodeLen; i++){
+        PyObject *py_value = NULL;
+        py_value = Py_BuildValue("i", ccmapView->asENCODE[i]);
+        PyList_SetItem(rValue, i, py_value);
+    }
+       // PyList_SetItem(PyList_results, i, Py_BuildValue("O", python_ccmap));
+    } else {
+    rValue = Py_BuildValue("s", ccmapView->asJSON);
+}
 // Cleaning 
 destroyAtomList(iAtomList, iLen);
 if(coorDictJ != NULL)
