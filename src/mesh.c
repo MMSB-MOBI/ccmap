@@ -16,7 +16,7 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
     ccmapView->asJSON = malloc( (jsonString->length + 1) * sizeof(char) ); // adding one for '\0'
     strcpy(ccmapView->asJSON, jsonString->value);
     destroyString(jsonString);
-    
+    destroyCcmapResults(ccmapResults);
     #ifdef DEBUG
     fprintf(stderr, "Exiting atomicContactMap\n");
     #endif
