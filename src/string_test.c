@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "default.h"
+#include "mesh_default.h"
 
 
 int main () {

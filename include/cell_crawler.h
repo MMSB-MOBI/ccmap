@@ -9,7 +9,7 @@
 #include <string.h>
 #include <assert.h>
 #include "molecular_object.h"
-#include "default.h"
+#include "mesh_default.h"
 #include "cell.h"
 
 #ifdef AS_PYTHON_EXTENSION

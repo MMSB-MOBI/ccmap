@@ -1,4 +1,4 @@
-#include "default.h"
+#include "mesh_default.h"
 /*
 strcpy Copies the C string pointed by source into the array
 pointed by destination, including the terminating null character

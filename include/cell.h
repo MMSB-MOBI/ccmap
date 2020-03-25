@@ -23,6 +23,4 @@ typedef struct cell {
     struct neighbours *cell;
     int neighbourCount;
 } cell_t;
-
-
 #endif

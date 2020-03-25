@@ -9,7 +9,7 @@
 #include <string.h>
 #include <assert.h>
 #include "pdb_coordinates.h"
-#include "default.h"
+#include "mesh_default.h"
 
 typedef struct residue {
     struct atom *elements;
@@ -73,3 +73,4 @@ void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, 
 
 atom_t *legacy_readCoordinates(char *fname, int *_nAtom);
 #endif
+

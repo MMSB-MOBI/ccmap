@@ -2,7 +2,7 @@
 #ifndef MESH_H
 #define MESH_H
 
-#include "default.h"
+#include "mesh_default.h"
 #include "molecular_object.h"
 #include "cell_crawler.h"
 #include "cell.h"
@@ -60,7 +60,7 @@ meshContainer_t *destroyMeshContainer(meshContainer_t *container);
 mesh_t *destroyMesh(mesh_t *i_mesh);
 ccmapResults_t *createCcmapResults(cellCrawler_t *, residue_t *, residue_t *);
 ccmapResults_t *destroyCcmapResults (ccmapResults_t *results);
-ccmapView_t *createCcmapView();
+ccmapView_t *createCcmapView(void);
 ccmapView_t *destroyCcmapView(ccmapView_t *);
 // Utilities
 void getBoundariesCartesian_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, atom_t *minCoor, atom_t *maxCoor);
