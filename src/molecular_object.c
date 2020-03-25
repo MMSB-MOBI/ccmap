@@ -298,7 +298,7 @@ atom_t *legacy_readCoordinates(char *fname, int *_nAtom) {
     atom_t *root = head;
     FILE * fp;
     size_t len = 0;
-    ssize_t read;
+    size_t read;
     char * line = NULL;
 
     fp = fopen(fname, "r");

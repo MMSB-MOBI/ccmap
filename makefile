@@ -2,7 +2,7 @@
 # Add debug and valgrind compiler option
 
 GCC_FLAGS = -lm -std=c99 -Wall -I./include #-pedantic 
-DEBUG=-g -D DEBUG
+DEBUG=-g -D DEBUG -O0
 
 all: ccmap string
 
