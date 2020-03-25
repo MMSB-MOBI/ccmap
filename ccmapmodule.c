@@ -460,7 +460,7 @@ if (!PyArg_ParseTuple(args, "O!f", &PyList_Type, &pyDictList, &userThreshold)) {
    // return Py_BuildValue("s", dummy);
 }
 
-static PyObject *ccmap_compute(PyObject *self, PyObject *args) {
+static PyObject *ccmap_compute_base(PyObject *self, PyObject *args) {
 
 PyObject *pListX, *pListY, *pListZ, *pListChainID, *pListResName, *pListResSeq, *pListAtomName, *pComputingType, *atomicBool;
 atomicBool = NULL;
@@ -480,7 +480,7 @@ if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!O!f|O", &PyList_Type, &pListX, \
     bool bAtomic = false;
     if (atomicBool == NULL) {
         //PySys_WriteStdout("##applying default bAtom");
-    } else {
+    } else {
         //PySys_WriteStdout("processing bAtom");
         if (PyObject_IsTrue(atomicBool))
             bAtomic = true;
@@ -526,6 +526,194 @@ if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!O!f|O", &PyList_Type, &pListX, \
     return rValue;
 }
 
+/*
+static char* keywords[] = {"", "", "k1", "k2", "k3", "k4", NULL};
+
+// [...]
+
+PyArg_ParseTupleAndKeywords(args, kwargs,
+                            "O!|O!$O!idO", keywords,
+                            &PyArray_Type, &arg1, &PyArray_Type, &arg2,
+                            &PyArray_Type, &k1, &k2, &k3, &k4);
+*/
+// ccmap(coordinatesDictA, y=coordinatesDictB, value=4.5, atomic=False)
+// Print refdict count on entry / exit
+static PyObject *ccmap_compute_flex(PyObject* self, PyObject* args, PyObject* kwargs) {
+    PySys_WriteStderr("ccmap_compute_flex");
+    static char *kwlist[] = {"", "y", "dist", "atomic", "encode", NULL};
+/*PyObject *pListX_i, *pListY_i, *pListZ_i, *pListChainID_i, *pListResName_i, *pListResSeq_i, *pListAtomName_i;
+PyObject *pListX_j, *pListY_j, *pListZ_j, *pListChainID_j, *pListResName_j, *pListResSeq_j, *pListAtomName_j;
+
+ PyObject *pComputingType, *atomicBool;
+*/
+PyObject *atomicBool = NULL;
+PyObject *encodeBool = NULL;
+float userThreshold = 4.5;
+PyObject *coorDictI;
+PyObject *coorDictJ = NULL;
+if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
+                                "O!|O!fO0", kwlist,\
+                                &PyDict_Type, &coorDictI, \
+                                &PyDict_Type, &coorDictJ, \
+                                &userThreshold, \
+                                &atomicBool,
+                                &encodeBool )) {
+    PySys_WriteStderr("#####");
+    PyErr_SetString(PyExc_TypeError, "Parameters must be One dict and one dict optional distance value and bAtomic.");
+    return NULL;
+}
+
+// Parsing map type and encoding scheme
+bool bAtomic = false;
+bool bEncode = false;
+if (atomicBool != NULL) {
+    if (PyObject_IsTrue(atomicBool))
+        bAtomic = true;
+    Py_XDECREF(atomicBool);
+}
+if (encodeBool != NULL) {
+    if (PyObject_IsTrue(encodeBool))
+        bEncode = true;
+    Py_XDECREF(encodeBool);
+}
+
+// Parsing coordinates
+int iLen, jLen;
+atom_t *iAtomList = structDictToAtoms(coorDictI, &iLen);
+atom_t *jAtomList = NULL;
+if(coorDictJ != NULL)
+    jAtomList = structDictToAtoms(coorDictJ, &jLen);
+PySys_WriteStderr("Running with %s coordinates sets dist=%f bAtom:%s bEncode:%s",\
+                                    jAtomList == NULL ? "one" : "two",\
+                                    userThreshold,\
+                                    bAtomic ? "true" : "false",\
+                                    bEncode ? "true" : "false");
+
+// Computing
+ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtomic\
+                    ? &atomicContactMap
+                    : &residueContactMap;
+ccmapView_t *ccmapView = computeMap(iAtomList, iLen, jAtomList, jLen, userThreshold, bEncode);
+
+PyObject *rValue = Py_BuildValue("s", ccmapView->asJSON);
+
+// Cleaning 
+destroyAtomList(iAtomList, iLen);
+if(coorDictJ != NULL)
+    destroyAtomList(jAtomList, jLen);
+destroyCcmapView(ccmapView);
+
+
+return rValue;
+
+/*
+PyObject* xCoor = PyDict_GetItemString(coorDictI, "x");
+PyObject* yCoor = PyDict_GetItemString(coorDictI, "y");
+PyObject* zCoor = PyDict_GetItemString(coorDictI, "z");
+
+if (xCoor == NULL){ 
+    PySys_WriteStderr("no x key found");
+    PyErr_SetString(PyExc_TypeError, "no x key found");
+    return NULL;
+}
+if ( !PyList_Check(xCoor) ) {
+    PyErr_SetString(PyExc_TypeError, "x value is not a list");
+    return NULL;
+}
+if (yCoor == NULL){ 
+    PySys_WriteStderr("no y key found");
+    PyErr_SetString(PyExc_TypeError, "no y key found");
+    return NULL;
+}
+if ( !PyList_Check(yCoor) ) {
+    PyErr_SetString(PyExc_TypeError, "y value is not a list");
+    return NULL;
+}
+if (zCoor == NULL){ 
+    PySys_WriteStderr("no z key found");
+    PyErr_SetString(PyExc_TypeError, "no z key found");
+    return NULL;
+}
+if ( !PyList_Check(zCoor) ) {
+    PyErr_SetString(PyExc_TypeError, "z value is not a list");
+    return NULL;
+}
+
+Py_ssize_t coorLen = PyList_Size(xCoor);
+if(coorLen != PyList_Size(yCoor) || coorLen != PyList_Size(zCoor)) {
+    PyErr_SetString(PyExc_TypeError, "uneven x,y,z coordinates list");
+    return NULL;
+}
+
+double *coorX, *coorY, *coorZ;
+unpackCoordinates(xCoor, &coorX);
+unpackCoordinates(yCoor, &coorY);
+unpackCoordinates(zCoor, &coorZ);
+
+for(int i = 0; i < coorLen; i++) {
+    PySys_WriteStdout("%g %g %g\n", coorX[i], coorY[i], coorZ[i]);
+}
+*/
+
+/*
+
+    char dummy[] = "Dval";
+
+     PySys_WriteStdout("value=%g", userThreshold);
+return Py_BuildValue("s", dummy);
+*/
+/*
+    bool bAtomic = false;
+    if (atomicBool == NULL) {
+        //PySys_WriteStdout("##applying default bAtom");
+    } else {
+        //PySys_WriteStdout("processing bAtom");
+        if (PyObject_IsTrue(atomicBool))
+            bAtomic = true;
+        Py_XDECREF(atomicBool);
+    }
+
+    if (coorDictJ == NULL) {
+        PySys_WriteStdout("No second dict");
+    } else{
+        PySys_WriteStdout("Found second dict");
+    }
+    */
+    /*
+    Py_ssize_t n = PyList_Size(pListX);
+#ifdef DEBUG
+    PySys_WriteStdout("Unpacking %d atoms [contact distance is %f]\n", (int)n, userThreshold);
+#endif
+    double *coorX, *coorY, *coorZ;
+    unpackCoordinates(pListX, &coorX);
+    unpackCoordinates(pListY, &coorY);
+    unpackCoordinates(pListZ, &coorZ);
+
+    char *chainID;
+    unpackChainID(pListChainID, &chainID);
+
+    char **resSeq;
+    unpackString(pListResSeq, &resSeq);
+
+    char **resName;
+    unpackString(pListResName, &resName);
+
+    char **atomName;
+    unpackString(pListAtomName, &atomName);
+    atom_t *atomList = readFromArrays(n, coorX, coorY, coorZ, chainID, resSeq, resName, atomName);
+    bool bEncode = false;
+    ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtomic\
+                        ? &atomicContactMap
+                        : &residueContactMap;
+    ccmapView_t *ccmapView = computeMap(atomList, n, NULL, 0, userThreshold, bEncode);
+    
+    PyObject *rValue = Py_BuildValue("s", ccmapView->asJSON);
+    destroyCcmapView(ccmapView);
+    
+    return rValue;
+    */
+}
+
 
 int PyObject_AsDouble(PyObject *py_obj, double *x)
 {
@@ -567,7 +755,9 @@ int PyList_IntoDoubleArray(PyObject *py_list, double *x, int size) {
 
 static PyMethodDef CcmapMethods[] = {
     //...
-    {"compute",  ccmap_compute, METH_VARARGS,
+    {"compute",  ccmap_compute_base, METH_VARARGS,
+     "Compute a residue or atomic contact map."},
+     {"dvl",   ccmap_compute_flex, METH_VARARGS | METH_KEYWORDS,
      "Compute a residue or atomic contact map."},
     {"duals",  ccmap_compute_ext, METH_VARARGS,
      "Compute a protein-protein interface residue contact map."},
