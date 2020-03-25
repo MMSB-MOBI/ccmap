@@ -2,6 +2,7 @@
 #ifndef MOLECULAR_OBJECT_H
 #define MOLECULAR_OBJECT_H
 
+#define  _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
