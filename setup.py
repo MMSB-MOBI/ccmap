@@ -7,7 +7,7 @@ extra_compile_args += ['-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic']
 module1 = Extension('ccmap',
                     libraries = ['m'],
                     include_dirs = ['./include'],#, '../modules/include/python3.6m/'],
-                    sources = ['ccmapmodule.c', 'src/decoygen.c', 'src/encode.c', 'src/molecular_object.c', 'src/cell_crawler.c', 'src/mesh.c', 'src/transform_mesh.c', 'src/mesh_default.c', 'src/pdb_coordinates.c'],
+                    sources = ['ccmapmodule.c', 'src/ccmapmodule_utils.c', 'src/decoygen.c', 'src/encode.c', 'src/molecular_object.c', 'src/cell_crawler.c', 'src/mesh.c', 'src/transform_mesh.c', 'src/mesh_default.c', 'src/pdb_coordinates.c'],
                     extra_compile_args=extra_compile_args
 		    #extra_compile_args=['-D', 'DEBUG', '-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic'])
 		)
