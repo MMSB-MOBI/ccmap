@@ -58,7 +58,7 @@ void jsonifyResidue(residue_t *residue, char *jsonString);
 void jsonArrayifyAtom(atom_t *atom, char *atomString, bool bCoordinates);
 void jsonifyAtomPair(atomPair_t *atomPair, char *jsonString);
 
-
+bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo);
 residue_t *createResidue(atom_t *atom, int n);
 residue_t *createResidueList(atom_t * atomList);
 void fuseResidueLists(residue_t *iResidueList, residue_t *jResidueList);

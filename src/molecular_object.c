@@ -74,6 +74,21 @@ void jsonifyAtomPair(atomPair_t *atomPair, char *jsonString) {
     sprintf(jsonString, "[ %s, %s, %5.3g ]", atomA, atomB, atomPair->dist);
 }
 
+// Replace the x,yz values of the 2nd list by those of the 1st list
+// Returns true if lists were of even size
+bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo) {
+    
+    while (atomListFrom != NULL && atomListTo != NULL ) {
+        atomListTo->x = atomListFrom->x;
+        atomListTo->y = atomListFrom->y;
+        atomListTo->z = atomListFrom->z;
+        
+        atomListFrom = atomListFrom->nextAtomList;
+        atomListTo   = atomListTo->nextAtomList;
+    }
+    
+    return atomListTo == NULL && atomListFrom == NULL;
+}
 
 residue_t *createResidue(atom_t *atom, int n) {
     #ifdef DEBUG

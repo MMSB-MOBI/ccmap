@@ -129,11 +129,100 @@ destroyCcmapView(ccmapView);
 return rValue;
 }
 
+
 /*
-    Python API lmap
+
+Python API lzmap
 
 */
 
+static PyObject *ccmap_compute_zdock_pose_list(PyObject *self, PyObject *args, PyObject* kwargs) 
+{
+PySys_WriteStderr("ccmap_compute_zdock_pose_list");
+    static char *kwlist[] = {"", "", "", "", "offsetRec", "offsetLig", "distance", "encode", NULL};
+    PyObject *pyDictRec, *pyDictLig;
+    PyObject *eulerList, *transList;
+    PyObject *offsetRec, *offsetLig;
+    float userThreshold = 4.5;
+    PyObject *encodeBool;
+
+    double eulerAngle[3]  = { 0.0, 0.0, 0.0 }; // euler angle to generate pose
+    double translation[3] = { 0.0, 0.0, 0.0 }; // translation vector to generate pose
+    double offsetLigVector[3]   = { 0.0, 0.0, 0.0 }; // translation to center ligand
+    double offsetRecVector[3]   = { 0.0, 0.0, 0.0 }; // translation to center receptor
+
+if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
+                     "O!O!O!O!|O!O!fO", kwlist, \
+                    &PyDict_Type, &pyDictRec,   \
+                    &PyDict_Type, &pyDictLig,   \
+                    &PyList_Type,  &eulerList,   \
+                    &PyList_Type,  &transList,   \
+                    &PyList_Type,  &offsetRec,   \
+                    &PyList_Type,  &offsetLig,   \
+                    &userThreshold,
+                    &encodeBool                )) {
+    PyErr_SetString(PyExc_TypeError, "Wrong parameters");
+    return NULL;
+}
+    int nAtomsRec, nAtomsLig;
+    // Reading provided ligand, receptor conformations
+    atom_t *atomListRec = structDictToAtoms(pyDictRec, &nAtomsRec);
+    atom_t *atomListLig = structDictToAtoms(pyDictLig, &nAtomsLig);
+
+    atom_t *atomListRecBuffer = structDictToAtoms(pyDictRec, &nAtomsRec);
+    atom_t *atomListLigBuffer = structDictToAtoms(pyDictLig, &nAtomsLig);
+    // Read offset translations for ligand receptor
+    if (offsetLig != NULL) {
+        if ( ! unpackVector3(offsetLig, &offsetLigVector) ) {
+            PyErr_SetString(PyExc_TypeError, "Fail to unpack ligand offset triplet");
+            return NULL;
+        }
+    }
+    if (offsetRec != NULL) {
+        if ( ! unpackVector3(offsetRec, &offsetRecVector) ) {
+            PyErr_SetString(PyExc_TypeError, "Fail to unpack receptor offset triplet");
+            return NULL;
+        } 
+    }
+    // Building C typed double list for euler and tranlation per poses
+    Py_ssize_t i, j;
+    double **eulerTriplets = createListVector3(eulerList, &i);
+    double **transTriplets = createListVector3(transList, &j);
+    if (i != j) {
+        PySys_WriteStderr("Uneven translation eulers operations %zd %zd", i, j);
+        PyErr_SetString(PyExc_TypeError, "Transformation error");
+        // Cleanup memory
+        return NULL;
+    }
+    
+    PySys_WriteStdout("Unpacking %lu %lu euler and translation poses", i,j);
+    for (int k = 0; k < i ; k++) {
+        PySys_WriteStdout("Unpacking %f %f %f // %f %f %f", \
+                            eulerTriplets[k][0], eulerTriplets[k][1], eulerTriplets[k][2],\
+                            transTriplets[k][0], transTriplets[k][1], transTriplets[k][2]\
+                            );
+    }
+
+    /*
+    ccmapView_t ccmapView;
+//  Py_BEGIN_ALLOW_THREADS
+    transformAtomList(atomListRec, NULL, offsetREC);
+    transformAtomList(atomListLig, NULL, translation);
+    for (int iPose = 0 ; iPose < )
+*/
+//  Py_END_ALLOW_THREADS
+
+    destroyListVector3(eulerTriplets, i);
+    destroyListVector3(transTriplets, j);
+    
+    PyObject *rValue = Py_BuildValue("s", "RTOTO");
+    return rValue;
+}
+/*
+
+    Python API lmap
+
+*/
 static PyObject *ccmap_compute_list(PyObject *self, PyObject *args)
 {
 
@@ -154,11 +243,6 @@ Py_ssize_t nStructPairs = PyList_Size(pyDictList);
     PySys_WriteStdout("Unpacking %d pairs of structure coordinates [contact distance is %f]\n", (int)nStructPairs, userThreshold);
 #endif
 
-    //A list to store results
-    /*int PyList_SetItem(PyObject *list, Py_ssize_t index, PyObject *item)
-    Set the item at index index in list to item. Return 0 on success or -1 on failure.
-    Note This function “steals” a reference to item and discards a reference to an item already in the list at the affected position.
-    */
     PyObject *PyListResults =  PyList_New(nStructPairs);
     PyObject *pStructAsDictRec, *pStructAsDictLig;
 
@@ -195,7 +279,6 @@ Py_ssize_t nStructPairs = PyList_Size(pyDictList);
     Py_END_ALLOW_THREADS
 
     PyObject *cValue = ccmapViewToPyObject(ccmapView, bEncode);
-    //PyList_SetItem(PyListResults, i, Py_BuildValue("O", cValue));
     PyList_SetItem(PyListResults, iStructPair, cValue);
     destroyAtomList(atomListRec, nAtomsRec);
     destroyAtomList(atomListLig, nAtomsLig);
@@ -312,6 +395,8 @@ static PyMethodDef ccmapMethods[] = {
      //"Compute a residue or atomic contact map."},
      {"cmap",   (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_flex, METH_VARARGS | METH_KEYWORDS,
      "Compute a residue or atomic contact map."},
+    {"lzmap",   (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_zdock_pose_list, METH_VARARGS | METH_KEYWORDS,
+     "YOUPI."},
     {
     "lmap",  ccmap_compute_list, METH_VARARGS,
     "Compute a protein-protein interface residue contact map."

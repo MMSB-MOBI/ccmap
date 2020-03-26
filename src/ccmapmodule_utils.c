@@ -9,7 +9,7 @@ PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode) {
     if(bEncode) {
         PyObject *rValue = PyList_New(ccmapView->encodeLen);
         PyObject *pyValue;
-        for (Py_ssize_t i = 0 ; i < ccmapView->encodeLen ; i++){            
+        for (size_t i = 0 ; i < ccmapView->encodeLen ; i++){            
             pyValue = Py_BuildValue("i", ccmapView->asENCODE[i]);
             PyList_SetItem(rValue, i, pyValue );
         }
@@ -82,6 +82,27 @@ int backMapCoordinates(atom_t *atomListRoot,  PyObject *pyDictObject) {
     }
 
     return 1;
+}
+
+double **createListVector3(PyObject *pyObject_List, Py_ssize_t *len) {
+    *len = PyList_Size(pyObject_List);    
+    double **vList = PyMem_New(double*, *len);
+    
+    PyObject *currPyTuple;
+    for (int i = 0 ; i < *len ; i++) {
+        currPyTuple = PyTuple_GetItem(pyObject_List, i);
+        vList[i] = PyMem_New(double, 3);
+        unpackVector3( currPyTuple, &(vList[i]) );
+    }
+
+    return vList;
+}
+
+double **destroyListVector3(double **vList, Py_ssize_t len) {
+    for (int i = 0 ; i < len ; i++)
+        PyMem_Free(vList[i]);
+    PyMem_Free(vList);
+    return vList;
 }
 
 int unpackVector3(PyObject *pyObject_Tuple, double (*vector)[3]) {
