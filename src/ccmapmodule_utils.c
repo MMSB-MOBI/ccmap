@@ -56,13 +56,12 @@ PyObject *ccmapViewsToPyObject(ccmapView_t **ccmapViews, int nViews, bool bEncod
 
 int PyObject_AsDouble(PyObject *py_obj, double *x)
 {
-  PyObject *py_float;
-
-  py_float = PyNumber_Float(py_obj);
+  
+  PyObject *py_float = PyNumber_Float(py_obj);
 
   if (py_float == NULL) return -1;
-
-  *x = PyFloat_AsDouble(py_float);
+  *x = 0; 
+  *x += PyFloat_AsDouble(py_float);
 
   Py_DECREF(py_float);
   //PySys_WriteStdout("REF COUNT results  :: is %d\n", Py_REFCNT(py_float) ); # IT IS STILL 1
@@ -261,37 +260,28 @@ int unpackString(PyObject *pListOfStrings, char ***buffer) {
     return 1;
 }
 
-int unpackCoordinates(PyObject *pListCoor, double **buffer) {
-#ifdef DEBUG
-    PySys_WriteStdout("*** Unpack coordinates ***\n");
-#endif
+double *unpackCoordinates(PyObject *pListCoor) {
+
     PyObject *pItem;
-    Py_ssize_t n;
+    Py_ssize_t n = PyList_Size(pListCoor);
+    double *buffer = PyMem_New(double, n);
 
-    int i;
-    n = PyList_Size(pListCoor);
-#ifdef DEBUG
-    PySys_WriteStdout("Allocating for %d coordinates\n", (int)n);
-#endif
-    *buffer = PyMem_New(double, n);
-
-    double u;
+    double value;
     for (i = 0; i < n ; i++) {
         pItem = PyList_GetItem(pListCoor, i);
         if(!PyFloat_Check(pItem)) {
             PyErr_SetString(PyExc_TypeError, "coordinate items must be float.");
             PyMem_Free(*buffer);
-            return 0;
+            return NULL;
         }
 
-        PyObject_AsDouble(pItem, &u);
-        PyObject_AsDouble(pItem, &(*buffer)[i]);
+        PyObject_AsDouble(pItem, &(buffer[i]) );
    //     PySys_WriteStdout("TEST:: %.2f\n", (*buffer)[i] );
     }
     #ifdef DEBUG
     PySys_WriteStderr("Allocation done\n");
     #endif
-    return 1;
+    return buffer;
 }
 
 void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n) {
@@ -338,10 +328,9 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
     /*
     All unpackXX calls do memory allocation, which needs subsequent common call to freeBuffer()
     */
-    double *coorX, *coorY, *coorZ;
-    unpackCoordinates(pyObj_x, &coorX);
-    unpackCoordinates(pyObj_y, &coorY);
-    unpackCoordinates(pyObj_z, &coorZ);
+    double *coorX = unpackCoordinates(pyObj_x);
+    double *coorY = unpackCoordinates(pyObj_y);
+    double *coorZ = unpackCoordinates(pyObj_z);
     /* DONT DECREF REFERENCE IS BORROWED !
     Py_DECREF(pyObj_x);
     Py_DECREF(pyObj_y);

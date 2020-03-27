@@ -47,6 +47,7 @@ Returns: a string if Encoding flag is false, a list of residue numbers otherwise
 // Passing a list of two dictionaries, the Euler triplet and the translation triplet
 static PyObject *ccmap_compute_zdock_pose(PyObject *self, PyObject *args) 
 {
+    PySys_WriteStderr("COUCOU\n");
 PyObject *pyMolStrucTuple, *eulerTuple, *translationTuple, *recOffset, *ligOffset;
 float userThreshold;
 
@@ -56,7 +57,7 @@ PyObject *encodeBool = NULL;
 if (!PyArg_ParseTuple(args, "O!fO!O!O!O!|O", &PyTuple_Type, &pyMolStrucTuple, &userThreshold,
                                             &PyTuple_Type, &eulerTuple, &PyTuple_Type, &translationTuple,
                                             &PyTuple_Type, &recOffset, &PyTuple_Type, &ligOffset, &encodeBool )) {
-    PyErr_SetString(PyExc_TypeError, "Improper set of arguments\n");
+    PyErr_SetString(PyExc_TypeError, "Improper set of arguments Zmap\n");
     return NULL;
 }
 bool bEncode = false;
@@ -98,7 +99,15 @@ PySys_WriteStdout("Unpacking euler %.2f %.2f %.2f||translation vectors %.2f %.2f
 
 ccmapView_t *ccmapView;
 Py_BEGIN_ALLOW_THREADS
+char titi[200];
+stringifyAtom(&atomListRec[0], titi);
+fprintf(stderr, "Z1:%s\n", titi);
+
 transformAtomList(atomListRec, NULL, offsetREC);
+
+stringifyAtom(&atomListRec[0], titi);
+fprintf(stderr, "Z2:%s\n", titi);
+
 transformAtomList(atomListLig, eulerAngle, offsetLIG);
 transformAtomList(atomListLig, NULL, translation);
 
@@ -213,17 +222,16 @@ if(transTriplets == NULL) {
     destroyListVector3(eulerTriplets, nPose);
     return NULL;
 }
-
+/*
 PySys_WriteStdout("Unpacking %lu  euler and translation poses with bEncode:%s and D=%f\n",\
                                             nPose, bEncode ? "true" : "false", userThreshold);
-/*
+*/
 for (int k = 0; k < nPose ; k++) {
     PySys_WriteStdout("Unpacking %f %f %f // %f %f %f\n", \
                         eulerTriplets[k][0], eulerTriplets[k][1], eulerTriplets[k][2],\
                         transTriplets[k][0], transTriplets[k][1], transTriplets[k][2]\
                         );
 }
-*/
 
 int nAtomsRec = 0;
 int nAtomsLig = 0;
@@ -237,17 +245,28 @@ ccmapView_t **ccmapViews = PyMem_New(ccmapView_t *, nPose); // MAybe not safe ha
 ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = &residueContactMap;
 
 Py_BEGIN_ALLOW_THREADS
-if(offsetRecVector != NULL)
-    transformAtomList(atomListRec, NULL, offsetRecVector);
+char titi[200];
+stringifyAtom(&atomListRec[0], titi);
+fprintf(stderr, "LZ1: %s\n", titi);
+
+transformAtomList(atomListRec, NULL, offsetRecVector);
+
+stringifyAtom(&atomListRec[0], titi);
+fprintf(stderr, "LZ2: %s\n", titi);
+//printAtomList(atomListRec, stdout);
+/* Euler rotatio appearently have to be applied b4 ligand offset
 if(offsetLigVector != NULL)
     transformAtomList(atomListLig, NULL, offsetLigVector);
-
-//return Py_BuildValue("s", "RTOTO");
+*/
 // Loop through all poses transformations
 for (int iPose = 0 ; iPose < nPose ; iPose++) {
     // Transform Ligand
-    transformAtomList(atomListLigBuffer, eulerTriplets[iPose], transTriplets[iPose]);
+    // Apparently wrong transforamtion sequence
+    //transformAtomList(atomListLigBuffer, eulerTriplets[iPose], transTriplets[iPose]);
     //transformAtomList(atomListLigBuffer, NULL, transTriplets[iPose]);
+    transformAtomList(atomListLigBuffer, eulerTriplets[iPose], offsetLigVector);
+    
+    transformAtomList(atomListLigBuffer, NULL                , transTriplets[iPose]);
     ccmapViews[iPose] = computeMap(atomListRec, nAtomsRec, atomListLigBuffer, nAtomsLig, userThreshold, bEncode);
     // Reset ligand coordinates
     applyCoordinates(atomListLig, atomListLigBuffer);

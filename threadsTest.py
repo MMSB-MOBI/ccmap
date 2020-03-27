@@ -6,6 +6,9 @@ import pyproteinsExt.structure.coordinates as PDB
 
 nThreads = int(sys.argv[1])
 n        = int(sys.argv[2])
+
+bEncode=True
+
 print(f"Running {nThreads} threads of size {n} each")
 
 
@@ -28,14 +31,14 @@ def lzThread(d, pdb_lig, pdb_rec, e, t, lo, ro, results, i):
     print(f"Starting lz thread {i}")
     tStart = time.time()
     results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
-            offsetRec=ro, offsetLig=lo, distance=d, encode=True)
+            offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
     print(f"End of lz thread {i} in { time.time() - tStart }")          
     return
 
 mStart  = time.time()
 dValues = [ 5.0 for i in range(nThreads) ]
 output  = [ None for i in range(nThreads) ]
-threadPool = [threading.Thread(args=(d, pdbDictREC, pdbDictLIG,eulers[:n], translations[:n],ligOffset, recOffset, output,i, ), target=lzThread) for i,d in enumerate(dValues)]
+threadPool = [threading.Thread(args=(d, pdbDictREC, pdbDictLIG,eulers[:n], translations[:n], recOffset, ligOffset, output,i, ), target=lzThread) for i,d in enumerate(dValues)]
 
 for th in threadPool:
     th.start()
@@ -45,5 +48,11 @@ for th in threadPool:
 
 print(f"{nThreads} lz threads finished in { time.time() - mStart }")        
 
+if not bEncode:
+    print("OO")
+    for i,d in enumerate(output):
+        output[i] = json.loads(d)
+
 with open("threadsTest.json", 'w') as fp:
-    json.dump(output, fp)
+    json.dump({ "threadData" : output }, fp)
+    ##fp.write("\"data\" : " + str(output) + "}")

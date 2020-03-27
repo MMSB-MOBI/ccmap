@@ -48,7 +48,9 @@ void printAtomList(atom_t *atomList, FILE *stream) {
 }
 
 void stringifyAtom(atom_t *atom, char *atomString) {
-    sprintf(atomString, "%s %s %s %c %g %g %g", atom->name, atom->resName, atom->resID, atom->chainID, atom->x, atom->y, atom->z);
+    /*fprintf(stdout, "ZOUM\n");
+    return;*/
+    sprintf(atomString, "%s %s %s %c %f %f %f", atom->name, atom->resName, atom->resID, atom->chainID, atom->x, atom->y, atom->z);
 }
 void stringifyResidue(residue_t *residue, char *residueString) {
     sprintf(residueString, "%s %s %c [i=%d, n=%d]", residue->resName, residue->resID, residue->chainID, residue->index, residue->nAtoms);
