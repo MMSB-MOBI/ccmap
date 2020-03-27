@@ -24,14 +24,14 @@ struct module_state {
 };
 
 #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
-
+/*
 static PyObject *
 error_out(PyObject *m) {
     struct module_state *st = GETSTATE(m);
     PyErr_SetString(st->error, "something bad happened");
     return NULL;
 }
-
+*/
 /*
 Python API : "zmap"
 parameters : 2-tuple of dictorizedStructures
@@ -49,10 +49,6 @@ static PyObject *ccmap_compute_zdock_pose(PyObject *self, PyObject *args)
 {
 PyObject *pyMolStrucTuple, *eulerTuple, *translationTuple, *recOffset, *ligOffset;
 float userThreshold;
-double eulerAngle[3]  = { 0.0, 0.0, 0.0 }; // euler angle to generate pose
-double translation[3] = { 0.0, 0.0, 0.0 }; // translation vector to generate pose
-double offsetLIG[3]   = { 0.0, 0.0, 0.0 }; // translation to center ligand
-double offsetREC[3]   = { 0.0, 0.0, 0.0 }; // translation to center receptor
 
 int nAtomsRec, nAtomsLig;
 atom_t *atomListRec, *atomListLig;
@@ -63,10 +59,10 @@ if (!PyArg_ParseTuple(args, "O!fO!O!O!O!|O", &PyTuple_Type, &pyMolStrucTuple, &u
     PyErr_SetString(PyExc_TypeError, "Improper set of arguments\n");
     return NULL;
 }
-bool bEncode;
+bool bEncode = false;
 if (encodeBool != NULL) {
-if (PyObject_IsTrue(encodeBool))
-    bEncode = true;
+    if (PyObject_IsTrue(encodeBool))
+        bEncode = true;
     Py_XDECREF(encodeBool);
 }
 PyObject *pStructAsDictRec = PyTuple_GetItem(pyMolStrucTuple, 0);
@@ -74,22 +70,25 @@ PyObject *pStructAsDictLig = PyTuple_GetItem(pyMolStrucTuple, 1);
 atomListRec = structDictToAtoms(pStructAsDictRec, &nAtomsRec);
 atomListLig = structDictToAtoms(pStructAsDictLig, &nAtomsLig);
 
-if ( ! unpackVector3(eulerTuple, &eulerAngle) ) {
+double *eulerAngle  = unpackVector3(eulerTuple); // euler angle to generate pose
+double *translation = unpackVector3(translationTuple) ; // translation vector to generate pose
+double *offsetLIG   = unpackVector3(ligOffset); // translation to center ligand
+double *offsetREC   = unpackVector3(recOffset); // translation to center receptor
+if (eulerAngle == NULL)
         PyErr_SetString(PyExc_TypeError, "Fail to unpack euler triplet");
-        return NULL;
-}
-if ( ! unpackVector3(translationTuple, &translation) ) {
-        PyErr_SetString(PyExc_TypeError, "Fail to unpack translation triplet");
-        return NULL;
-}
-if ( ! unpackVector3(ligOffset, &offsetLIG) ) {
+if (translation == NULL) 
+        PyErr_SetString(PyExc_TypeError, "Fail to unpack translation triplet");        
+if (offsetLIG == NULL) 
         PyErr_SetString(PyExc_TypeError, "Fail to unpack ligand offset triplet");
-        return NULL;
-}
-if ( ! unpackVector3(recOffset, &offsetREC) ) {
+if (recOffset == NULL)
         PyErr_SetString(PyExc_TypeError, "Fail to unpack receptor offset triplet");
-        return NULL;
-}
+if (recOffset == NULL || offsetLIG == NULL || translation == NULL || eulerAngle == NULL) {
+    destroyVector3(eulerAngle);
+    destroyVector3(translation);
+    destroyVector3(offsetLIG);
+    destroyVector3(offsetREC);
+}    
+
 #ifdef DEBUG
 PySys_WriteStdout("Unpacking euler %.2f %.2f %.2f||translation vectors %.2f %.2f %.2f\n", \
     eulerAngle[0], eulerAngle[1], eulerAngle[2], \
@@ -122,6 +121,10 @@ if ( ! backMapCoordinates(atomListLig, pStructAsDictLig) ) {
     return NULL;
 }
 
+destroyVector3(eulerAngle);
+destroyVector3(translation);
+destroyVector3(offsetLIG);
+destroyVector3(offsetREC);
 destroyAtomList(atomListRec, nAtomsRec);
 destroyAtomList(atomListLig, nAtomsLig);
 destroyCcmapView(ccmapView);
@@ -138,19 +141,20 @@ Python API lzmap
 
 static PyObject *ccmap_compute_zdock_pose_list(PyObject *self, PyObject *args, PyObject* kwargs) 
 {
+#ifdef DEBUG
 PySys_WriteStderr("ccmap_compute_zdock_pose_list");
+#endif
     static char *kwlist[] = {"", "", "", "", "offsetRec", "offsetLig", "distance", "encode", NULL};
     PyObject *pyDictRec, *pyDictLig;
     PyObject *eulerList, *transList;
-    PyObject *offsetRec, *offsetLig;
+    PyObject *offsetRec = NULL;
+    PyObject *offsetLig = NULL;
     float userThreshold = 4.5;
-    PyObject *encodeBool;
+    PyObject *encodeBool = NULL;
 
-    double eulerAngle[3]  = { 0.0, 0.0, 0.0 }; // euler angle to generate pose
-    double translation[3] = { 0.0, 0.0, 0.0 }; // translation vector to generate pose
-    double offsetLigVector[3]   = { 0.0, 0.0, 0.0 }; // translation to center ligand
-    double offsetRecVector[3]   = { 0.0, 0.0, 0.0 }; // translation to center receptor
-
+    double *offsetLigVector = NULL;
+    double *offsetRecVector = NULL;
+    
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
                      "O!O!O!O!|O!O!fO", kwlist, \
                     &PyDict_Type, &pyDictRec,   \
@@ -164,44 +168,110 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
     PyErr_SetString(PyExc_TypeError, "Wrong parameters");
     return NULL;
 }
-    int nAtomsRec, nAtomsLig;
-    // Reading provided ligand, receptor conformations
-    atom_t *atomListRec = structDictToAtoms(pyDictRec, &nAtomsRec);
-    atom_t *atomListLig = structDictToAtoms(pyDictLig, &nAtomsLig);
+if( PyList_Size(eulerList) != PyList_Size(transList) ) {
+    PyErr_SetString(PyExc_TypeError, "Transformations tuples lists are of unequal length");
+    return NULL;
+}
 
-    atom_t *atomListRecBuffer = structDictToAtoms(pyDictRec, &nAtomsRec);
-    atom_t *atomListLigBuffer = structDictToAtoms(pyDictLig, &nAtomsLig);
-    // Read offset translations for ligand receptor
-    if (offsetLig != NULL) {
-        if ( ! unpackVector3(offsetLig, &offsetLigVector) ) {
-            PyErr_SetString(PyExc_TypeError, "Fail to unpack ligand offset triplet");
-            return NULL;
-        }
-    }
-    if (offsetRec != NULL) {
-        if ( ! unpackVector3(offsetRec, &offsetRecVector) ) {
-            PyErr_SetString(PyExc_TypeError, "Fail to unpack receptor offset triplet");
-            return NULL;
-        } 
-    }
-    // Building C typed double list for euler and tranlation per poses
-    Py_ssize_t i, j;
-    double **eulerTriplets = createListVector3(eulerList, &i);
-    double **transTriplets = createListVector3(transList, &j);
-    if (i != j) {
-        PySys_WriteStderr("Uneven translation eulers operations %zd %zd", i, j);
-        PyErr_SetString(PyExc_TypeError, "Transformation error");
-        // Cleanup memory
+bool bEncode = false;
+if (encodeBool != NULL) {
+    if (PyObject_IsTrue(encodeBool))
+        bEncode = true;
+        Py_XDECREF(encodeBool);
+}
+
+// Read offset translations for ligand receptor
+if (offsetLig != NULL) {  
+    offsetLigVector =  unpackVector3(offsetLig);    
+    if (offsetLigVector == NULL ) {
+        PySys_WriteStderr("Fail to unpack ligand offset triplet");
         return NULL;
     }
-    
-    PySys_WriteStdout("Unpacking %lu %lu euler and translation poses", i,j);
-    for (int k = 0; k < i ; k++) {
-        PySys_WriteStdout("Unpacking %f %f %f // %f %f %f", \
-                            eulerTriplets[k][0], eulerTriplets[k][1], eulerTriplets[k][2],\
-                            transTriplets[k][0], transTriplets[k][1], transTriplets[k][2]\
-                            );
+}
+if (offsetRec != NULL) {  
+    offsetRecVector =  unpackVector3(offsetRec);    
+    if (offsetRecVector == NULL ) {
+        destroyVector3(offsetLigVector);
+        PySys_WriteStderr("Fail to unpack receptor offset triplet");
+        return NULL;
     }
+}
+
+Py_ssize_t nPose;
+double **eulerTriplets = createListVector3(eulerList, &nPose);
+if(eulerTriplets == NULL) {
+    PySys_WriteStderr("Fail to unpack eulers tuples list");
+    destroyVector3(offsetLigVector);
+    destroyVector3(offsetRecVector);
+    return NULL;
+}
+double **transTriplets = createListVector3(transList, &nPose);
+if(transTriplets == NULL) {
+    PySys_WriteStderr("Fail to unpack tranlsations tuples list");
+    destroyVector3(offsetLigVector);
+    destroyVector3(offsetRecVector);
+    destroyListVector3(eulerTriplets, nPose);
+    return NULL;
+}
+
+PySys_WriteStdout("Unpacking %lu  euler and translation poses with bEncode:%s and D=%f\n",\
+                                            nPose, bEncode ? "true" : "false", userThreshold);
+/*
+for (int k = 0; k < nPose ; k++) {
+    PySys_WriteStdout("Unpacking %f %f %f // %f %f %f\n", \
+                        eulerTriplets[k][0], eulerTriplets[k][1], eulerTriplets[k][2],\
+                        transTriplets[k][0], transTriplets[k][1], transTriplets[k][2]\
+                        );
+}
+*/
+
+int nAtomsRec = 0;
+int nAtomsLig = 0;
+// Reading provided ligand, receptor conformations
+atom_t *atomListRec = structDictToAtoms(pyDictRec, &nAtomsRec);
+atom_t *atomListLig = structDictToAtoms(pyDictLig, &nAtomsLig);
+atom_t *atomListLigBuffer = structDictToAtoms(pyDictLig, &nAtomsLig);
+
+// Alloc for results structures
+ccmapView_t **ccmapViews = PyMem_New(ccmapView_t *, nPose); // MAybe not safe has access and subsequent malloc occur in thread below
+ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = &residueContactMap;
+
+Py_BEGIN_ALLOW_THREADS
+if(offsetRecVector != NULL)
+    transformAtomList(atomListRec, NULL, offsetRecVector);
+if(offsetLigVector != NULL)
+    transformAtomList(atomListLig, NULL, offsetLigVector);
+
+//return Py_BuildValue("s", "RTOTO");
+// Loop through all poses transformations
+for (int iPose = 0 ; iPose < nPose ; iPose++) {
+    // Transform Ligand
+    transformAtomList(atomListLigBuffer, eulerTriplets[iPose], transTriplets[iPose]);
+    //transformAtomList(atomListLigBuffer, NULL, transTriplets[iPose]);
+    ccmapViews[iPose] = computeMap(atomListRec, nAtomsRec, atomListLigBuffer, nAtomsLig, userThreshold, bEncode);
+    // Reset ligand coordinates
+    applyCoordinates(atomListLig, atomListLigBuffer);
+}
+Py_END_ALLOW_THREADS
+
+/* Build return value */
+PyObject *rValue = ccmapViewsToPyObject(ccmapViews, nPose, bEncode);
+
+/* transformations cleanup */
+destroyVector3(offsetLigVector);
+destroyVector3(offsetRecVector);
+destroyListVector3(eulerTriplets, nPose);
+destroyListVector3(transTriplets, nPose);
+/* Computations results cleanup*/
+for (int i = 0; i < nPose ; i++)
+    destroyCcmapView(ccmapViews[i]);
+PyMem_Free(ccmapViews);
+/* Coordinates cleanup*/
+destroyAtomList(atomListRec, nAtomsRec);
+destroyAtomList(atomListLig, nAtomsLig);
+destroyAtomList(atomListLigBuffer, nAtomsLig);
+
+return rValue;
 
     /*
     ccmapView_t ccmapView;
@@ -212,11 +282,12 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
 */
 //  Py_END_ALLOW_THREADS
 
-    destroyListVector3(eulerTriplets, i);
-    destroyListVector3(transTriplets, j);
+    //destroyListVector3(eulerTriplets, i);
+//    destroyListVector3(transTriplets, j);
     
-    PyObject *rValue = Py_BuildValue("s", "RTOTO");
-    return rValue;
+  //  PyObject *rValue = Py_BuildValue("s", "RTOTO");
+   // return rValue;
+    
 }
 /*
 
@@ -313,7 +384,10 @@ Py_ssize_t nStructPairs = PyList_Size(pyDictList);
     Python API exposed as cmap
 */
 static PyObject *ccmap_compute_flex(PyObject* self, PyObject* args, PyObject* kwargs) {
+#ifdef DEBUG
 PySys_WriteStderr("ccmap_compute_flex");
+#endif
+
 static char *kwlist[] = {"", "y", "dist", "atomic", "encode", NULL};
 
 PyObject *atomicBool = NULL;

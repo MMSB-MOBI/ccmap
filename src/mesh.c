@@ -203,7 +203,7 @@ string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults) {
     jsonString->append(jsonString, "{ \"type\":\"atomic\", \"data\" : [");
     if (nAtomPair == 0)
         fprintf(stderr, "No atomic contact to jsonify\n");
-    for (int i = 0 ; i  < nAtomPair ; i++) {
+    for (uint64_t i = 0 ; i  < nAtomPair ; i++) {
         if (i != 0)
             jsonString->append(jsonString, ", ");
         jsonifyAtomPair(&(atomPair[i]), buffer);
@@ -220,7 +220,9 @@ string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults) {
 // Go through none empty cells
 // Get its following cells neighbours
 void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
-    printf("Starting meshCrawler %s\n", cellCrawler->dual?"dual mode":"not dual mode");
+#ifdef DEBUG
+    fprintf(stderr, "Starting meshCrawler %s\n", cellCrawler->dual?"dual mode":"not dual mode");
+#endif
     mesh_t *mesh = meshContainer->mesh;
     cell_t **cellList = meshContainer->filledCells;
     int nCells = meshContainer->nFilled;
@@ -289,7 +291,9 @@ cell_t ** vectorizeMesh(mesh_t *mesh) {
 }
 
 meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double step) {
-    printf("Starting createMeshContainer\n");    
+#ifdef DEBUG
+    fprintf(stderr, "Starting createMeshContainer\n");    
+#endif
     atom_t minCoor;
     atom_t maxCoor;
     bool dualMode = jAtomList != NULL ? true : false;

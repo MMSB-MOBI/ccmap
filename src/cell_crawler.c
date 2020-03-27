@@ -230,7 +230,9 @@ void pairwiseCellEnumerateDual(cellCrawler_t *cellCrawler, cell_t *refCell, cell
         }
         iAtom = iAtom->nextCellAtom;
     }
-    printf("Exiting pairwiseCellEnumerate\n");
+#ifdef DEBUG
+    fprintf(stderr, "Exiting pairwiseCellEnumerate\n");
+#endif
 }
 
 double distance(atom_t *iAtom, atom_t *jAtom) {

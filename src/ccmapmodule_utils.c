@@ -18,6 +18,42 @@ PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode) {
     return Py_BuildValue("s", ccmapView->asJSON);
 }
 
+// NEED TO CHECK XREFs !!!
+PyObject *ccmapViewsToPyObject(ccmapView_t **ccmapViews, int nViews, bool bEncode) {
+    PyObject *rValue;
+    ccmapView_t *currView;
+    if(bEncode) {
+        PySys_WriteStdout("Building encoding results\n");
+        rValue = PyList_New(nViews);
+        PyObject *pyCurrList, *pyValue;
+        
+        for (int iView = 0 ; iView < nViews ; iView++) {
+            currView = ccmapViews[iView];
+           // PySys_WriteStdout("CurrView is of length %lu\n", currView->encodeLen);
+            PyList_SetItem( rValue, iView, PyList_New(currView->encodeLen) );
+            pyCurrList = PyList_GetItem(rValue, iView);
+            for (size_t i = 0 ; i < currView->encodeLen ; i++){            
+                pyValue = Py_BuildValue("i", currView->asENCODE[i]); // pyValue xref ?
+                PyList_SetItem(pyCurrList, i, pyValue);
+            }
+        }
+        return rValue;
+    }
+    //return Py_BuildValue("s", "RTOTO");
+    string_t *jsonStringEncodeMany = createString();
+    jsonStringEncodeMany->append(jsonStringEncodeMany, "{\"type\":\"lzmap\", \"data\":[");
+    for (int iView = 0 ; iView < nViews ; iView++) {
+            jsonStringEncodeMany->append(jsonStringEncodeMany, ccmapViews[iView]->asJSON);
+        if (iView < nViews - 1)
+            jsonStringEncodeMany->append(jsonStringEncodeMany, ",");  
+    }
+    jsonStringEncodeMany->append(jsonStringEncodeMany, "]}");
+
+    rValue = Py_BuildValue("s", jsonStringEncodeMany->value);
+    destroyString(jsonStringEncodeMany);
+    return rValue;
+}
+
 int PyObject_AsDouble(PyObject *py_obj, double *x)
 {
   PyObject *py_float;
@@ -85,44 +121,74 @@ int backMapCoordinates(atom_t *atomListRoot,  PyObject *pyDictObject) {
 }
 
 double **createListVector3(PyObject *pyObject_List, Py_ssize_t *len) {
-    *len = PyList_Size(pyObject_List);    
+    *len = PyList_Size(pyObject_List);  
     double **vList = PyMem_New(double*, *len);
     
     PyObject *currPyTuple;
+    bool bError =false;
     for (int i = 0 ; i < *len ; i++) {
-        currPyTuple = PyTuple_GetItem(pyObject_List, i);
+        currPyTuple = PyList_GetItem(pyObject_List, i);
         vList[i] = PyMem_New(double, 3);
-        unpackVector3( currPyTuple, &(vList[i]) );
+        vList[i] = unpackVector3(currPyTuple);
+        if (vList[i] == NULL) {
+            bError = true;
+            break;
+        }
     }
-
+    if (bError)
+        vList = destroyListVector3(vList, *len);
     return vList;
 }
 
 double **destroyListVector3(double **vList, Py_ssize_t len) {
     for (int i = 0 ; i < len ; i++)
-        PyMem_Free(vList[i]);
+        destroyVector3(vList[i]);
     PyMem_Free(vList);
     return vList;
 }
 
-int unpackVector3(PyObject *pyObject_Tuple, double (*vector)[3]) {
+double *unpackVector3(PyObject *pyObject) {
 #ifdef DEBUG
     PySys_WriteStdout("--->Unpack Vector3\n");
 #endif
+    PyObject *(*PyArray_GetItem)(PyObject *, Py_ssize_t);
+    Py_ssize_t (*PyArray_Size)(PyObject *);
 
-    float x;
-    PyObject *pItem;
-    Py_ssize_t n;
-    n = PyTuple_Size(pyObject_Tuple);
-    for (int i = 0 ; i < 3 ; i++) {
-        pItem = PyTuple_GetItem(pyObject_Tuple, i);
-        if(!PyFloat_Check(pItem)) {
-            PyErr_SetString(PyExc_TypeError, "3D vector element items must be float.");
-            return 0;
-        }
-        PyObject_AsDouble( pItem, &(*vector)[i]);
+    if(PyList_Check(pyObject)) {
+        PyArray_GetItem = &PyList_GetItem;
+        PyArray_Size = &PyList_Size;
+    } else if(PyTuple_Check(pyObject)) {
+        PyArray_GetItem = &PyTuple_GetItem;
+        PyArray_Size = &PyTuple_Size;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Error unpacking a vector3 from unknown array type");
+        return NULL;
     }
-    return 1;
+    if (PyArray_Size(pyObject) != 3) {
+        PyErr_SetString(PyExc_TypeError, "Error unpacking a vector3 from a python array of size != 3");
+        return NULL;
+    }
+
+    double *vector = PyMem_New(double, 3);
+    PyObject *pItem;
+   
+    for (int i = 0 ; i < 3 ; i++) {
+        pItem = PyArray_GetItem(pyObject, i);
+        if(!PyFloat_Check(pItem)) {
+            PyMem_Free(vector);
+            PyErr_SetString(PyExc_TypeError, "3D vector element items must be float.");
+            return NULL;
+        }
+        PyObject_AsDouble( pItem, &(vector[i]));
+    }
+    return vector;
+}
+
+double *destroyVector3(double *vector) {
+    if (vector == NULL)
+        return vector;
+    PyMem_Free(vector);
+    return vector;
 }
 
 int unpackChainID(PyObject *pListChainID, char **buffer) {
