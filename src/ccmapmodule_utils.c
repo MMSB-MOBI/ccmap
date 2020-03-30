@@ -63,6 +63,7 @@ int PyObject_AsDouble(PyObject *py_obj, double *x)
   *x = 0; 
   *x += PyFloat_AsDouble(py_float);
 
+ //*x = 5.0;
   Py_DECREF(py_float);
   //PySys_WriteStdout("REF COUNT results  :: is %d\n", Py_REFCNT(py_float) ); # IT IS STILL 1
   return 0;
@@ -261,22 +262,20 @@ int unpackString(PyObject *pListOfStrings, char ***buffer) {
 }
 
 double *unpackCoordinates(PyObject *pListCoor) {
-
     PyObject *pItem;
     Py_ssize_t n = PyList_Size(pListCoor);
     double *buffer = PyMem_New(double, n);
 
-    double value;
-    for (i = 0; i < n ; i++) {
+    for (int i = 0; i < n ; i++) {
         pItem = PyList_GetItem(pListCoor, i);
         if(!PyFloat_Check(pItem)) {
             PyErr_SetString(PyExc_TypeError, "coordinate items must be float.");
-            PyMem_Free(*buffer);
+            PyMem_Free(buffer);
             return NULL;
         }
 
         PyObject_AsDouble(pItem, &(buffer[i]) );
-   //     PySys_WriteStdout("TEST:: %.2f\n", (*buffer)[i] );
+        //PySys_WriteStdout("TEST:: %.2f\n", buffer[i] );
     }
     #ifdef DEBUG
     PySys_WriteStderr("Allocation done\n");
@@ -370,4 +369,16 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
     PySys_WriteStdout("Returning atomList\n");
 #endif
     return atomList;
+}
+
+
+
+void setBooleanFromParsing(PyObject *pyObjectBool, bool *bResults) 
+{
+*bResults = false;
+if (pyObjectBool != NULL) {
+    if (PyObject_IsTrue(pyObjectBool))
+        *bResults = true;
+    Py_XDECREF(pyObjectBool);
+    }
 }

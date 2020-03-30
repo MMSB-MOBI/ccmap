@@ -10,6 +10,17 @@ void printResidueList(residue_t *residueList) {
         printResidue(curr_residue);
     }
 }
+
+unsigned int residueListLen(residue_t *ResidueList){
+  int nResidues=1;
+  residue_t *residue= ResidueList;
+  while (residue->nextResidueList!= NULL){
+    nResidues++;
+    residue=residue->nextResidueList;
+  }
+  return nResidues;
+}
+
 void printResidue(residue_t *residue) {
     atom_t *curr_atom;
     char atomString[81];
@@ -325,7 +336,7 @@ atom_t *legacy_readCoordinates(char *fname, int *_nAtom) {
     char *end;
 
     int nAtom = 0;
-    while ((read = getline(&line, &len, fp)) != -1) {
+    while ((int)(read = getline(&line, &len, fp)) != -1) {
         p = line;
         double buf[3];
         int i = 0;

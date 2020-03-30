@@ -23,7 +23,7 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
     return ccmapView;
 }
 
-// ENCODED single residue set currently DISABLED
+// ENCODED single residue set currently DISABLED SHOULD BE ENABLED
 ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded) {
     #ifdef DEBUG
     fprintf(stderr, "Starting residueContactMap\n");
@@ -31,21 +31,21 @@ ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, 
     bool bAtomic = false;
     ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic);
     ccmapView_t *ccmapView = createCcmapView();
+
     if (jAtomList != NULL) { 
     // Link the two residues list
-        fuseResidueLists(ccmapResults->iResidueList, ccmapResults->jResidueList);        
+   //     fuseResidueLists(ccmapResults->iResidueList, ccmapResults->jResidueList);        
     } else {
-        assert(!bEncoded); // MUST CHECK FOR encoding one residueList integrity
+        assert(!bEncoded); // MUST CHECK FOR encoding one residueList integrity 
     }
+
     if (bEncoded) {
         unsigned int finalLen;
-        int jlen = chainLen(ccmapResults->jResidueList);
-        int ilen = chainLen(ccmapResults->iResidueList);
-        ccmapView->asENCODE = encodeContactMap(ccmapResults->iResidueList, jlen, ilen, &finalLen);
+        ccmapView->asENCODE = encodeContactMap(ccmapResults->iResidueList, ccmapResults->jResidueList, &finalLen);
         ccmapView->encodeLen = (size_t)finalLen;
-        #ifdef DEBUG
+        //#ifdef DEBUG
         fprintf(stderr, "Encoding residueContactMap completed int a %d elements vector\n", finalLen);
-        #endif
+        //#endif
     } else {
         ccmapView->asJSON = jsonifyContactList(ccmapResults->iResidueList);
     }

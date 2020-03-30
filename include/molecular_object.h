@@ -50,6 +50,7 @@ typedef struct atomPair {
 
 // Display molecular objects content
 void printResidueList(residue_t *residueList);
+unsigned int residueListLen(residue_t *);
 void printResidue(residue_t *residue);
 void printAtomList(atom_t *atomList, FILE *stream);
 void stringifyAtom(atom_t *atom, char *atomString);

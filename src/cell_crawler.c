@@ -67,6 +67,16 @@ bool processPairwiseDistance(cellCrawler_t* cellCrawler, atom_t* iAtom, atom_t* 
         #endif
         isNewContact = cellCrawler->updater->updaterFn(cellCrawler, iAtom, jAtom, currDist);
         if(isNewContact) {// Usefull to resize atomContactList only, ...
+            // HERE
+            char iAtomString[81];
+            char jAtomString[81];
+            stringifyAtom(iAtom, iAtomString);
+            stringifyAtom(jAtom, jAtomString);
+    
+            FILE *fp = fopen("contacts.lst", "a");
+            fprintf(fp, "%s CC_DIST %s  %s  ==> %.2g\n", cellCrawler->dual ? "dual" : "not_dual", iAtomString, jAtomString, currDist);
+            fclose(fp);
+            // THERE
             //cellCrawler->updater->totalByAtom++;
             #ifdef DEBUG 
                 fprintf(stderr, "%s CC_DIST %s  %s  ==> %.2g\n", cellCrawler->dual ? "dual" : "", iAtomString, jAtomString, currDist);
@@ -120,7 +130,12 @@ bool updateResidueContact(cellCrawler_t *cellCrawler, atom_t *iAtom, atom_t *jAt
             return false;
         }
     }
-    //printf("ADDING a new contact between residues indexed %d,%d\n", iResidue->index, jResidue->index);
+    //HERE
+    FILE *fp = fopen("contacts_residue_add.lst", "a");
+    fprintf(fp, "ADDING a new contact between residues indexed %d,%d\n", iResidue->index, jResidue->index);
+    fclose(fp);
+    //THERE
+    
     iResidue->nContacts++;
     iResidue->contactResidueList = realloc( iResidue->contactResidueList, iResidue->nContacts * sizeof(residue_t*) );
     iResidue->contactResidueList[iResidue->nContacts - 1] = jResidue;
@@ -236,5 +251,16 @@ void pairwiseCellEnumerateDual(cellCrawler_t *cellCrawler, cell_t *refCell, cell
 }
 
 double distance(atom_t *iAtom, atom_t *jAtom) {
+    FILE *fp = fopen("shadow.lst", "a");
+    char a1[100];
+    char a2[100];
+    double _ = sqrt( (iAtom->x - jAtom->x) * (iAtom->x - jAtom->x) + (iAtom->y - jAtom->y) * (iAtom->y - jAtom->y) + (iAtom->z - jAtom->z) * (iAtom->z - jAtom->z));
+    stringifyAtom(iAtom, a1);
+    stringifyAtom(jAtom, a2);
+
+    fprintf(fp, "%s %s %.5g\n", a1, a2, _);
+    fclose(fp);
+
+
     return sqrt( (iAtom->x - jAtom->x) * (iAtom->x - jAtom->x) + (iAtom->y - jAtom->y) * (iAtom->y - jAtom->y) + (iAtom->z - jAtom->z) * (iAtom->z - jAtom->z) );
 }

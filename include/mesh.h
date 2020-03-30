@@ -14,7 +14,7 @@
 
 typedef struct ccmapView {
     char *asJSON;
-    int *asENCODE;
+    unsigned int *asENCODE;
     size_t encodeLen;
 } ccmapView_t;
 

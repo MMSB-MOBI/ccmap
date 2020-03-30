@@ -17,6 +17,7 @@ double *destroyVector3(double *vector);
 
 int unpackChainID(PyObject *pListChainID, char **buffer);
 int unpackString(PyObject *pListOfStrings, char ***buffer);
-int unpackCoordinates(PyObject *pListCoor, double **buffer);
+double *unpackCoordinates(PyObject *pListCoor);
 void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
 atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms);
+void setBooleanFromParsing(PyObject *, bool *);
