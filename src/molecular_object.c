@@ -1,13 +1,15 @@
 #include "molecular_object.h"
 
-void printResidueList(residue_t *residueList) {
+void printResidueList(FILE *stream, residue_t *residueList) {
     residue_t *curr_residue = residueList;
-    printf("PRINTING RESIDUE LIST\n");
+    if(stream == NULL)
+        stream = stdout;
+    fprintf(stream, "PRINTING RESIDUE LIST\n");
 
-    printResidue(curr_residue);
+    printResidue(stream, curr_residue);
     while(curr_residue->nextResidueList != NULL) {
         curr_residue = curr_residue->nextResidueList;
-        printResidue(curr_residue);
+        printResidue(stream, curr_residue);
     }
 }
 
@@ -21,21 +23,23 @@ unsigned int residueListLen(residue_t *ResidueList){
   return nResidues;
 }
 
-void printResidue(residue_t *residue) {
+void printResidue(FILE *stream, residue_t *residue) {
+    if(stream == NULL)
+        stream = stdout;
     atom_t *curr_atom;
     char atomString[81];
     char residueString[81];
     stringifyResidue(residue, residueString);
-    printf("RES: %s (%d)\n", residueString, residue->nAtoms);
+    fprintf(stream, "RES: %s (%d)\n", residueString, residue->nAtoms);
     curr_atom = residue->elements;
     while(curr_atom->nextResidueAtom != NULL) {
         stringifyAtom(curr_atom, atomString);
-        printf("%s\n", atomString);
+        fprintf(stream, "%s\n", atomString);
         curr_atom = curr_atom->nextAtomList;
     }
     stringifyAtom(curr_atom, atomString);
-    printf("%s\n", atomString);
-    printf("--------------------\n");
+    fprintf(stream, "%s\n", atomString);
+    fprintf(stream, "--------------------\n");
 }
 
 void printAtomList(atom_t *atomList, FILE *stream) {
@@ -105,9 +109,11 @@ bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo) {
 
 residue_t *createResidue(atom_t *atom, int n) {
     #ifdef DEBUG
+    FILE *fp=fopen("createResidue.log", "a"); 
     char atomString[81];
     stringifyAtom(atom, atomString);
-    printf("Starting createResidue with %s\n", atomString);
+    fprintf(fp, "Starting createResidue with %s\n", atomString);
+    fclose(fp);
     #endif
     residue_t *residue = malloc(sizeof(residue_t));
     residue->nAtoms = n;

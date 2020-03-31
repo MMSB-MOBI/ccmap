@@ -7,7 +7,7 @@
 #include <math.h>
 #include <string.h>
 #include <assert.h>
-
+#define TABLE_CHUNCK_SZ (1000)
 #define ENCODE_IJ2K(iRec, jLig, nLig) ( (iRec) * (nLig) + (jLig) )
 #include "molecular_object.h"
 

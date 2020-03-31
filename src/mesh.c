@@ -32,20 +32,21 @@ ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, 
     ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic);
     ccmapView_t *ccmapView = createCcmapView();
 
+/* SHOULD BE OK
     if (jAtomList != NULL) { 
     // Link the two residues list
    //     fuseResidueLists(ccmapResults->iResidueList, ccmapResults->jResidueList);        
     } else {
         assert(!bEncoded); // MUST CHECK FOR encoding one residueList integrity 
     }
-
+*/
     if (bEncoded) {
         unsigned int finalLen;
         ccmapView->asENCODE = encodeContactMap(ccmapResults->iResidueList, ccmapResults->jResidueList, &finalLen);
         ccmapView->encodeLen = (size_t)finalLen;
-        //#ifdef DEBUG
+        #ifdef DEBUG
         fprintf(stderr, "Encoding residueContactMap completed int a %d elements vector\n", finalLen);
-        //#endif
+        #endif
     } else {
         ccmapView->asJSON = jsonifyContactList(ccmapResults->iResidueList);
     }
@@ -98,12 +99,19 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
 #endif
     residue_t *iResidueList                     = createResidueList(iAtomList);
     residue_t *jResidueList = jAtomList != NULL ? createResidueList(jAtomList) : NULL;
+
 #ifdef DEBUG
-#ifdef AS_PYTHON_EXTENSION
-        PySys_WriteStdout("Computing residue contact map w/ %.2g Angstrom step\n", ctc_dist);
-#endif
     printf("Computing residue contact map w/ %.2g Angstrom step\n", ctc_dist);
+    FILE *fp = fopen("createResidueList.log", "w");
+    fprintf(fp, "I RESIDUE LIST CONTENT\n");
+    printResidueList(fp, iResidueList);
+    if(jAtomList != NULL){
+        fprintf(fp, "J RESIDUE LIST CONTENT\n");
+        printResidueList(fp, jResidueList);
+    }
+    fclose(fp);
 #endif
+
     double step = ctc_dist;
     meshContainer_t *meshContainer = createMeshContainer(iAtomList, iAtom, jAtomList, jAtom, step);
     /* Inspecting atom projection */
@@ -116,16 +124,6 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
     ccmapResults_t *results = createCcmapResults(cellCrawler, iResidueList, jResidueList);
     meshContainer = destroyMeshContainer(meshContainer);
 
-/*
-    #ifdef DEBUG
-        printContactList(iResidueList);
-        printf("%s\n", jsonString);
-    #ifdef AS_PYTHON_EXTENSION
-        PySys_WriteStderr("%s\n", jsonString);
-        PySys_WriteStderr("\n" );
-    #endif
-    #endif
-*/
 #ifdef DEBUG
     fprintf(stderr, "Exiting ccmapCore\n");
 #endif
@@ -180,17 +178,7 @@ char *jsonifyContactList(residue_t *residueList) {
 #endif
     return jsonStringTotal;
 }
-/*
-function
-<cstdio>
-sprintf
-int sprintf ( char * str, const char * format, ... );
-Write formatted data to string
-Composes a string with the same text that would be printed if format was used on printf, but instead of being printed, the content is stored as a C string in the buffer pointed by str.
-The size of the buffer should be large enough to contain the entire resulting string (see snprintf for a safer version).
 
-A terminating null character is automatically appended after the content.
-*/
 string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults) {
     #ifdef DEBUG
     fprintf(stderr, "Starting jsonifyAtomPairList\n");
@@ -239,9 +227,6 @@ void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
         cur_cell = cellList[c];
 #ifdef DEBUG
         fprintf(stderr, "Neighbours of cell %d (%d %d %d)\n", cur_cell->n, cur_cell->i, cur_cell->j, cur_cell->k);
-#ifdef AS_PYTHON_EXTENSION
-     //   PySys_WriteStderr("Neighbours of cell %d (%d %d %d)\n", cur_cell->n, cur_cell->i, cur_cell->j, cur_cell->k);
-#endif
 #endif
         // List Neighbouring cells and enumerate the pairwise atomic distances
         for (int i = cur_cell->i ; i <= cur_cell->i + 1 ; i++) {
@@ -268,9 +253,6 @@ void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
     uint64_t ccByAtom    = cellCrawler->updater->totalByAtom;
     uint64_t ccByResidue = cellCrawler->updater->totalByResidue;
     printf("\n ---> %llu valid atomic distances computed for a total of %llu residue contacts\n", ccByAtom, ccByResidue);
-#ifdef AS_PYTHON_EXTENSION
-    PySys_WriteStdout("\n ---> %llu valid atomic distances computed for a total of %llu residue contacts\n", ccByAtom, ccByResidue);
-#endif
     fprintf(stderr, "Exiting meshCrawler");
 #endif
     
@@ -305,11 +287,6 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
 #ifdef DEBUG
     printf("Minimal Coordinates %g %g %g\n", minCoor.x, minCoor.y, minCoor.z);
     printf("Maximal Coordinates %g %g %g\n", maxCoor.x, maxCoor.y, maxCoor.z);
-
-#ifdef AS_PYTHON_EXTENSION
-    PySys_WriteStdout("Maximal Coordinates %g %g %g\n", maxCoor.x, maxCoor.y, maxCoor.z);
-    PySys_WriteStdout("Minimal Coordinates %g %g %g\n", minCoor.x, minCoor.y, minCoor.z);
-#endif
 #endif
 
     int iDim = (maxCoor.x - minCoor.x);
@@ -382,9 +359,6 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
 
 #ifdef DEBUG
     printf("%d atoms projected onto %d cells\n", iAtom + jAtom, nFilled);
-#ifdef AS_PYTHON_EXTENSION
-    PySys_WriteStdout("%d atoms projected onto %d cells\n", iAtom + jAtom, nFilled);
-#endif
 #endif
     meshContainer_t *results = malloc (sizeof(meshContainer_t));
     results->mesh = i_mesh;

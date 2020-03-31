@@ -3,6 +3,17 @@
 
 // --------------------- Utility Functions ---------------------  XREF SANITY ?
 
+bool PyArray_Equal(PyObject *arrayI, PyObject *arrayJ) {
+    Py_ssize_t (*PyArray_SizeI)(PyObject *);
+    Py_ssize_t (*PyArray_SizeJ)(PyObject *);
+
+    PyArray_SizeI = PyList_Check(arrayI) ? &PyList_Size : &PyTuple_Size;
+    PyArray_SizeJ = PyList_Check(arrayJ) ? &PyList_Size : &PyTuple_Size;
+  
+    return PyArray_SizeI == PyArray_SizeJ;
+}
+
+
 // Returns a representaion of ccmapVie as a PyList if bEncode, PyString otherwise
 PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode) {
     
@@ -120,16 +131,29 @@ int backMapCoordinates(atom_t *atomListRoot,  PyObject *pyDictObject) {
     return 1;
 }
 
-double **createListVector3(PyObject *pyObject_List, Py_ssize_t *len) {
-    *len = PyList_Size(pyObject_List);  
+double **createListVector3(PyObject *pyObject_array, Py_ssize_t *len) {
+    PyObject *(*PyArray_GetItem)(PyObject *, Py_ssize_t);
+    Py_ssize_t (*PyArray_Size)(PyObject *);
+
+    if(PyList_Check(pyObject_array)) {
+        PyArray_GetItem = &PyList_GetItem;
+        PyArray_Size = &PyList_Size;
+    } else if(PyTuple_Check(pyObject_array)) {
+        PyArray_GetItem = &PyTuple_GetItem;
+        PyArray_Size = &PyTuple_Size;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Error unpacking list of vector3 from unknown array type");
+        return NULL;
+    }
+    *len = PyArray_Size(pyObject_array);  
     double **vList = PyMem_New(double*, *len);
     
-    PyObject *currPyTuple;
+    PyObject *currPyArray;
     bool bError =false;
     for (int i = 0 ; i < *len ; i++) {
-        currPyTuple = PyList_GetItem(pyObject_List, i);
+        currPyArray = PyArray_GetItem(pyObject_array, i);
         vList[i] = PyMem_New(double, 3);
-        vList[i] = unpackVector3(currPyTuple);
+        vList[i] = unpackVector3(currPyArray);
         if (vList[i] == NULL) {
             bError = true;
             break;
@@ -251,13 +275,7 @@ int unpackString(PyObject *pListOfStrings, char ***buffer) {
         }
         (*buffer)[i][sLen - 2] = '\0';
         Py_XDECREF(objectsRepresentation);
-        //PySys_WriteStderr("NO DECFREF");
-        //PySys_WriteStdout("translated to --->\"%s\"[%d]\n", (*buffer)[i], sLen - 1);
-       // PySys_WriteStdout("translated to --->%s[%d]\n", (*buffer)[i]);
     }
-#ifdef DEBUG
-    PySys_WriteStdout("REF COUNT :: is %d\n", Py_REFCNT(objectsRepresentation) );
-#endif
     return 1;
 }
 
@@ -277,9 +295,6 @@ double *unpackCoordinates(PyObject *pListCoor) {
         PyObject_AsDouble(pItem, &(buffer[i]) );
         //PySys_WriteStdout("TEST:: %.2f\n", buffer[i] );
     }
-    #ifdef DEBUG
-    PySys_WriteStderr("Allocation done\n");
-    #endif
     return buffer;
 }
 
@@ -306,11 +321,7 @@ void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, c
 }
 
 atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
-#ifdef DEBUG
-    PySys_WriteStdout("\n\n=======================\n");
-    PySys_WriteStdout("REF COUNT current Dict :: is %d\n", Py_REFCNT(pyDictObject));
-#endif
-    //Return value: Borrowed reference.
+
     PyObject* pyObj_x = PyDict_GetItemString(pyDictObject, "x");
     PyObject* pyObj_y = PyDict_GetItemString(pyDictObject, "y");
     PyObject* pyObj_z = PyDict_GetItemString(pyDictObject, "z");
@@ -355,7 +366,7 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
     atom_t *atomList = readFromArrays(*nAtoms, coorX, coorY, coorZ, chainID, resSeq, resName, atomName);
 
     freeBuffers(coorX, coorY, coorZ, chainID, resSeq, resName,  atomName, *nAtoms);
-
+/*
 #ifdef DEBUG
     PySys_WriteStdout("REF COUNT X :: is %d\n", Py_REFCNT(pyObj_x) );
     PySys_WriteStdout("REF COUNT Y :: is %d\n", Py_REFCNT(pyObj_y) );
@@ -368,6 +379,10 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
     PySys_WriteStdout("REF COUNT current Dict :: is %d\n", Py_REFCNT(pyDictObject));
     PySys_WriteStdout("Returning atomList\n");
 #endif
+*/
+    #ifdef DEBUG
+    fprintf(stderr, "Exiting from structDictToAtoms\n");
+    #endif
     return atomList;
 }
 

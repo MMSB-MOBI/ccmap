@@ -3,7 +3,7 @@ import os
 import sysconfig
 
 extra_compile_args = sysconfig.get_config_var('CFLAGS').split()
-extra_compile_args += ['-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic']
+extra_compile_args += ['-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic']#, '-D', 'DEBUG']
 module1 = Extension('ccmap',
                     libraries = ['m'],
                     include_dirs = ['./include'],#, '../modules/include/python3.6m/'],

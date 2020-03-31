@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "mesh.h"
 // --------------------- Utility Functions ---------------------  XREF SANITY ?
-
+bool PyArray_Equal(PyObject *arrayI, PyObject *arrayJ) ;
 // Returns a representaion of ccmapVie as a PyList if bEncode, PyString otherwise
 PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode);
 PyObject *ccmapViewsToPyObject(ccmapView_t **, int, bool);
