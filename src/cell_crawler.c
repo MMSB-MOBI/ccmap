@@ -57,9 +57,20 @@ bool processPairwiseDistance(cellCrawler_t* cellCrawler, atom_t* iAtom, atom_t* 
     fprintf(stderr, "Starting processPairwiseDistance T:%g\n", cellCrawler->threshold);
     #endif
     double currDist = distance(iAtom, jAtom);
-    #ifdef DEBUG
+    #ifdef DEBUG    
     fprintf(stderr, "DD: %g %g || %s || %s \n", currDist, cellCrawler->threshold, iAtomString, jAtomString);
     #endif
+    
+    // HERE 
+    
+    char iAtomString[81];
+    char jAtomString[81];
+    stringifyAtom(iAtom, iAtomString);
+    stringifyAtom(jAtom, jAtomString);
+    FILE *fp = fopen("contacts_atomic_add.lst", "a");
+    fprintf(fp, "DD: %g %g || %s || %s \n", currDist, cellCrawler->threshold, iAtomString, jAtomString);
+    
+
     bool isNewContact = false;
     if(currDist <= cellCrawler->threshold) {     
         #ifdef DEBUG
@@ -68,14 +79,12 @@ bool processPairwiseDistance(cellCrawler_t* cellCrawler, atom_t* iAtom, atom_t* 
         isNewContact = cellCrawler->updater->updaterFn(cellCrawler, iAtom, jAtom, currDist);
         if(isNewContact) {// Usefull to resize atomContactList only, ...
             // HERE
-            char iAtomString[81];
-            char jAtomString[81];
-            stringifyAtom(iAtom, iAtomString);
-            stringifyAtom(jAtom, jAtomString);
-    
+            fprintf(fp, "%s CC_DIST %s  %s  ==> %.2g\n", cellCrawler->dual ? "dual" : "not_dual", iAtomString, jAtomString, currDist);
+            /*
             FILE *fp = fopen("contacts.lst", "a");
             fprintf(fp, "%s CC_DIST %s  %s  ==> %.2g\n", cellCrawler->dual ? "dual" : "not_dual", iAtomString, jAtomString, currDist);
             fclose(fp);
+        */
             // THERE
             //cellCrawler->updater->totalByAtom++;
             #ifdef DEBUG 
@@ -89,6 +98,9 @@ bool processPairwiseDistance(cellCrawler_t* cellCrawler, atom_t* iAtom, atom_t* 
     #ifdef DEBUG 
     fprintf(stderr, "Exiting processPairwiseDistance\n");
     #endif
+
+    fclose(fp);
+
     return isNewContact;
 }
 
@@ -120,19 +132,48 @@ bool updateResidueContact(cellCrawler_t *cellCrawler, atom_t *iAtom, atom_t *jAt
     residue_t *iResidue = iAtom->belongsTo;
     residue_t *jResidue = jAtom->belongsTo;
 
+   /*
+    FILE *fp = fopen("contacts_residue_add.lst", "a");
+    char res1[81];
+    char res2[81];
+    stringifyResidue(iResidue, res1);
+    stringifyResidue(jResidue, res2);
+    */
+    FILE *fp = fopen("contacts_residue_add.lst", "a");
+    char iAtomString[81];
+    char jAtomString[81];
+    stringifyAtom(iAtom, iAtomString);
+    stringifyAtom(jAtom, jAtomString);
+    char res1[81];
+    stringifyResidue(iResidue, res1);
+    char res2[81];
+    stringifyResidue(jResidue, res2);
+    fprintf(stderr, "%s :: %s -URC- %s :: %s\n", iAtomString, res1, res2, jAtomString);
+    fprintf(fp, "%s :: %s -URC- %s :: %s\n", iAtomString, res1, res2, jAtomString);
+   
     if (!cellCrawler->dual) { // We order only if its within same pdbrecord
         iResidue = iAtom->belongsTo->index < jAtom->belongsTo->index ? iAtom->belongsTo : jAtom->belongsTo;
         jResidue = iAtom->belongsTo->index < jAtom->belongsTo->index ? jAtom->belongsTo : iAtom->belongsTo;
     }
     for (int i = 0; i < iResidue->nContacts; i++) {
         if(iResidue->contactResidueList[i] == jResidue) {
-          //  printf("Contact already knwow between residues indexed %d,%d\n", iResidue->index, jResidue->index);
+            fclose(fp);
+          //  fprintf(fp, "CONTACT ALREADY KNOWN between residues %s -- %s\n", res1, res2);
+           // fprintf(fp, "Contact already knwow between residues indexed %d,%d\n", iResidue->index, jResidue->index);
+            return false;
+        }
+    }
+    for (int j = 0; j < jResidue->nContacts; j++) {
+        if(jResidue->contactResidueList[j] == iResidue) {
+            fclose(fp);
+          //  fprintf(fp, "CONTACT ALREADY KNOWN between residues %s -- %s\n", res1, res2);
+           // fprintf(fp, "Contact already knwow between residues indexed %d,%d\n", iResidue->index, jResidue->index);
             return false;
         }
     }
     //HERE
-    FILE *fp = fopen("contacts_residue_add.lst", "a");
-    fprintf(fp, "ADDING a new contact between residues indexed %d,%d\n", iResidue->index, jResidue->index);
+    
+    fprintf(fp, "ADDING a new contact between residues %s -- %s\n", res1, res2);
     fclose(fp);
     //THERE
     

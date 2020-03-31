@@ -53,13 +53,24 @@ unsigned int jLen = jResidueList != NULL ?\
 table = malloc( (iLen * jLen) * sizeof(int));
 *totalContacts = 0;
 
+FILE *fp = fopen("encodeContactMap.log", "w"); 
+char res1[81];
+char res2[81];
+
 srcResidue = iResidueList;
 while (srcResidue->nextResidueList!= NULL){
+    stringifyResidue(srcResidue, res1);
+    fprintf(fp, "Looking at %s\n", res1);
     if (srcResidue->nContacts > 0) {
         for (int i = 0; i < srcResidue->nContacts; i++){
           tgtResidue = srcResidue->contactResidueList[i];
           table[*totalContacts] = ENCODE_IJ2K(srcResidue->index, tgtResidue->index, jLen);
           *totalContacts += 1;
+          
+          stringifyResidue(tgtResidue, res2);
+          fprintf(fp, "%s -- %s\n", res1, res2);
+          fprintf(fp, "## %d %d (%d) => %d\n", srcResidue->index, tgtResidue->index, jLen, ENCODE_IJ2K(srcResidue->index, tgtResidue->index, jLen));
+
         }
     }
     srcResidue = srcResidue->nextResidueList;
@@ -69,20 +80,31 @@ if(jResidueList != NULL) {
   // Now we browse through the ligand, we swap the call to ENCODE
     srcResidue = jResidueList;
     while (srcResidue->nextResidueList != NULL){
+        stringifyResidue(srcResidue, res2);
+        fprintf(fp, "Looking at %s\n", res2);
         if (srcResidue->nContacts > 0) {
             for (int i = 0; i < srcResidue->nContacts; i++){
               tgtResidue = srcResidue->contactResidueList[i];
               table[*totalContacts] = (unsigned int)ENCODE_IJ2K(tgtResidue->index, srcResidue->index, jLen);
+              //fprintf(stderr, "%d = %d * %d + %d\n", (unsigned int)ENCODE_IJ2K(tgtResidue->index, srcResidue->index, jLen), tgtResidue->index, srcResidue->index, jLen);
               *totalContacts += 1;
+
+              stringifyResidue(tgtResidue, res1);
+              fprintf(fp, "%s -- %s\n", res1, res2);
+              fprintf(fp, "VS## %d %d (%d) => %d\n", tgtResidue->index, srcResidue->index, jLen,\
+                                        ENCODE_IJ2K(tgtResidue->index, srcResidue->index, jLen));
             }
         }
         srcResidue = srcResidue->nextResidueList;
     }
   }
 
+  fclose(fp);
 // Resize table with copyTable and free original table
 newTable = copyTable(table, *totalContacts);
 free(table);
+
+fprintf(stderr, "TT CC %d\n", *totalContacts);
 return newTable;
 }
 /*

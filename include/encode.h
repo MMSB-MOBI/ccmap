@@ -8,7 +8,7 @@
 #include <string.h>
 #include <assert.h>
 
-#define ENCODE_IJ2K(iRec, jLig, nLig) (iRec*jLig+nLig)
+#define ENCODE_IJ2K(iRec, jLig, nLig) ( (iRec) * (nLig) + (jLig) )
 #include "molecular_object.h"
 
 int chainLen(residue_t *ResidueList);
