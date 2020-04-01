@@ -12,24 +12,68 @@
 #include <Python.h>
 #endif
 
-unsigned int *copyTable(unsigned int *table, int lenTable ){
-  unsigned int *newTable = NULL;
-  newTable      = malloc( lenTable * sizeof(int) );
-  if (newTable != NULL){
-    for (int i = 0; i < lenTable; i++){
-      newTable[i] = table[i];
-    }
+unsigned int *copyTable(unsigned int *table, int lenTable )
+{
+unsigned int *newTable = NULL;
+newTable      = malloc( lenTable * sizeof(int) );
+if (newTable != NULL){
+  for (int i = 0; i < lenTable; i++){
+    newTable[i] = table[i];
   }
-  return newTable;
+}
+return newTable;
 }
 
 /*
-By convention the number of columns is taken from the jResidueList if it is not NULL
+By convention the number of columns is taken from the len ofjAtomList if it is not NULL
 */
-unsigned int *encodeContactMap(residue_t *iResidueList,         \
+unsigned int *encodeContactMapAtomic(atom_t *iAtomList, atom_t *jAtomList,\
+                                atomPair_t *ccList, \
+                                unsigned int *totalContacts)
+{
+unsigned int *table            = NULL;
+*totalContacts                 = atomPairLisLen(ccList);
+atomPair_t *currAtomPair       = NULL;
+table                          = malloc( *totalContacts * sizeof(int));
+unsigned int jLen              = jAtomList != NULL ?      \
+                                  atomListLen(jAtomList) : \
+                                  atomListLen(iAtomList);
+atom_t *iAtom                   = NULL;
+atom_t *jAtom                   = NULL;
+
+#ifdef DEBUG
+FILE *fp = fopen("encodeContactMapAtomic.log", "w"); 
+char atom1[81];
+char atom2[81];
+#endif
+
+int i = 0;
+while(currAtomPair != NULL){
+  iAtom = &(currAtomPair->a);
+  jAtom = &(currAtomPair->b);
+#ifdef DEBUG
+  stringifyAtom(iAtom, atom1);
+  stringifyAtom(jAtom, atom2);
+  fprintf(fp, "## %d %d (%d) => %d\n", iAtom->index, jAtom->index,\
+              jLen, ENCODE_IJ2K( iAtom->index, jAtom->index, jLen));
+#endif
+  table[i] = (unsigned int)ENCODE_IJ2K( iAtom->index, jAtom->index, jLen);
+  currAtomPair = currAtomPair->next;
+}
+
+#ifdef DEBUG
+flcose(fp); 
+#endif
+  return table;
+}
+
+/*
+By convention the number of columns is taken from the len of jResidueList if it is not NULL
+*/
+unsigned int *encodeContactMapResidue(residue_t *iResidueList,         \
                                residue_t *jResidueList, unsigned int *totalContacts
 ){
-    // Initiate table with maximal size
+
 unsigned int *table    = NULL;
 unsigned int *newTable = NULL;
 
@@ -37,14 +81,14 @@ residue_t *srcResidue = NULL;
 residue_t *tgtResidue = NULL;
 size_t tableCapacity = TABLE_CHUNCK_SZ;
 
-unsigned int jLen = jResidueList != NULL ?\
-                    residueListLen(jResidueList) :\
-                    residueListLen(iResidueList) ;
+unsigned int jLen = jResidueList != NULL ?         \
+                    residueListLen(jResidueList) : \
+                    residueListLen(iResidueList);
 
 table = malloc( tableCapacity * sizeof(int));
 *totalContacts = 0;
 #ifdef DEBUG
-  FILE *fp = fopen("encodeContactMap.log", "w"); 
+  FILE *fp = fopen("encodeContactMapResidue.log", "w"); 
 
 char res1[81];
 char res2[81];

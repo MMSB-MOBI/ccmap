@@ -5,6 +5,7 @@
 #include "transform_mesh.h"
 #include "encode.h"
 #include "ccmapmodule_utils.h"
+#include "ccmapmodule_allocation.h"
 
 struct module_state {
     PyObject *error;
@@ -34,7 +35,6 @@ static PyObject *ccmap_compute_flex(PyObject* self, PyObject* args, PyObject* kw
 #ifdef DEBUG
 PySys_WriteStderr("ccmap_compute_flex");
 #endif
-
 static char *kwlist[] = {"", "y", "d", "atomic", "encode", NULL};
 
 PyObject *atomicBool = NULL;
@@ -100,72 +100,95 @@ return rValue;
     Move the Pythread up ?
 
 */
-static PyObject *ccmap_compute_list(PyObject *self, PyObject *args)
+static PyObject *ccmap_compute_list(PyObject* self, PyObject* args, PyObject* kwargs)
 {
+
+static char *kwlist[] = {"", "d", "atomic", "encode", NULL};
+
 
 PyObject *pyDictList       = NULL;
 PyObject *encodeBool       = NULL;
+PyObject *atomicBool       = NULL;
 
 PyObject *PyListResults    = NULL;
 PyObject *pStructAsDictRec = NULL;
 PyObject *pStructAsDictLig = NULL;
-PyObject *PyTupleBuffer    = NULL;
+PyObject *PyStructBuffer    = NULL;
 Py_ssize_t nStructPairs;
 
-atom_t *atomListRec        = NULL;
-atom_t *atomListLig        = NULL;
-int nAtomsRec, nAtomsLig;
+atom_t **atomListRecList   = NULL;
+atom_t **atomListLigList   = NULL;
+int *nAtomsRecList      = NULL;
+int *nAtomsLigList      = NULL;
 
 float userThreshold = 4.5;
 bool bEncode;
+bool dual = false;
+bool bAtomic = false;
+ccmapView_t **ccmapViewList;
 
-ccmapView_t *ccmapView;
-
-if (!PyArg_ParseTuple(args, "O!f|O", &PyList_Type, &pyDictList, &userThreshold, &encodeBool)) {
+if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!|fOO", kwlist,\
+                    &PyList_Type, &pyDictList, &userThreshold, &atomicBool, &encodeBool)) {
     PyErr_SetString(PyExc_TypeError, "parameters must be a list of dictionnaries and a distance value.");
     return NULL;
 }
 setBooleanFromParsing(encodeBool, &bEncode);
+setBooleanFromParsing(atomicBool, &bAtomic);
 
-nStructPairs = PyList_Size(pyDictList);
-#ifdef DEBUG
-    PySys_WriteStdout("Unpacking %d pairs of structure coordinates [contact distance is %f]\n", (int)nStructPairs, userThreshold);
-#endif
+nStructPairs    = PyList_Size(pyDictList);
+// We off load from threads the coordinates loading
+for (int iStructPair = 0 ; iStructPair < (int)nStructPairs ; iStructPair++) {
+    PyStructBuffer   = PyList_GetItem(pyDictList, iStructPair);
+    Py_ssize_t cSize = PyList_Size(PyStructBuffer);
+    
+    if(iStructPair == 0) {
+        dual = cSize == 2;
+        ccmap_compute_list_allocate(&ccmapViewList, \
+                                    &atomListRecList, &nAtomsRecList, \
+                                    &atomListLigList, &nAtomsLigList, \
+                                    nStructPairs, dual);
+    }
 
-PyListResults = PyList_New(nStructPairs);
+    if( cSize > 2 || cSize == 0 || (dual && cSize == 1) || (!dual && cSize == 2) ) {     // Clean & exit w/ error
+        PyErr_SetString(PyExc_TypeError, "Unexpected number of coordinates sets");
+        ccmap_compute_list_cleanOnExit(ccmapViewList, \
+                                       atomListRecList, nAtomsRecList, \
+                                       atomListLigList, nAtomsLigList, \
+                                       iStructPair, dual);
+        return NULL;
+    }
+    pStructAsDictRec   = PyTuple_GetItem(PyStructBuffer, 0);
+    atomListRecList[iStructPair] = structDictToAtoms(pStructAsDictRec, &nAtomsRecList[iStructPair]);    
+    if(dual) {
+        pStructAsDictLig   = PyTuple_GetItem(PyStructBuffer, 1);
+        atomListLigList[iStructPair] = structDictToAtoms(pStructAsDictLig, &nAtomsLigList[iStructPair]);
+    }
+}
 
-
-for (int iStructPair = 0; iStructPair < (int)nStructPairs ; iStructPair++) {
-
-    PyTupleBuffer = PyList_GetItem(pyDictList, iStructPair);
-    pStructAsDictRec = PyTuple_GetItem(PyTupleBuffer, 0);
-    pStructAsDictLig = PyTuple_GetItem(PyTupleBuffer, 1);
-
-    atomListRec = structDictToAtoms(pStructAsDictRec, &nAtomsRec);
-    atomListLig = structDictToAtoms(pStructAsDictLig, &nAtomsLig);
-
-    Py_BEGIN_ALLOW_THREADS
-    bool bAtomic = false;
+Py_BEGIN_ALLOW_THREADS
+for (int i = 0; i < (int)nStructPairs ; i++) {
+  
     ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtomic\
                     ? &atomicContactMap
                     : &residueContactMap;
-    ccmapView = computeMap(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold, bEncode);
-    Py_END_ALLOW_THREADS
+    ccmapViewList[i] = computeMap(atomListRecList[i], nAtomsRecList[i], \
+                                  atomListLigList[i], nAtomsLigList[i], \
+                                  userThreshold, bEncode);
+}
+Py_END_ALLOW_THREADS
 
-    PyObject *cValue = ccmapViewToPyObject(ccmapView, bEncode);
-    PyList_SetItem(PyListResults, iStructPair, cValue);
-    destroyAtomList(atomListRec, nAtomsRec);
-    destroyAtomList(atomListLig, nAtomsLig);
-    destroyCcmapView(ccmapView);
+PyListResults   = PyList_New(nStructPairs);
+for (int i = 0; i < (int)nStructPairs ; i++) {
+    PyObject *cValue = ccmapViewToPyObject(ccmapViewList[i], bEncode);
+    PyList_SetItem(PyListResults, i, cValue);
+}
 
-        // HACK -- makes program work //
-        // Delalocation of the passed arguments makes
-        // decrements the pStructAsDict??? refernces count
-        //Py_INCREF(pStructAsDictRec);
-        //Py_INCREF(pStructAsDictLig);
-    }
+ccmap_compute_list_cleanOnExit(ccmapViewList, \
+                                atomListRecList, nAtomsRecList,\
+                                atomListLigList, nAtomsLigList,\
+                                nStructPairs, dual);
 
-   return PyListResults;
+return PyListResults;
 }
 
 /*
@@ -424,7 +447,7 @@ static PyMethodDef ccmapMethods[] = {
      {"cmap",   (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_flex, METH_VARARGS | METH_KEYWORDS,
      "Compute a residue or atomic contact map. DO SOME DOC"},
     {
-    "lmap",  ccmap_compute_list, METH_VARARGS,
+    "lmap",  (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_list, METH_VARARGS,
         "Compute a list of protein-protein interface residue contact map."
      },
     {"lzmap",   (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_zdock_pose_list, METH_VARARGS | METH_KEYWORDS,

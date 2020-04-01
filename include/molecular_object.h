@@ -38,6 +38,7 @@ typedef struct atom {
     struct atom *nextAtomList;
     struct atom *nextCellAtom;
     struct atom *nextResidueAtom;
+    unsigned int index;
 } atom_t;
 
 typedef struct atomPair {
@@ -68,6 +69,9 @@ residue_t *destroyResidue(residue_t *residue);
 atom_t *destroyAtomList(atom_t *atomList, int nAtom);
 atom_t *destroyAtom(atom_t *atom);
 
+
+unsigned int atomPairListLen(atomPair_t *);
+unsigned int atomListLen(atom_t *);
 atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom);
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name);
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);

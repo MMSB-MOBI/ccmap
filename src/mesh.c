@@ -11,11 +11,23 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
     bool bAtomic = true;
     ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic);
     ccmapView_t *ccmapView = createCcmapView();
-    
-    string_t *jsonString = jsonifyAtomPairList(ccmapResults);
-    ccmapView->asJSON = malloc( (jsonString->length + 1) * sizeof(char) ); // adding one for '\0'
-    strcpy(ccmapView->asJSON, jsonString->value);
-    destroyString(jsonString);
+    /* ----- HERE  TO TEST ----- */
+    if (bEncoded) {
+        unsigned int finalLen;
+        atomPair_t *atomPairList = ccmapResults->cellCrawler->updater->atomContactList;
+        ccmapView->asENCODE = encodeContactMapAtomic(iAtomList, jAtomList, atomPairList, &finalLen);
+        ccmapView->encodeLen = (size_t)finalLen;
+        #ifdef DEBUG
+        fprintf(stderr, "Encoding residueContactMapAtomic completed int a %d elements vector\n", finalLen);
+        #endif
+    } else {
+        string_t *jsonString = jsonifyAtomPairList(ccmapResults);
+        ccmapView->asJSON = malloc( (jsonString->length + 1) * sizeof(char) ); // adding one for '\0'
+        strcpy(ccmapView->asJSON, jsonString->value);
+        destroyString(jsonString);
+     }
+    /*----- THERE -----*/
+
     destroyCcmapResults(ccmapResults);
     #ifdef DEBUG
     fprintf(stderr, "Exiting atomicContactMap\n");
@@ -32,17 +44,9 @@ ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, 
     ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic);
     ccmapView_t *ccmapView = createCcmapView();
 
-/* SHOULD BE OK
-    if (jAtomList != NULL) { 
-    // Link the two residues list
-   //     fuseResidueLists(ccmapResults->iResidueList, ccmapResults->jResidueList);        
-    } else {
-        assert(!bEncoded); // MUST CHECK FOR encoding one residueList integrity 
-    }
-*/
     if (bEncoded) {
         unsigned int finalLen;
-        ccmapView->asENCODE = encodeContactMap(ccmapResults->iResidueList, ccmapResults->jResidueList, &finalLen);
+        ccmapView->asENCODE = encodeContactMapResidue(ccmapResults->iResidueList, ccmapResults->jResidueList, &finalLen);
         ccmapView->encodeLen = (size_t)finalLen;
         #ifdef DEBUG
         fprintf(stderr, "Encoding residueContactMap completed int a %d elements vector\n", finalLen);

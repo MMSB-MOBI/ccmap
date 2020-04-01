@@ -48,6 +48,8 @@ void extendCellCrawler(cellCrawler_t *cellCrawler) {
     updater->atomContactList = atomContactListRealloc;
 }
 
+// iAtom is guaranted to be from 1st body coordinate sets, or single
+// jAtom is guaranted to be from 2 body coordinate sets, or single
 bool processPairwiseDistance(cellCrawler_t* cellCrawler, atom_t* iAtom, atom_t* jAtom) {
     double currDist = distance(iAtom, jAtom);
     
@@ -81,7 +83,8 @@ bool processPairwiseDistance(cellCrawler_t* cellCrawler, atom_t* iAtom, atom_t* 
     return isNewContact;
 }
 
-
+// a atom is guaranted to be from 1st body coordinate sets, or single
+// b atom is guaranted to be from 2 body coordinate sets, or single
 bool updateAtomContact(cellCrawler_t *cellCrawler, atom_t *a, atom_t *b, double dist) {
     #ifdef DEBUG 
     fprintf(stderr, "Entering updateAtomContact\n");
@@ -236,7 +239,7 @@ void pairwiseCellEnumerateDual(cellCrawler_t *cellCrawler, cell_t *refCell, cell
                 #ifdef DEBUG
                     stringifyAtom(jAtom, jAtomString);
                 #endif
-                cellCrawler->atomPairProcess(cellCrawler, iAtom, jAtom);
+                cellCrawler->atomPairProcess(cellCrawler, jAtom, iAtom);
             }
             jAtom = jAtom->nextCellAtom;
         }

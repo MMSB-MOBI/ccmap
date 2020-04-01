@@ -250,6 +250,24 @@ atom_t *destroyAtom(atom_t *atom){
 #endif
 return NULL;
 }
+unsigned int atomPairListLen(atomPair_t *atomPairList){
+    unsigned int n = 0;
+    atom_t *currAtomPair = atomPairList;
+    while(currAtomList != NULL) {
+        n++;
+        currAtomPair = currAtomPair->next;
+    }
+    return n;
+}
+unsigned int atomListLen(atom_t *atomList) {
+    unsigned int n = 0;
+    atom_t *currAtom = atomList;
+    while(currAtom != NULL) {
+        n++;
+        currAtom = currAtom->nextAtomList;
+    }
+    return n;
+}
 
 atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom) {
     #ifdef DEBUG
@@ -294,6 +312,7 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
     #endif
     atom_t *atomList = malloc(nAtoms * sizeof(atom_t));
     for (int n = 0 ; n < nAtoms ; n++) {
+        atomList[n].index = n;
         atomList[n].nextAtomList = NULL;
         atomList[n].belongsTo = NULL;
         atomList[n].inCell = NULL;
@@ -356,6 +375,7 @@ atom_t *legacy_readCoordinates(char *fname, int *_nAtom) {
         head->x = buf[0];
         head->y = buf[1];
         head->z = buf[2];
+        head->index = 0;
         head->nextAtomList = malloc(sizeof(atom_t));
         head = head->nextAtomList;
         head->nextAtomList = NULL;
