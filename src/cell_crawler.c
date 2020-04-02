@@ -92,10 +92,13 @@ bool updateAtomContact(cellCrawler_t *cellCrawler, atom_t *a, atom_t *b, double 
     updaterStruct_t *updater = cellCrawler->updater;
     if(updater->totalByAtom == updater->maxSize)
         extendCellCrawler(cellCrawler);
-
+    updater->atomContactList[updater->totalByAtom].next = NULL;
     updater->atomContactList[updater->totalByAtom].a    = a;
     updater->atomContactList[updater->totalByAtom].b    = b;
     updater->atomContactList[updater->totalByAtom].dist = dist;
+    if(updater->totalByAtom > 0)
+        updater->atomContactList[updater->totalByAtom - 1 ].next = \
+        &updater->atomContactList[updater->totalByAtom];
     #ifdef DEBUG 
     fprintf(stderr, "Exiting updateAtomContact\n");
     #endif

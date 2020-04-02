@@ -103,23 +103,23 @@ return rValue;
 static PyObject *ccmap_compute_list(PyObject* self, PyObject* args, PyObject* kwargs)
 {
 
-static char *kwlist[] = {"", "d", "atomic", "encode", NULL};
+static char *kwlist[] = {"", "", "d", "atomic", "encode", NULL};
 
+PyObject *pyDictArray_I   = NULL;
+PyObject *pyDictArray_J   = NULL;
+PyObject *encodeBool      = NULL;
+PyObject *atomicBool      = NULL;
 
-PyObject *pyDictList       = NULL;
-PyObject *encodeBool       = NULL;
-PyObject *atomicBool       = NULL;
+PyObject *PyListResults   = NULL;
+PyObject *pStructAsDict_I = NULL;
+PyObject *pStructAsDict_J = NULL;
 
-PyObject *PyListResults    = NULL;
-PyObject *pStructAsDictRec = NULL;
-PyObject *pStructAsDictLig = NULL;
-PyObject *PyStructBuffer    = NULL;
-Py_ssize_t nStructPairs;
+Py_ssize_t structFrameLen;
 
-atom_t **atomListRecList   = NULL;
-atom_t **atomListLigList   = NULL;
-int *nAtomsRecList      = NULL;
-int *nAtomsLigList      = NULL;
+atom_t **atomListList_I   = NULL;
+atom_t **atomListList_J   = NULL;
+int *nAtomsList_I         = NULL;
+int *nAtomsList_J         = NULL;
 
 float userThreshold = 4.5;
 bool bEncode;
@@ -127,67 +127,106 @@ bool dual = false;
 bool bAtomic = false;
 ccmapView_t **ccmapViewList;
 
-if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!|fOO", kwlist,\
-                    &PyList_Type, &pyDictList, &userThreshold, &atomicBool, &encodeBool)) {
+
+if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OfOO", kwlist,\
+                    &pyDictArray_I, \
+                    &pyDictArray_J,\
+                    &userThreshold, &atomicBool, &encodeBool)) {
     PyErr_SetString(PyExc_TypeError, "parameters must be a list of dictionnaries and a distance value.");
     return NULL;
 }
-setBooleanFromParsing(encodeBool, &bEncode);
-setBooleanFromParsing(atomicBool, &bAtomic);
+#ifdef PYMEM_CHECK
+fprintf(stderr, "ccmap_compute_list MEMORY ENTRY SUMMARY:\n");
+fprintf(stderr, "pyDictList:%zd\n", pyDictArray_I->ob_refcnt);
+if(pyDictArray_J != NULL)
+    fprintf(stderr, "pyDictList:%zd\n", pyDictArray_J->ob_refcnt);
+#endif
 
-nStructPairs    = PyList_Size(pyDictList);
-// We off load from threads the coordinates loading
-for (int iStructPair = 0 ; iStructPair < (int)nStructPairs ; iStructPair++) {
-    PyStructBuffer   = PyList_GetItem(pyDictList, iStructPair);
-    Py_ssize_t cSize = PyList_Size(PyStructBuffer);
-    
-    if(iStructPair == 0) {
-        dual = cSize == 2;
-        ccmap_compute_list_allocate(&ccmapViewList, \
-                                    &atomListRecList, &nAtomsRecList, \
-                                    &atomListLigList, &nAtomsLigList, \
-                                    nStructPairs, dual);
-    }
+if (!PyArray_Check(pyDictArray_I)) {
+    PyErr_SetString(PyExc_TypeError, "First coordinates set is not iterable");
+    return NULL;
+}
 
-    if( cSize > 2 || cSize == 0 || (dual && cSize == 1) || (!dual && cSize == 2) ) {     // Clean & exit w/ error
-        PyErr_SetString(PyExc_TypeError, "Unexpected number of coordinates sets");
-        ccmap_compute_list_cleanOnExit(ccmapViewList, \
-                                       atomListRecList, nAtomsRecList, \
-                                       atomListLigList, nAtomsLigList, \
-                                       iStructPair, dual);
+dual = pyDictArray_J != NULL;
+if(dual) {
+    if (!PyArray_Check(pyDictArray_J)) {
+        PyErr_SetString(PyExc_TypeError, "Optional coordinates set is not iterable");
         return NULL;
-    }
-    pStructAsDictRec   = PyTuple_GetItem(PyStructBuffer, 0);
-    atomListRecList[iStructPair] = structDictToAtoms(pStructAsDictRec, &nAtomsRecList[iStructPair]);    
-    if(dual) {
-        pStructAsDictLig   = PyTuple_GetItem(PyStructBuffer, 1);
-        atomListLigList[iStructPair] = structDictToAtoms(pStructAsDictLig, &nAtomsLigList[iStructPair]);
+    }  
+    if( !PyArray_Equal(pyDictArray_I, pyDictArray_J) ) {
+        PyErr_SetString(PyExc_TypeError, "Coordinates lists must have same sizes");
+        return NULL;
     }
 }
 
+setBooleanFromParsing(encodeBool, &bEncode);
+setBooleanFromParsing(atomicBool, &bAtomic);
+
+structFrameLen = PyArray_Size(pyDictArray_I);
+
+ccmap_compute_list_allocate(&ccmapViewList, \
+                            &atomListList_I, &nAtomsList_I, \
+                            &atomListList_J, &nAtomsList_J, \
+                            structFrameLen, dual);
+
+// We off load from threads the loading of coordinates 
+for (int iStructPair = 0 ; iStructPair < (int)structFrameLen ; iStructPair++) {
+    pStructAsDict_I                 = PyArray_GetItem(pyDictArray_I, iStructPair);
+    Py_INCREF(pStructAsDict_I);
+    atomListList_I[iStructPair]     = structDictToAtoms(pStructAsDict_I, &nAtomsList_I[iStructPair]);    
+    Py_DECREF(pStructAsDict_I);
+
+    if(dual) {
+        pStructAsDict_J             = PyArray_GetItem(pyDictArray_J, iStructPair);
+        Py_INCREF(pStructAsDict_J);
+        atomListList_J[iStructPair] = structDictToAtoms(pStructAsDict_J, &nAtomsList_J[iStructPair]);    
+        Py_DECREF(pStructAsDict_J);
+    }
+}
+
+/*
+We wont be using function arguments through GIL recovery, we dont Py_INCREF them
+*/
+
 Py_BEGIN_ALLOW_THREADS
-for (int i = 0; i < (int)nStructPairs ; i++) {
-  
+for (int i = 0; i < (int)structFrameLen ; i++) {
+    atom_t *optAtomList_J = dual ? atomListList_J[i] : NULL;
+    int opt_nAtom_J = dual ? nAtomsList_J[i] : -1;
     ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtomic\
                     ? &atomicContactMap
                     : &residueContactMap;
-    ccmapViewList[i] = computeMap(atomListRecList[i], nAtomsRecList[i], \
-                                  atomListLigList[i], nAtomsLigList[i], \
+    ccmapViewList[i] = computeMap(atomListList_I[i], nAtomsList_I[i], \
+                                  optAtomList_J, opt_nAtom_J, \
                                   userThreshold, bEncode);
 }
 Py_END_ALLOW_THREADS
 
-PyListResults   = PyList_New(nStructPairs);
-for (int i = 0; i < (int)nStructPairs ; i++) {
+PyListResults   = PyList_New(structFrameLen);
+for (int i = 0; i < (int)structFrameLen ; i++) {
     PyObject *cValue = ccmapViewToPyObject(ccmapViewList[i], bEncode);
-    PyList_SetItem(PyListResults, i, cValue);
+    PyList_SetItem(PyListResults, i, cValue); // Reference cValue is stolen
 }
 
 ccmap_compute_list_cleanOnExit(ccmapViewList, \
-                                atomListRecList, nAtomsRecList,\
-                                atomListLigList, nAtomsLigList,\
-                                nStructPairs, dual);
+                                atomListList_I, nAtomsList_I,\
+                                atomListList_J, nAtomsList_J,\
+                                structFrameLen, dual);
 
+#ifdef PYMEM_CHECK
+fprintf(stderr, "ccmap_compute_list MEMORY EXIT SUMMARY:\n");
+fprintf(stderr, "pyDictArray_I:%zd\n", pyDictArray_I->ob_refcnt);
+if(pyDictArray_J != NULL)
+    fprintf(stderr, "pyDictArray_J:%zd\n", pyDictArray_J->ob_refcnt);
+
+/*Garbage collactable on GIL release*/
+if (pStructAsDict_I != NULL)
+    fprintf(stderr, "pStructAsDict_I:%zd\n", pStructAsDict_I->ob_refcnt);
+if (pStructAsDict_J != NULL)
+    fprintf(stderr, "pStructAsDict_J:%zd (Borrowed pyDictList )\n", pStructAsDict_J->ob_refcnt);
+
+fprintf(stderr, "PyListResults:%zd\n", PyListResults->ob_refcnt);
+
+#endif
 return PyListResults;
 }
 
@@ -447,7 +486,7 @@ static PyMethodDef ccmapMethods[] = {
      {"cmap",   (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_flex, METH_VARARGS | METH_KEYWORDS,
      "Compute a residue or atomic contact map. DO SOME DOC"},
     {
-    "lmap",  (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_list, METH_VARARGS,
+    "lmap",  (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_list, METH_VARARGS | METH_KEYWORDS,
         "Compute a list of protein-protein interface residue contact map."
      },
     {"lzmap",   (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_zdock_pose_list, METH_VARARGS | METH_KEYWORDS,

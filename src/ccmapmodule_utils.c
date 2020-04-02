@@ -130,28 +130,63 @@ int backMapCoordinates(atom_t *atomListRoot,  PyObject *pyDictObject) {
 
     return 1;
 }
-
-double **createListVector3(PyObject *pyObject_array, Py_ssize_t *len) {
-    PyObject *(*PyArray_GetItem)(PyObject *, Py_ssize_t);
-    Py_ssize_t (*PyArray_Size)(PyObject *);
+/* Get item at position in a tuple or a list */
+PyObject *PyArray_GetItem(PyObject *pyObject_array, Py_ssize_t position) {
+    PyObject *(*_PyArray_GetItem)(PyObject *, Py_ssize_t);
 
     if(PyList_Check(pyObject_array)) {
-        PyArray_GetItem = &PyList_GetItem;
-        PyArray_Size = &PyList_Size;
+        _PyArray_GetItem = &PyList_GetItem;
     } else if(PyTuple_Check(pyObject_array)) {
-        PyArray_GetItem = &PyTuple_GetItem;
-        PyArray_Size = &PyTuple_Size;
+        _PyArray_GetItem = &PyTuple_GetItem;
+    } else {
+        return NULL;
+    }
+    return _PyArray_GetItem(pyObject_array, position);
+}  
+
+bool PyArray_Check(PyObject *pyObject_arrayMaybe) {
+    if (PyList_Check(pyObject_arrayMaybe) )
+        return true;
+    if (PyTuple_Check(pyObject_arrayMaybe) )
+        return true;
+    
+    return false;
+}
+
+Py_ssize_t PyArray_Size(PyObject *pyObject_array) {
+    Py_ssize_t (*_PyArray_Size)(PyObject *);
+
+    if(PyList_Check(pyObject_array)) {
+        _PyArray_Size = &PyList_Size;
+    } else if(PyTuple_Check(pyObject_array)) {
+        _PyArray_Size = &PyTuple_Size;
+    } else {
+        return 0; // ??
+    }
+    return _PyArray_Size(pyObject_array);
+}
+
+double **createListVector3(PyObject *pyObject_array, Py_ssize_t *len) {
+    PyObject *(*_PyArray_GetItem)(PyObject *, Py_ssize_t);
+    Py_ssize_t (*_PyArray_Size)(PyObject *);
+
+    if(PyList_Check(pyObject_array)) {
+        _PyArray_GetItem = &PyList_GetItem;
+        _PyArray_Size = &PyList_Size;
+    } else if(PyTuple_Check(pyObject_array)) {
+        _PyArray_GetItem = &PyTuple_GetItem;
+        _PyArray_Size = &PyTuple_Size;
     } else {
         PyErr_SetString(PyExc_TypeError, "Error unpacking list of vector3 from unknown array type");
         return NULL;
     }
-    *len = PyArray_Size(pyObject_array);  
+    *len = _PyArray_Size(pyObject_array);  
     double **vList = PyMem_New(double*, *len);
     
     PyObject *currPyArray;
     bool bError =false;
     for (int i = 0 ; i < *len ; i++) {
-        currPyArray = PyArray_GetItem(pyObject_array, i);
+        currPyArray = _PyArray_GetItem(pyObject_array, i);
         vList[i] = PyMem_New(double, 3);
         vList[i] = unpackVector3(currPyArray);
         if (vList[i] == NULL) {
@@ -172,23 +207,21 @@ double **destroyListVector3(double **vList, Py_ssize_t len) {
 }
 
 double *unpackVector3(PyObject *pyObject) {
-#ifdef DEBUG
-    PySys_WriteStdout("--->Unpack Vector3\n");
-#endif
-    PyObject *(*PyArray_GetItem)(PyObject *, Py_ssize_t);
-    Py_ssize_t (*PyArray_Size)(PyObject *);
+
+    PyObject *(*_PyArray_GetItem)(PyObject *, Py_ssize_t);
+    Py_ssize_t (*_PyArray_Size)(PyObject *);
 
     if(PyList_Check(pyObject)) {
-        PyArray_GetItem = &PyList_GetItem;
-        PyArray_Size = &PyList_Size;
+        _PyArray_GetItem = &PyList_GetItem;
+        _PyArray_Size = &PyList_Size;
     } else if(PyTuple_Check(pyObject)) {
-        PyArray_GetItem = &PyTuple_GetItem;
-        PyArray_Size = &PyTuple_Size;
+        _PyArray_GetItem = &PyTuple_GetItem;
+        _PyArray_Size = &PyTuple_Size;
     } else {
         PyErr_SetString(PyExc_TypeError, "Error unpacking a vector3 from unknown array type");
         return NULL;
     }
-    if (PyArray_Size(pyObject) != 3) {
+    if (_PyArray_Size(pyObject) != 3) {
         PyErr_SetString(PyExc_TypeError, "Error unpacking a vector3 from a python array of size != 3");
         return NULL;
     }
@@ -197,7 +230,7 @@ double *unpackVector3(PyObject *pyObject) {
     PyObject *pItem;
    
     for (int i = 0 ; i < 3 ; i++) {
-        pItem = PyArray_GetItem(pyObject, i);
+        pItem = _PyArray_GetItem(pyObject, i);
         if(!PyFloat_Check(pItem)) {
             PyMem_Free(vector);
             PyErr_SetString(PyExc_TypeError, "3D vector element items must be float.");
@@ -235,12 +268,12 @@ int unpackChainID(PyObject *pListChainID, char **buffer) {
         objectsRepresentation = PyObject_Repr(pItem); //Now a unicode object
         PyObject* pyStr = PyUnicode_AsUTF8String(objectsRepresentation);
         s = PyBytes_AS_STRING(pyStr);
-        Py_XDECREF(pyStr);
+        Py_DECREF(pyStr);
 
         (*buffer)[i] = s[1];
     }
-    Py_XDECREF(pItem); // LAST MOD
-    Py_XDECREF(objectsRepresentation);
+    Py_DECREF(pItem); // LAST MOD
+    Py_DECREF(objectsRepresentation);
     return 1;
 }
 
@@ -322,6 +355,11 @@ void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, c
 
 atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
 
+#ifdef PYMEM_CHECK
+    fprintf(stderr, "structDictToAtoms entry MEMORY SUMMARY\n");
+    fprintf(stderr, "pyDictObject:%zd\n", Py_REFCNT(pyDictObject) );
+#endif
+
     PyObject* pyObj_x = PyDict_GetItemString(pyDictObject, "x");
     PyObject* pyObj_y = PyDict_GetItemString(pyDictObject, "y");
     PyObject* pyObj_z = PyDict_GetItemString(pyDictObject, "z");
@@ -332,9 +370,8 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
 
     Py_ssize_t n = PyList_Size(pyObj_x);
     *nAtoms = (int) n;
-#ifdef DEBUG
-    PySys_WriteStdout("Unpacking a %d atoms structure dictionary\n", *nAtoms);
-#endif
+
+
     /*
     All unpackXX calls do memory allocation, which needs subsequent common call to freeBuffer()
     */
@@ -366,20 +403,19 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
     atom_t *atomList = readFromArrays(*nAtoms, coorX, coorY, coorZ, chainID, resSeq, resName, atomName);
 
     freeBuffers(coorX, coorY, coorZ, chainID, resSeq, resName,  atomName, *nAtoms);
-/*
-#ifdef DEBUG
-    PySys_WriteStdout("REF COUNT X :: is %d\n", Py_REFCNT(pyObj_x) );
-    PySys_WriteStdout("REF COUNT Y :: is %d\n", Py_REFCNT(pyObj_y) );
-    PySys_WriteStdout("REF COUNT Z :: is %d\n", Py_REFCNT(pyObj_z) );
-    PySys_WriteStdout("REF COUNT chainID :: is %d\n", Py_REFCNT(pyObj_chainID) );
-    PySys_WriteStdout("REF COUNT resSeq :: is %d\n", Py_REFCNT(pyObj_resSeq) );
-    PySys_WriteStdout("REF COUNT resName :: is %d\n", Py_REFCNT(pyObj_resName) );
-    PySys_WriteStdout("REF COUNT atomName :: is %d\n", Py_REFCNT(pyObj_atomName) );
 
-    PySys_WriteStdout("REF COUNT current Dict :: is %d\n", Py_REFCNT(pyDictObject));
-    PySys_WriteStdout("Returning atomList\n");
+#ifdef PYMEM_CHECK
+    fprintf(stderr, "structDictToAtoms exit MEMORY SUMMARY\n");
+    fprintf(stderr, "pyObj_x:%zd\n", Py_REFCNT(pyObj_x) );
+    fprintf(stderr, "pyObj_y:%zd\n", Py_REFCNT(pyObj_y) );
+    fprintf(stderr, "pyObj_z:%zd\n", Py_REFCNT(pyObj_z) );
+    fprintf(stderr, "pyObj_chainID:%zd\n", Py_REFCNT(pyObj_chainID) );
+    fprintf(stderr, "pyObj_resSeq:%zd\n", Py_REFCNT(pyObj_resSeq) );
+    fprintf(stderr, "pyObj_resName:%zd\n", Py_REFCNT(pyObj_resName) );
+    fprintf(stderr, "pyObj_atomName:%zd\n", Py_REFCNT(pyObj_atomName) );
+    fprintf(stderr, "pyDictObject:%zd\n", Py_REFCNT(pyDictObject));
 #endif
-*/
+
     #ifdef DEBUG
     fprintf(stderr, "Exiting from structDictToAtoms\n");
     #endif
@@ -394,6 +430,10 @@ void setBooleanFromParsing(PyObject *pyObjectBool, bool *bResults)
 if (pyObjectBool != NULL) {
     if (PyObject_IsTrue(pyObjectBool))
         *bResults = true;
-    Py_XDECREF(pyObjectBool);
+    //Py_DECREF(pyObjectBool); It's borrowed from main fun caller and we dont need it anymore
     }
+#ifdef PYMEM_CHECK
+    if (pyObjectBool != NULL)
+        fprintf(stderr, "setBooleanFromParsing pyObjectBool refcount %zd\n", pyObjectBool->ob_refcnt);
+#endif
 }

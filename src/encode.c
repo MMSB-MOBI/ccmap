@@ -31,8 +31,11 @@ unsigned int *encodeContactMapAtomic(atom_t *iAtomList, atom_t *jAtomList,\
                                 atomPair_t *ccList, \
                                 unsigned int *totalContacts)
 {
+#ifdef DEBUG
+fprintf(stderr, "Starting encodeContactMapAtomic\n");
+#endif
 unsigned int *table            = NULL;
-*totalContacts                 = atomPairLisLen(ccList);
+*totalContacts                 = atomPairListLen(ccList);
 atomPair_t *currAtomPair       = NULL;
 table                          = malloc( *totalContacts * sizeof(int));
 unsigned int jLen              = jAtomList != NULL ?      \
@@ -47,22 +50,26 @@ char atom1[81];
 char atom2[81];
 #endif
 
+currAtomPair = ccList;
 int i = 0;
 while(currAtomPair != NULL){
-  iAtom = &(currAtomPair->a);
-  jAtom = &(currAtomPair->b);
+  iAtom = currAtomPair->a;
+  jAtom = currAtomPair->b;
 #ifdef DEBUG
   stringifyAtom(iAtom, atom1);
   stringifyAtom(jAtom, atom2);
   fprintf(fp, "## %d %d (%d) => %d\n", iAtom->index, jAtom->index,\
-              jLen, ENCODE_IJ2K( iAtom->index, jAtom->index, jLen));
+              jLen, (unsigned int)ENCODE_IJ2K( iAtom->index, jAtom->index, jLen));
 #endif
   table[i] = (unsigned int)ENCODE_IJ2K( iAtom->index, jAtom->index, jLen);
   currAtomPair = currAtomPair->next;
+  i++;
 }
 
 #ifdef DEBUG
-flcose(fp); 
+for (int i = 0 ; i < *totalContacts ; i++)
+  fprintf(fp, "(%d)%d\n", i, table[i]);
+fclose(fp); 
 #endif
   return table;
 }

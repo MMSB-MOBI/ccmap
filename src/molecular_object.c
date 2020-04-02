@@ -252,14 +252,14 @@ return NULL;
 }
 unsigned int atomPairListLen(atomPair_t *atomPairList){
     unsigned int n = 0;
-    atom_t *currAtomPair = atomPairList;
-    while(currAtomList != NULL) {
+    atomPair_t *currAtomPair = atomPairList;
+    while(currAtomPair != NULL) {
         n++;
         currAtomPair = currAtomPair->next;
     }
     return n;
 }
-unsigned int atomListLen(atom_t *atomList) {
+unsigned int atomListLen(atom_t *atomList) {
     unsigned int n = 0;
     atom_t *currAtom = atomList;
     while(currAtom != NULL) {
