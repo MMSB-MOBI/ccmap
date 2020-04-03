@@ -31,11 +31,8 @@ error_out(PyObject *m) {
 /*
     Python API exposed as cmap
 */
-static PyObject *ccmap_compute_flex(PyObject* self, PyObject* args, PyObject* kwargs) {
-#ifdef DEBUG
-PySys_WriteStderr("ccmap_compute_flex");
-#endif
-static char *kwlist[] = {"", "y", "d", "atomic", "encode", NULL};
+static PyObject *ccmap_compute(PyObject* self, PyObject* args, PyObject* kwargs) {
+static char *kwlist[] = {"", "", "d", "atomic", "encode", NULL};
 
 PyObject *atomicBool = NULL;
 PyObject *encodeBool = NULL;
@@ -185,7 +182,7 @@ for (int iStructPair = 0 ; iStructPair < (int)structFrameLen ; iStructPair++) {
 }
 
 /*
-We wont be using function arguments through GIL recovery, we dont Py_INCREF them
+We wont be using function current scope python object through GIL recovery, we dont Py_INCREF them
 */
 
 Py_BEGIN_ALLOW_THREADS
@@ -236,13 +233,14 @@ Python API : "zmap"
 
 static PyObject *ccmap_compute_zdock_pose(PyObject *self, PyObject *args, PyObject* kwargs) 
 {
-static char *kwlist[] = {"", "", "", "", "offsetRec", "offsetLig", "distance", "encode", "apply", NULL};
+static char *kwlist[] = {"", "", "", "", "offsetRec", "offsetLig", "d", "encode", "atomic", "apply", NULL};
 PyObject *eulerArray         = NULL;
 PyObject *translationArray   = NULL;
 PyObject *offsetRecArray     = NULL;
 PyObject *offsetLigArray     = NULL;
 PyObject *encodeBool         = NULL;
 PyObject *applyBool          = NULL;
+PyObject *atomicBool         = NULL;
 
 double *offsetLigVector      = NULL;
 double *offsetRecVector      = NULL;
@@ -252,8 +250,8 @@ float userThreshold          = 4.5;
 
 PyObject *pyDictRec          = NULL;
 PyObject *pyDictLig          = NULL;
-bool bEncode, bApply;
-bool bAtomic                 = false; // No atomic map in zdock context, yet
+
+bool bEncode, bAtomic, bApply;
 atom_t *atomListRec          = NULL; 
 atom_t *atomListLig          = NULL;
 int nAtomsRec, nAtomsLig;
@@ -261,7 +259,7 @@ int nAtomsRec, nAtomsLig;
 ccmapView_t *ccmapView;
 
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
-                     "O!O!OO|OOfOO", kwlist, \
+                     "O!O!OO|OOfOOO", kwlist, \
                     &PyDict_Type, &pyDictRec,   \
                     &PyDict_Type, &pyDictLig,   \
                                   &eulerArray, \
@@ -269,14 +267,17 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
                                   &offsetRecArray,   \
                                   &offsetLigArray,   \
                     &userThreshold,
-                    &encodeBool,
-                    &applyBool                )) {
+                    &encodeBool,                   
+                    &atomicBool,
+                    &applyBool               )) {
     PyErr_SetString(PyExc_TypeError, "Wrong parameters");
     return NULL;
 }
 
 setBooleanFromParsing(encodeBool, &bEncode);
-setBooleanFromParsing(applyBool, &bApply);
+setBooleanFromParsing(applyBool,  &bApply);
+setBooleanFromParsing(atomicBool, &bAtomic);
+
 
 atomListRec       = structDictToAtoms(pyDictRec, &nAtomsRec);
 atomListLig       = structDictToAtoms(pyDictLig, &nAtomsLig);
@@ -348,7 +349,7 @@ static PyObject *ccmap_compute_zdock_pose_list(PyObject *self, PyObject *args, P
 #ifdef DEBUG
 PySys_WriteStderr("ccmap_compute_zdock_pose_list");
 #endif
-static char *kwlist[] = {"", "", "", "", "offsetRec", "offsetLig", "distance", "encode", NULL};
+static char *kwlist[] = {"", "", "", "", "offsetRec", "offsetLig", "d", "encode", "atomic", NULL};
 PyObject *pyDictRec       = NULL;
 PyObject *pyDictLig       = NULL;
 PyObject *eulerArrayArray = NULL;
@@ -356,6 +357,7 @@ PyObject *transArrayArray = NULL;
 PyObject *offsetRecArray  = NULL;
 PyObject *offsetLigArray  = NULL;
 PyObject *encodeBool      = NULL;
+PyObject *atomicBool      = NULL;
 Py_ssize_t nPose;
 
 double *offsetLigVector   = NULL;
@@ -364,8 +366,8 @@ double **eulerTriplets    = NULL;
 double **transTriplets    = NULL;
 
 ccmapView_t **ccmapViews;
-bool bEncode;
-bool bAtomic              = false; // No atomic map in zdock context, yet
+bool bEncode, bAtomic;
+
 float userThreshold       = 4.5;
 
 int nAtomsRec             = 0;
@@ -383,11 +385,13 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
                                   &offsetRecArray,   \
                                   &offsetLigArray,   \
                     &userThreshold,
-                    &encodeBool                )) {
+                    &encodeBool,
+                    &atomicBool                )) {
     PyErr_SetString(PyExc_TypeError, "Wrong parameters");
     return NULL;
 }
 setBooleanFromParsing(encodeBool, &bEncode);
+setBooleanFromParsing(atomicBool, &bAtomic);
 
 if( !PyArray_Equal(eulerArrayArray, transArrayArray) ) {
     PyErr_SetString(PyExc_TypeError, "Transformations tuples lists are of unequal length");
@@ -458,10 +462,12 @@ destroyVector3(offsetLigVector);
 destroyVector3(offsetRecVector);
 destroyListVector3(eulerTriplets, nPose);
 destroyListVector3(transTriplets, nPose);
+
 /* Computations results cleanup*/
 for (int i = 0; i < nPose ; i++)
     destroyCcmapView(ccmapViews[i]);
 PyMem_Free(ccmapViews);
+
 /* Coordinates cleanup*/
 destroyAtomList(atomListRec, nAtomsRec);
 destroyAtomList(atomListLig, nAtomsLig);
@@ -483,43 +489,63 @@ static int myextension_clear(PyObject *m) {
 /* MODULE DECLARATION */
 
 static PyMethodDef ccmapMethods[] = {
-     {"cmap",   (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_flex, METH_VARARGS | METH_KEYWORDS,
-     "Compute a residue or atomic contact map. DO SOME DOC"},
-    {
-    "lmap",  (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_list, METH_VARARGS | METH_KEYWORDS,
-        "Compute a list of protein-protein interface residue contact map."
-     },
-    {"lzmap",   (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_zdock_pose_list, METH_VARARGS | METH_KEYWORDS,
-     "Compute the contact maps from a list of zdock-like encoded pose:\n"\
-    "Four positional parameters:\n"\
-    "\tReceptor structure \"dictorized\" coordinates\n"\
-    "\tLigand structure \"dictorized\" coordinates\n"\
-    "\tList/Tuple of many list/3-uple of euler angles, aka docking pose-specific rotation\n"\
-    "\tList/Tuple of many list/3-uple translation vectors, aka docking-pose specific translation\n"\
-    "Four optional parameters:\n"
-    "\t\"distance\", contact distance float\n"\
-    "\t\"offsetRec\", list/tuple of a translation vector, aka receptor translation offset\n"\
-    "\t\"offsetLig\", list/tuple of a translation vector, aka ligand translation offset\n"\
-    "\t\"encode\", Encoding flag, boolean\n"\
-    "\nReturn\n\tA string if Encoding flag is false, a list of list of residue numbers otherwise\n"\
-    "\nExample:\n"
+     {"cmap",   (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute, METH_VARARGS | METH_KEYWORDS,
+        "Compute a residue or atomic contact map\n"\
+        "One positional mandatory parameter:\n"\
+        "\tOne structure as \"dictorized\" coordinates\n"\
+        "One positional optional parameter:\n"\
+        "\tAnother structure as \"dictorized\" coordinates\n"\
+        "Three optional parameters:\n"
+        "\t\"d\", contact distance float\n"\
+        "\t\"encode\", Encoding flag, boolean. Default=False\n"\
+        "\t\"atomic\", boolean. If True compute atomic contact map else compute residue contact map. Default=False\n"\
+        "\nReturn\n\tA string if Encoding flag is false, a list of list of residue/atom numbers otherwise\n"
     },
-     {
+    {
+    "lcmap",  (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_list, METH_VARARGS | METH_KEYWORDS,
+        "Compute a list of single or of pair or proteins residue or atomic contact maps\n"\
+        "One positional mandatory parameter:\n"\
+        "\tOne list of structures as \"dictorized\" coordinates\n"\
+        "One positional optional parameter:\n"\
+        "\tAnother list of structures as \"dictorized\" coordinates\n"\
+        "Three optional parameters:\n"
+        "\t\"d\", contact distance float\n"\
+        "\t\"encode\", Encoding flag, boolean. Default=False\n"\
+        "\t\"atomic\", boolean. If True compute atomic contact map else compute residue contact map. Default=False\n"\
+    "\nReturn\n\tA string if Encoding flag is false, a list of list of residue/atom numbers otherwise\n"
+    },
+    {
     "zmap",  (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_zdock_pose, METH_VARARGS | METH_KEYWORDS,
-    "Compute a contact map from a zdock-like encoded pose:\n"\
-    "Four positional parameters:\n"\
+    "Compute a contact map from a zdock-like encoded pose\n"\
+    "WARNING: setting \"apply\" argument to True will modify the \"dictorized\" coordinates arguments!\n"\
+    "Four positional mandatory parameters:\n"\
     "\tReceptor structure \"dictorized\" coordinates\n"\
     "\tLigand structure \"dictorized\" coordinates\n"\
     "\tList/Tuple of the euler angles, aka docking pose-specific rotation\n"\
     "\tList/Tuple of the translation vector, aka docking-pose specific translation\n"\
     "Five optional parameters:\n"
-    "\t\"distance\", contact distance float\n"\
+    "\t\"d\", contact distance float\n"\
     "\t\"offsetRec\", list/tuple of a translation vector, aka receptor translation offset\n"\
     "\t\"offsetLig\", list/tuple of a translation vector, aka ligand translation offset\n"\
-    "\t\"encode\", Encoding flag, boolean\n"\
+    "\t\"encode\", Encoding flag, boolean. Default=False\n"\
+    "\t\"atomic\", boolean. If True compute atomic contact map else compute residue contact map. Default=False\n"\
     "\t\"apply\", boolean. Apply the transformation to the provided receptor and ligand \"dictorized\" coordinates, default=False\n"\
-    "\nReturn\n\tA string if Encoding flag is false, a list of residue numbers otherwise\n"\
-    "\nExample:\n"
+    "\nReturn\n\tA string if Encoding flag is false, a list of residue/atom numbers otherwise\n"
+    },
+    {"lzmap",   (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_zdock_pose_list, METH_VARARGS | METH_KEYWORDS,
+     "Compute the contact maps from a list of zdock-like encoded pose\n"\
+    "Four positional mandatory parameters:\n"\
+    "\tReceptor structure \"dictorized\" coordinates\n"\
+    "\tLigand structure \"dictorized\" coordinates\n"\
+    "\tList/Tuple of many list/3-uple of euler angles, aka docking pose-specific rotation\n"\
+    "\tList/Tuple of many list/3-uple translation vectors, aka docking-pose specific translation\n"\
+    "Four optional parameters:\n"
+    "\t\"d\", contact distance float\n"\
+    "\t\"offsetRec\", list/tuple of a translation vector, aka receptor translation offset\n"\
+    "\t\"offsetLig\", list/tuple of a translation vector, aka ligand translation offset\n"\
+    "\t\"encode\", Encoding flag, boolean. Default=False\n"\
+    "\t\"atomic\", boolean. If True compute atomic contact map else compute residue contact map. Default=False\n"\
+    "\nReturn\n\tA string if Encoding flag is false, a list of list of residue/atom numbers otherwise\n"
     },
     //...
     {NULL, NULL, 0, NULL}        /* Sentinel */

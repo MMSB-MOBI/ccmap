@@ -40,17 +40,16 @@ PyObject *ccmapViewsToPyObject(ccmapView_t **ccmapViews, int nViews, bool bEncod
         
         for (int iView = 0 ; iView < nViews ; iView++) {
             currView = ccmapViews[iView];
-           // PySys_WriteStdout("CurrView is of length %lu\n", currView->encodeLen);
             PyList_SetItem( rValue, iView, PyList_New(currView->encodeLen) );
-            pyCurrList = PyList_GetItem(rValue, iView);
+            pyCurrList = PyList_GetItem(rValue, iView); // Stolen
             for (size_t i = 0 ; i < currView->encodeLen ; i++){            
-                pyValue = Py_BuildValue("i", currView->asENCODE[i]); // pyValue xref ?
-                PyList_SetItem(pyCurrList, i, pyValue);
+                pyValue = Py_BuildValue("i", currView->asENCODE[i]);
+                PyList_SetItem(pyCurrList, i, pyValue); //pyValue Ref(v=1) is stolen by pyCurrList
             }
         }
         return rValue;
     }
-    //return Py_BuildValue("s", "RTOTO");
+   
     string_t *jsonStringEncodeMany = createString();
     jsonStringEncodeMany->append(jsonStringEncodeMany, "{\"type\":\"lzmap\", \"data\":[");
     for (int iView = 0 ; iView < nViews ; iView++) {
@@ -68,15 +67,14 @@ PyObject *ccmapViewsToPyObject(ccmapView_t **ccmapViews, int nViews, bool bEncod
 int PyObject_AsDouble(PyObject *py_obj, double *x)
 {
   
-  PyObject *py_float = PyNumber_Float(py_obj);
+  PyObject *py_float = PyNumber_Float(py_obj); // New Ref
 
   if (py_float == NULL) return -1;
   *x = 0; 
   *x += PyFloat_AsDouble(py_float);
 
- //*x = 5.0;
   Py_DECREF(py_float);
-  //PySys_WriteStdout("REF COUNT results  :: is %d\n", Py_REFCNT(py_float) ); # IT IS STILL 1
+ 
   return 0;
 }
 
@@ -89,10 +87,12 @@ int PyList_IntoDoubleArray(PyObject *py_list, double *x, int size) {
 
     if (size != PyList_Size(py_list)) return 1;
 
-    for (i=0; i<size; i++) {
-        PyObject *py_float = PyList_GetItem(py_list, i);
-        if (py_float == NULL || PyObject_AsDouble(py_float, &(x[i])))
-        return 1;
+    for ( i = 0 ; i < size ; i++ ) {
+        PyObject *py_float = PyList_GetItem(py_list, i); // Borrowed Ref
+        Py_XINCREF(py_float);
+        if (py_float == NULL || PyObject_AsDouble(py_float, &(x[i]))) 
+            return 1;
+        Py_DECREF(py_float);
     }
 
     return 0;
@@ -112,9 +112,9 @@ int backMapCoordinates(atom_t *atomListRoot,  PyObject *pyDictObject) {
     double test=-999.9;
 
      while (atomCurrent != NULL) {
-        pItem = Py_BuildValue("d", atomCurrent->x);
+        pItem = Py_BuildValue("d", atomCurrent->x);// New Ref
         PyObject_AsDouble(pItem, &test);
-        PyList_SetItem(pyObj_x, atomIndex, pItem);
+        PyList_SetItem(pyObj_x, atomIndex, pItem); // Stolen
 
         pItem = Py_BuildValue("d", atomCurrent->y);
         PyObject_AsDouble(pItem, &test);
@@ -184,11 +184,16 @@ double **createListVector3(PyObject *pyObject_array, Py_ssize_t *len) {
     double **vList = PyMem_New(double*, *len);
     
     PyObject *currPyArray;
-    bool bError =false;
+    bool bError = false;
     for (int i = 0 ; i < *len ; i++) {
         currPyArray = _PyArray_GetItem(pyObject_array, i);
+        Py_INCREF(currPyArray);
+        
         vList[i] = PyMem_New(double, 3);
         vList[i] = unpackVector3(currPyArray);
+        
+        Py_DECREF(currPyArray);
+
         if (vList[i] == NULL) {
             bError = true;
             break;
@@ -231,12 +236,15 @@ double *unpackVector3(PyObject *pyObject) {
    
     for (int i = 0 ; i < 3 ; i++) {
         pItem = _PyArray_GetItem(pyObject, i);
+        Py_INCREF(pItem);
         if(!PyFloat_Check(pItem)) {
             PyMem_Free(vector);
             PyErr_SetString(PyExc_TypeError, "3D vector element items must be float.");
+            Py_DECREF(pItem);
             return NULL;
         }
-        PyObject_AsDouble( pItem, &(vector[i]));
+        PyObject_AsDouble( pItem, &(vector[i]) );
+        Py_DECREF(pItem);
     }
     return vector;
 }
@@ -262,25 +270,27 @@ int unpackChainID(PyObject *pListChainID, char **buffer) {
 
     PyObject* objectsRepresentation;
     const char* s;
-    for (i = 0; i < n ; i++) {
+    for (i = 0 ; i < n ; i++) {
         pItem = PyList_GetItem(pListChainID, i);
+        Py_INCREF(pItem);
 
-        objectsRepresentation = PyObject_Repr(pItem); //Now a unicode object
-        PyObject* pyStr = PyUnicode_AsUTF8String(objectsRepresentation);
+        objectsRepresentation = PyObject_Repr(pItem); //Now a unicode object, new ref
+        Py_DECREF(pItem);
+        
+        PyObject* pyStr = PyUnicode_AsUTF8String(objectsRepresentation); // NEw ref
+        Py_DECREF(objectsRepresentation);
+        
         s = PyBytes_AS_STRING(pyStr);
         Py_DECREF(pyStr);
 
         (*buffer)[i] = s[1];
+
     }
-    Py_DECREF(pItem); // LAST MOD
-    Py_DECREF(objectsRepresentation);
+    
     return 1;
 }
 
 int unpackString(PyObject *pListOfStrings, char ***buffer) {
-#ifdef DEBUG
-    PySys_WriteStdout("--->Unpack string\n");
-#endif
     PyObject *pItem;
     Py_ssize_t n;
     int i;
@@ -294,21 +304,26 @@ int unpackString(PyObject *pListOfStrings, char ***buffer) {
     int sLen;
     for (i = 0; i < n ; i++) {
         pItem = PyList_GetItem(pListOfStrings, i);
+        Py_INCREF(pItem);
 
         objectsRepresentation = PyObject_Repr(pItem); //Now a unicode object
+        Py_DECREF(pItem);
+
         PyObject* pyStr = PyUnicode_AsUTF8String(objectsRepresentation);
+        Py_DECREF(objectsRepresentation);
+
         s = PyBytes_AS_STRING(pyStr);
-        Py_XDECREF(pyStr);
+        Py_DECREF(pyStr);
 
         sLen =  strlen(s); // This corresponds to the actual string surrounded by \' , ie : 'MYTSRING'
-        //PySys_WriteStdout("--->%s[%d]\n", s, strlen(s));
+       
         (*buffer)[i] = PyMem_New(char, sLen - 1);
         for (int j = 1 ; j < sLen - 1 ; j++) {
             (*buffer)[i][j - 1] = s[j];
         }
         (*buffer)[i][sLen - 2] = '\0';
-        Py_XDECREF(objectsRepresentation);
     }
+
     return 1;
 }
 
@@ -319,23 +334,22 @@ double *unpackCoordinates(PyObject *pListCoor) {
 
     for (int i = 0; i < n ; i++) {
         pItem = PyList_GetItem(pListCoor, i);
+        Py_INCREF(pItem);
+        
         if(!PyFloat_Check(pItem)) {
             PyErr_SetString(PyExc_TypeError, "coordinate items must be float.");
             PyMem_Free(buffer);
+            Py_DECREF(pItem); 
             return NULL;
         }
 
         PyObject_AsDouble(pItem, &(buffer[i]) );
-        //PySys_WriteStdout("TEST:: %.2f\n", buffer[i] );
+        Py_DECREF(pItem);        
     }
     return buffer;
 }
 
 void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n) {
-#ifdef DEBUG
-    PySys_WriteStdout("Freeing all I buffers of size %d\n", n);
-#endif
-    //fprintf(stderr, "Freeing all I buffers of size %d\n", n);
     PyMem_Free(x);
     PyMem_Free(y);
     PyMem_Free(z);
@@ -348,11 +362,12 @@ void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, c
     PyMem_Free(resID);
     PyMem_Free(resName);
     PyMem_Free(name);
-#ifdef DEBUG
-    PySys_WriteStdout("Done\n");
-#endif
 }
 
+
+/*
+    WE NEED ERROR MANAGMENT
+*/
 atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
 
 #ifdef PYMEM_CHECK
@@ -360,15 +375,21 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
     fprintf(stderr, "pyDictObject:%zd\n", Py_REFCNT(pyDictObject) );
 #endif
 
-    PyObject* pyObj_x = PyDict_GetItemString(pyDictObject, "x");
-    PyObject* pyObj_y = PyDict_GetItemString(pyDictObject, "y");
-    PyObject* pyObj_z = PyDict_GetItemString(pyDictObject, "z");
-    PyObject* pyObj_chainID = PyDict_GetItemString(pyDictObject, "chainID");
-    PyObject* pyObj_resSeq = PyDict_GetItemString(pyDictObject, "seqRes");
-    PyObject* pyObj_resName = PyDict_GetItemString(pyDictObject, "resName");
+    PyObject* pyObj_x        = PyDict_GetItemString(pyDictObject, "x");
+    Py_INCREF(pyObj_x);
+    PyObject* pyObj_y        = PyDict_GetItemString(pyDictObject, "y");
+    Py_INCREF(pyObj_y);
+    PyObject* pyObj_z        = PyDict_GetItemString(pyDictObject, "z");
+    Py_INCREF(pyObj_z);
+    PyObject* pyObj_chainID  = PyDict_GetItemString(pyDictObject, "chainID");
+    Py_INCREF(pyObj_chainID);
+    PyObject* pyObj_resSeq   = PyDict_GetItemString(pyDictObject, "seqRes");
+    Py_INCREF(pyObj_resSeq);
+    PyObject* pyObj_resName  = PyDict_GetItemString(pyDictObject, "resName");
+    Py_INCREF(pyObj_resName);
     PyObject* pyObj_atomName = PyDict_GetItemString(pyDictObject, "name");
-
-    Py_ssize_t n = PyList_Size(pyObj_x);
+    Py_INCREF(pyObj_atomName);
+    Py_ssize_t n             = PyList_Size(pyObj_x);
     *nAtoms = (int) n;
 
 
@@ -376,28 +397,27 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
     All unpackXX calls do memory allocation, which needs subsequent common call to freeBuffer()
     */
     double *coorX = unpackCoordinates(pyObj_x);
+    Py_DECREF(                        pyObj_x);
     double *coorY = unpackCoordinates(pyObj_y);
+    Py_DECREF(                        pyObj_y);
     double *coorZ = unpackCoordinates(pyObj_z);
-    /* DONT DECREF REFERENCE IS BORROWED !
-    Py_DECREF(pyObj_x);
-    Py_DECREF(pyObj_y);
-    Py_DECREF(pyObj_z);
-    */
+    Py_DECREF(                       pyObj_z); 
+    
     char *chainID;
     unpackChainID(pyObj_chainID, &chainID);
-    //Py_DECREF(pyObj_chainID);
+    Py_DECREF(    pyObj_chainID);
 
     char **resSeq;
     unpackString(pyObj_resSeq, &resSeq);
-    //Py_DECREF(pyObj_resSeq);
+    Py_DECREF(   pyObj_resSeq);
 
     char **resName;
     unpackString(pyObj_resName, &resName);
-    //Py_DECREF(pyObj_resName);
+    Py_DECREF(   pyObj_resName);
 
     char **atomName;
     unpackString(pyObj_atomName, &atomName);
-    //Py_DECREF(pyObj_atomName);
+    Py_DECREF(   pyObj_atomName);
 
     /* Create data structures and compute */
     atom_t *atomList = readFromArrays(*nAtoms, coorX, coorY, coorZ, chainID, resSeq, resName, atomName);
@@ -430,7 +450,7 @@ void setBooleanFromParsing(PyObject *pyObjectBool, bool *bResults)
 if (pyObjectBool != NULL) {
     if (PyObject_IsTrue(pyObjectBool))
         *bResults = true;
-    //Py_DECREF(pyObjectBool); It's borrowed from main fun caller and we dont need it anymore
+    //Py_DECREF(pyObjectBool); It's borrowed from main fun caller and we dont need it anymore, DONT TOUCH IT!
     }
 #ifdef PYMEM_CHECK
     if (pyObjectBool != NULL)
