@@ -30,11 +30,10 @@ import pyproteinsExt.structure.coordinates as PDB
 
 print(ARGS)
 
-print(f"Running {nThreads} threads of size {n} each")
 
 parser = PDB.Parser()
-pdbDictREC = parser.load(file=f"{ARGS["--pdbI"]}").atomDictorize
-pdbDictLIG = parser.load(file=f"{ARGS["--pdbJ"]}").atomDictorize if ARGS["--pdbJ"] else None
+pdbDictREC = parser.load(file=ARGS["--pdbI"]).atomDictorize
+pdbDictLIG = parser.load(file=ARGS["--pdbJ"]).atomDictorize if ARGS["--pdbJ"] else None
 
 
 vectors = None
@@ -47,50 +46,56 @@ if ARGS["--inputs"]:
         recOffset = vectors['recOffset']
         print("Loaded Transformation to apply to \"", vectors['ligandFile'], "\"")
 
-def cThread(d, pdb_lig, pdb_rec, e, t, lo, ro, results, i):
-    print(f"Starting lz thread {i}")
+def cThread(*args, **kwargs):
+    print(f"Starting  cThread {i}")
+    print(f"{args} // f{kwargs}")
     tStart = time.time()
-    results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
-            offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
+    #results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
+    #        offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
     print(f"End of lz thread {i} in { time.time() - tStart }")          
     return
 
-def lcThread(d, pdb_lig, pdb_rec, e, t, lo, ro, results, i):
-    print(f"Starting lz thread {i}")
+def lcThread(*args, **kwargs):
+    print(f"Starting lcThread {i}")
+    print(f"{args} // f{kwargs}")
     tStart = time.time()
-    results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
-            offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
+    #results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
+    #        offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
     print(f"End of lz thread {i} in { time.time() - tStart }")          
     return
 
-def zThread(d, pdb_lig, pdb_rec, e, t, lo, ro, results, i):
-    print(f"Starting lz thread {i}")
+def zThread(*args, **kwargs):
+    print(f"Starting zThread {i}")
+    print(f"{args} // f{kwargs}")
     tStart = time.time()
-    results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
-            offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
+    #results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
+    #        offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
     print(f"End of lz thread {i} in { time.time() - tStart }")          
     return
 
-def lzThread(d, pdb_lig, pdb_rec, e, t, lo, ro, results, i):
-    print(f"Starting lz thread {i}")
-    tStart = time.time()
-    results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
-            offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
+def lzThread(*args, **kwargs):
+    print(f"Starting lzThread {i}")
+    print(f"{args} // f{kwargs}")
+    #tStart = time.time()
+    #results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
+    #        offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
     print(f"End of lz thread {i} in { time.time() - tStart }")          
     return
 
 """Yield successive interval boundaries spanning [0, iLen]"""
 def splitInterval(iLen, nElem):
     assert(nElem <= iLen)
-    
-    iLen -= 1
     nWidth = int(iLen/nElem)
     
     for i in range(nElem):
-        yield (i * nWidth, (i+1) * nWidth)
-    
-    if iLen%nElem != 0:
-        yield (iLen - iLen%nElem , iLen + 1)
+        top = (i+1) * nWidth
+        if i == (nElem - 1): #and iLen%nElem != 0:
+            top +=  iLen%nElem
+        yield (i * nWidth, top)
+
+def splitList(myList, nChunck):
+    for x,y in splitInterval(len(myList), nChunck):
+        yield myList[x:y]
     
 threadNum = int(ARGS['<threadNum>'])
 dataSize  = int(ARGS['<dataSize>'])
@@ -107,48 +112,51 @@ else:
     wThread = lzThread
     
 # Setting default thread named arguments
-threadKwargs = [ {\
+threadKwargs = {\
     "encode" : ARGS["--encode"],\
     "atomic" : ARGS["--atomic"] \
-    } for t in range(threadNum) ]
-for t in threadKwargs:
-    if ARGS['--dist']:
-        t["d"] = float(ARGS['--dist'])
+    } 
+if ARGS['--dist']:
+    threadKwargs["d"] = float(ARGS['--dist'])
 
 # Setting default thread positional arguments
-threadArgs = []
-for t in threadKwargs:
+threadArgs = None
 
-if ARGS['cmap']:
-    wThread = cThread 
-    args = [ pdbDictREC ]
-    if pdbDictLIG:
-        args.append(pdbDictLIG)
-elif ARGS['lcmap']:
-    wThread = lcThread
-    if pdbDictLIG:
-        args = [ [ pdbDictREC for i in range(dataSize) ], \
-                 [ pdbDictLIG for i in range(dataSize) ]  \
-                ]
-    else :
-        args = [ [ pdbDictREC  for i in range(dataSize) ] ]
+## We fill list-structures args with repetitions of the same PDBs
+if ARGS['cmap'] or ARGS['lcmap']:
+    wThread = cThread if ARGS['cmap'] else lcThread
+    
+    threadArgs = [[], []] if pdbDictLIG else [ [] ]
+    cThread = 0
+    for x,y in splitInterval(dataSize, threadNum):
+        threadArgs[0].append([])
+        if  pdbDictLIG:
+            threadArgs[1].append([])
+        for i in range(y - x):
+            threadArgs[0][cThread].append(pdbDictREC)
+            if  pdbDictLIG:
+                threadArgs[1][cThread].append(pdbDictREC)
+        cThread += 1
 
-elif ARGS['zmap']:
-    wThread = zThread
-    args = [ pdbDictREC, pdbDictLIG, vectors['euler'][0], vectors['translation'] ]
-else:
-    wThread = lzThread
-    args = [ pdbDictREC, pdbDictLIG ]
-if ARGS["-zmap"] || ARGS["-lzmap"]:
+elif ARGS['zmap'] or ARGS['lzmap']:
+    wThread = zThread if ARGS['zmap'] else lzThread
     kwargs = { 
     "offsetRec" : vectors['recOffset'], 
     "offsetLig" : vectors['ligOffset']
     }
+    threadArgs = []
+    for x,y in splitInterval(dataSize, threadNum):
+        threadArgs.appends([ pdbDictREC, pdbDictLIG, \
+            vectors['euler'][x:y],\
+            vectors['translation'][x:y]\
+        ])
+    
+
 mStart  = time.time()
-dValues = [ 5.0 for i in range(nThreads) ]
-output  = [ None for i in range(nThreads) ]
-threadPool = [threading.Thread(args=(d, pdbDictREC, pdbDictLIG,eulers[:n],\
-              translations[:n], recOffset, ligOffset, output,i, ), target=lzThread) for i,d in enumerate(dValues)]
+dValues = [ 5.0 for i in range(threadNum) ]
+output  = [ None for i in range(threadNum) ]
+threadPool = [ threading.Thread(args = tuple(threadArgs[i]), kwargs = threadKwargs \
+              , target=wThread) for i in range(threadNum)]
 
 for th in threadPool:
     th.start()
@@ -156,12 +164,11 @@ for th in threadPool:
 for th in threadPool:
     th.join()
 
-print(f"{nThreads} lz threads finished in { time.time() - mStart }")        
+print(f"{threadNum} lz threads finished in { time.time() - mStart }")        
 
-if not bEncode:
-    for i,d in enumerate(output):
-        output[i] = json.loads(d)
+#if not bEncode:
+#    for i,d in enumerate(output):
+#        output[i] = json.loads(d)
 
-with open("threadsTest.json", 'w') as fp:
-    json.dump({ "threadData" : output }, fp)
-    ##fp.write("\"data\" : " + str(output) + "}")
+#with open("threadsTest.json", 'w') as fp:
+#    json.dump({ "threadData" : output }, fp)
