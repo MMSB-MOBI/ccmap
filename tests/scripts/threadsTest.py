@@ -47,9 +47,14 @@ if ARGS["--inputs"]:
         print("Loaded Transformation to apply to \"", vectors['ligandFile'], "\"")
 
 def cThread(*args, **kwargs):
-    print(f"Starting  cThread {i}")
-    print(f"{args} // f{kwargs}")
+    tArgs, tNum, results = args
+    print(f"Starting  cThread {tNum}")
+    #print(typeof (kwargs))
+    print(f"{tArgs} // {kwargs}")
+    print( len(tArgs[0]), len(tArgs[1]) )
     tStart = time.time()
+    for inputs in args:
+        results.append( ccmap.cmap(*tArgs, **kwargs) )
     #results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
     #        offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
     print(f"End of lz thread {i} in { time.time() - tStart }")          
@@ -57,7 +62,7 @@ def cThread(*args, **kwargs):
 
 def lcThread(*args, **kwargs):
     print(f"Starting lcThread {i}")
-    print(f"{args} // f{kwargs}")
+    print(f"{args} // {kwargs}")
     tStart = time.time()
     #results[i] = ccmap.lzmap(pdb_rec, pdb_lig, e, t, \
     #        offsetRec=ro, offsetLig=lo, distance=d, encode=bEncode)
@@ -126,16 +131,16 @@ threadArgs = None
 if ARGS['cmap'] or ARGS['lcmap']:
     wThread = cThread if ARGS['cmap'] else lcThread
     
-    threadArgs = [[], []] if pdbDictLIG else [ [] ]
-    cThread = 0
+    threadArgs = []
+    cThread = 0 # WRONG SHAPES [    [[] or ], .. NTHREADS]
     for x,y in splitInterval(dataSize, threadNum):
         threadArgs[0].append([])
         if  pdbDictLIG:
             threadArgs[1].append([])
         for i in range(y - x):
-            threadArgs[0][cThread].append(pdbDictREC)
+            threadArgs[cThread].append(pdbDictREC)
             if  pdbDictLIG:
-                threadArgs[1][cThread].append(pdbDictREC)
+                threadArgs[1][cThread].append(pdbDictLIG)
         cThread += 1
 
 elif ARGS['zmap'] or ARGS['lzmap']:
@@ -146,17 +151,18 @@ elif ARGS['zmap'] or ARGS['lzmap']:
     }
     threadArgs = []
     for x,y in splitInterval(dataSize, threadNum):
-        threadArgs.appends([ pdbDictREC, pdbDictLIG, \
+        threadArgs.append([ pdbDictREC, pdbDictLIG, \
             vectors['euler'][x:y],\
             vectors['translation'][x:y]\
         ])
     
 
 mStart  = time.time()
-dValues = [ 5.0 for i in range(threadNum) ]
 output  = [ None for i in range(threadNum) ]
-threadPool = [ threading.Thread(args = tuple(threadArgs[i]), kwargs = threadKwargs \
-              , target=wThread) for i in range(threadNum)]
+threadPool = [  threading.Thread(args = tuple( [ threadArgs[i], i, output ] )\
+              , kwargs = threadKwargs \
+              , target=wThread) \
+            for i in range(threadNum)]
 
 for th in threadPool:
     th.start()
@@ -172,3 +178,4 @@ print(f"{threadNum} lz threads finished in { time.time() - mStart }")
 
 #with open("threadsTest.json", 'w') as fp:
 #    json.dump({ "threadData" : output }, fp)
+  
