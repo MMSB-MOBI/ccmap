@@ -377,7 +377,7 @@ atom_t *atomListLig       = NULL;
 atom_t *atomListLigBuffer = NULL;
 
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
-                     "O!O!OO|OOfO", kwlist, \
+                     "O!O!OO|OOfOO", kwlist, \
                     &PyDict_Type, &pyDictRec,   \
                     &PyDict_Type, &pyDictLig,   \
                                   &eulerArrayArray,   \
