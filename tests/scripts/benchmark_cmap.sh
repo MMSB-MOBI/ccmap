@@ -1,7 +1,6 @@
 #!/bin/bash
 
 
-
 for size in 100 500 1000 1500 2000 5000 15000 30000 50000 
     do
     for ncpu in $(seq 1 32)
