@@ -1,1 +1,0 @@
-gcc -Wall -lm -I../include/ -o ccmap_debug.exe ../src/encode.c ../src/mesh.c ../src/pdb_coordinates.c ../src/decoygen.c  ../src/main.c -std=c99
