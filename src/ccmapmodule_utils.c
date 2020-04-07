@@ -34,7 +34,9 @@ PyObject *ccmapViewsToPyObject(ccmapView_t **ccmapViews, int nViews, bool bEncod
     PyObject *rValue;
     ccmapView_t *currView;
     if(bEncode) {
+        #ifdef DEBUG
         PySys_WriteStdout("Building encoding results\n");
+        #endif
         rValue = PyList_New(nViews);
         PyObject *pyCurrList, *pyValue;
         

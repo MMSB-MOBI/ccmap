@@ -166,20 +166,20 @@ ccmap_compute_list_allocate(&ccmapViewList, \
                             &atomListList_J, &nAtomsList_J, \
                             structFrameLen, dual);
 
-// We off load from threads the loading of coordinates 
-for (int iStructPair = 0 ; iStructPair < (int)structFrameLen ; iStructPair++) {
-    pStructAsDict_I                 = PyArray_GetItem(pyDictArray_I, iStructPair);
-    Py_INCREF(pStructAsDict_I);
-    atomListList_I[iStructPair]     = structDictToAtoms(pStructAsDict_I, &nAtomsList_I[iStructPair]);    
-    Py_DECREF(pStructAsDict_I);
+    // We off load from threads the loading of coordinates 
+    for (int iStructPair = 0 ; iStructPair < (int)structFrameLen ; iStructPair++) {
+        pStructAsDict_I                 = PyArray_GetItem(pyDictArray_I, iStructPair);
+        Py_INCREF(pStructAsDict_I);
+        atomListList_I[iStructPair]     = structDictToAtoms(pStructAsDict_I, &nAtomsList_I[iStructPair]);    
+        Py_DECREF(pStructAsDict_I);
 
-    if(dual) {
-        pStructAsDict_J             = PyArray_GetItem(pyDictArray_J, iStructPair);
-        Py_INCREF(pStructAsDict_J);
-        atomListList_J[iStructPair] = structDictToAtoms(pStructAsDict_J, &nAtomsList_J[iStructPair]);    
-        Py_DECREF(pStructAsDict_J);
+        if(dual) {
+            pStructAsDict_J             = PyArray_GetItem(pyDictArray_J, iStructPair);
+            Py_INCREF(pStructAsDict_J);
+            atomListList_J[iStructPair] = structDictToAtoms(pStructAsDict_J, &nAtomsList_J[iStructPair]);    
+            Py_DECREF(pStructAsDict_J);
+        }
     }
-}
 
 /*
 We wont be using function current scope python object through GIL recovery, we dont Py_INCREF them
