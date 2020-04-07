@@ -1,0 +1,15 @@
+include ccmap/include/ccmapmodule_allocation.h
+include ccmap/include/ccmapmodule_utils.h
+include ccmap/include/cell.h
+include ccmap/include/cell_crawler.h
+include ccmap/include/config.h
+include ccmap/include/decoygen.h
+include ccmap/include/encode.h
+include ccmap/include/mesh.h
+include ccmap/include/mesh_default.h
+include ccmap/include/mesh_io.h
+include ccmap/include/molecular_object.h
+include ccmap/include/parameters.h
+include ccmap/include/pdb_coordinates.h
+include ccmap/include/transform_mesh.h
+
