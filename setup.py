@@ -4,19 +4,20 @@ import sysconfig
 
 extra_compile_args = sysconfig.get_config_var('CFLAGS').split()
 extra_compile_args += ['-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic'] #'-D', 'DEBUG', '-D', 'PYMEM_CHECK']
-module1 = Extension('ccmap',
+core = Extension('ccmap',
                     libraries = ['m'],
-                    include_dirs = ['./include'],#, '../modules/include/python3.6m/'],
-                    sources = ['ccmapmodule.c', 'src/ccmapmodule_utils.c', 'src/ccmapmodule_allocation.c',\
-                                'src/decoygen.c', 'src/encode.c', 'src/molecular_object.c', 'src/pdb_coordinates.c',\
-                                'src/cell_crawler.c', 'src/mesh.c', 'src/transform_mesh.c', 'src/mesh_default.c' ],
+                    include_dirs = ['ccmap/include'],
+                    sources = ['ccmap/ccmapmodule.c', 'ccmap/src/ccmapmodule_utils.c', 'ccmap/src/ccmapmodule_allocation.c',\
+                                'ccmap/src/decoygen.c', 'ccmap/src/encode.c', 'ccmap/src/molecular_object.c', 'ccmap/src/pdb_coordinates.c',\
+                                'ccmap/src/cell_crawler.c', 'ccmap/src/mesh.c', 'ccmap/src/transform_mesh.c', 'ccmap/src/mesh_default.c' ],
                     extra_compile_args=extra_compile_args
-		    #extra_compile_args=['-D', 'DEBUG', '-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic'])
 		)
 
-setup (name = 'ccmapModule',
-       version = '1.0',
-       description = 'This is the C implementation of the mesh based contact map',
-       ext_modules = [module1])
+setup (name = 'ccmap',
+       version = '2.0',
+       author = 'G.Launay', 
+	   author_email='pitooon@gmail.com',
+       description = 'A C implementation of a mesh based atomic pairwise distance computating engine, with docking pose generation capabilities',
+       ext_modules = [core])
 
 
