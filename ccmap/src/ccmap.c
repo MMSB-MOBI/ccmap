@@ -45,11 +45,14 @@ char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordi
 
     char *ccmapAsChar;
     if (bEncode) {
+        
+        /*
         if(bAtomic){
             char msg[] = "USE encodeLen";
             ccmapAsChar = malloc(1024 * sizeof(char));
             strcpy(ccmapAsChar, msg);
         }
+        */
         string_t *encodeVector = createString();
         encodeVector->append(encodeVector, "{ \"type\" : \"encodeVector\", \"data\" : [");
         char buffer[81];
@@ -270,8 +273,8 @@ int main (int argc, char *argv[]) {
                     ? fopen(optResultFile, "w") \
                     : fopen("ccmap.json", "w");
         fprintf(fp, "%s", ccmap);
-        free(ccmap); 
         fclose(fp);
+        free(ccmap); 
     } else {
         fprintf(stderr, "No contact distance specified, No cc map computed\n");
     }
