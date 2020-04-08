@@ -43,7 +43,7 @@ cellCrawler_t *destroyCellCrawler(cellCrawler_t *cellCrawler) {
 void extendCellCrawler(cellCrawler_t *cellCrawler) {
     updaterStruct_t *updater = cellCrawler->updater;
     updater->maxSize += ATOM_CC_LIST_CHUNCK;
-    atomPair_t *atomContactListRealloc = realloc( updater->atomContactList, updater->maxSize * sizeof(atomPair_t) );
+    atomPair_t *atomContactListRealloc = realloc( updater->atomContactList, (size_t)updater->maxSize * sizeof(atomPair_t) );
     assert(atomContactListRealloc != NULL);
     updater->atomContactList = atomContactListRealloc;
 }
