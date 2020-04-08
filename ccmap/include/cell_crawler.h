@@ -16,7 +16,7 @@
 #include <Python.h>
 #endif
 
-#define ATOM_CC_LIST_CHUNCK (2)
+#define ATOM_CC_LIST_CHUNCK (1000)
 
 
 typedef struct updaterStruct updaterStruct_t;
