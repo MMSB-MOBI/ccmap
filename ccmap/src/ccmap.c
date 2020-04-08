@@ -90,7 +90,7 @@ void displayHelp() {
     --dst / d, Treshold distance to compute contact\n\
     --out / o, Valid File path to write resulting contact map\n\
     --tli / u, (TransLigInit) Initial x,y,z translation vector to origin\n\
-    --elg / v,  eulerLig Euler angle combination to final ligand orientation (intended to be performed w/ ligant centered onto origin)\n\
+    --elg / v,  eulerLig Euler angle combination to final ligand orientation (intended to be performed w/ ligand centered onto origin)\n\
     --tl  / k, transLig Final x,y,z translation vector from rotated/centered pose to final ligand pose\n\
     --tri / m, transRecInit Initial x,y,z translation vector to origin\n\
     --eri / n, eulerRecInit Optional rotation for receptor (intended to be performed w/ ligant centered onto origin)\n\
