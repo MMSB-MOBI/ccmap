@@ -39,13 +39,17 @@ cellCrawler_t *destroyCellCrawler(cellCrawler_t *cellCrawler) {
     free (cellCrawler);
     return cellCrawler;
 }
-
+// By REALLOC the next pointers of each atomPAir become invalid, we rebind them
 void extendCellCrawler(cellCrawler_t *cellCrawler) {
+   
     updaterStruct_t *updater = cellCrawler->updater;
+    int oldSize = updater->maxSize;
     updater->maxSize += ATOM_CC_LIST_CHUNCK;
     atomPair_t *atomContactListRealloc = realloc( updater->atomContactList, (size_t)updater->maxSize * sizeof(atomPair_t) );
     assert(atomContactListRealloc != NULL);
     updater->atomContactList = atomContactListRealloc;
+    for (int i = 0; i < oldSize - 1; i++)
+        updater->atomContactList[i].next = &updater->atomContactList[i + 1];
 }
 
 // iAtom is guaranted to be from 1st body coordinate sets, or single
