@@ -3,7 +3,7 @@
 // TO DO: implementation of atomic integer encoding
 ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded) {
     
-    assert(!bEncoded); 
+    //assert(!bEncoded); 
     
     #ifdef DEBUG
     fprintf(stderr, "Starting atomicContactMap\n");
