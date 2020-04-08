@@ -34,7 +34,7 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
     return ccmapView;
 }
 
-// ENCODED single residue set currently DISABLED SHOULD BE ENABLED
+// ENCODED single residue set currently DISABLED SHOULD BE ENABLED, REALLY ?
 ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded) {
     #ifdef DEBUG
     fprintf(stderr, "Starting residueContactMap\n");
@@ -87,10 +87,10 @@ ccmapResults_t *createCcmapResults(cellCrawler_t *cellCrawler, residue_t *iResid
 // IS IT SAFE TO DESTROY jResidue after fusion?
 ccmapResults_t *destroyCcmapResults (ccmapResults_t *results){
     results->iResidueList = destroyResidueList(results->iResidueList);
-    /*   UNSAFE, CHECK FOR MEMLEAK
+    
     if (results->fused)
         results->jResidueList = destroyResidueList(results->jResidueList);
-    */
+        
     destroyCellCrawler(results->cellCrawler);
     free(results);
     return results;
