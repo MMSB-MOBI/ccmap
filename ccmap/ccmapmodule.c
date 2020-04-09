@@ -12,21 +12,7 @@ struct module_state {
 };
 
 #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
-/*
-static PyObject *
-error_out(PyObject *m) {
-    struct module_state *st = GETSTATE(m);
-    PyErr_SetString(st->error, "something bad happened");
-    return NULL;
-}
-*/
 
-/* ------------------    NON ZDOCK related API ------------------
-
-
-
-
-*/
 
 /*
     Python API exposed as cmap
