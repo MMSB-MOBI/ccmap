@@ -1,4 +1,6 @@
-# A Python module and C library for fast molecular contact map computation  **WIP**
+# A Python package and C library for fast molecular contact map computation  **WIP**
+
+[Current Version 2.1](https://pypi.org/project/ccmap/)
 
 This package was designed as a tool to quickly compute thousands of sets of atomic or residue molecular contacts. The contacts can be evaluated inside a single body or across two bodies. The library scales well, with the support of native python multi-threading.
 We provided docking poses evaluation by the application of triplets of euler angles and translation vectors to initial unbound conformations.
@@ -14,6 +16,7 @@ Current release was successfully installed through pip on the following combinai
 * python3.8/Ubuntu LTS
 
 ### Usage
+
 From there you can load the package and display its help.
 
 ```python
