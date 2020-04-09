@@ -190,7 +190,7 @@ The C implementation makes it possible for the ccmap functions to release Python
 <img src="notebook/img/LZMAP_benchmark_1.png" alt="benchmark" >
     
 </figure>
-A simple example of a multithread implementation can be found in the provided script . The tests folder allows for the reproduction of the above benchmark.
+A simple example of a multithread implementation can be found in the [provided script](tests/scripts/threadsTest.py). The tests folder allows for the reproduction of the above benchmark.
 
 ## Installing and using the C library
 
