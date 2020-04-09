@@ -187,12 +187,22 @@ ccmap.zmap( pdbDictREC, pdbDictLIG,     \
 
 #### Multithreading
 
-The C implementation makes it possible for the ccmap functions to release Python Global Interpreter Lock. Hence, "actual" multithreading can be achieved and performances scale decently.
+The C implementation makes it possible for the ccmap functions to release Python Global Interpreter Lock. Hence, "actual" multithreading can be achieved and performances scale decently with the number of workers. For this benchmark, up to 50000 docking poses were generated and processed for three coordinate sets of increasing number of atoms: 1974([1GL1](https://www.rcsb.org/structure/1GL1)) 3424([1F34](https://www.rcsb.org/structure/1F34)) 10677([2VIS](https://www.rcsb.org/structure/2VIS)).
 
-![]("notebook/img/LZMAP_benchmark_1.png")
+<figure>
 
+<img src="notebook/img/LZMAP_benchmark_1.png" alt="benchmark" >
+    
+</figure>
 A simple example of a multithread implementation can be found in the provided script . The tests folder allows for the reproduction of the above benchmark.
 
 ## Installing and using the C library
 
-C executable can be generated with the provided makefile.
+C executable can be generated with the provided makefile. The low level functions are the same, but the following limitations exist:
+
+* One computation per executable call
+* no multithreading.
+
+
+----
+last_rev:04/09/2020
