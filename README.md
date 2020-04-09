@@ -1,9 +1,9 @@
 # A Python package and C Library for fast molecular contact map computation
 
-[Current Version 2.1.2](https://pypi.org/project/ccmap/)
+[Current Version 2.1.3](https://pypi.org/project/ccmap/)
 
 This package was designed as a tool to quickly compute thousands of sets of atomic or residue molecular contacts. The contacts can be evaluated inside a single body or across two bodies. The library scales well, with the support of the native python multithreading.
-We provided docking poses evaluation by the application of triplets of Euler angles and translation vectors to initial unbound conformations.
+The module also provides docking poses evaluation by the application of triplets of Euler angles and translation vectors to initial unbound conformations.
 
 ## Installing and using the python module
 
@@ -20,7 +20,8 @@ Current release was successfully installed through pip on the following combinat
 From there you can load the package and display its help.
 
 ```python
-import ccmap help(ccmap)
+import ccmap
+help(ccmap)
 ```
 
 #### Functions
@@ -29,8 +30,8 @@ Four functions are available:
 
 * cmap: computes the contacts of one single/two body molecule
 * lcmap: computes the contacts of a list of single/two body molecules
-* zmap: computes the contacts between a receptor and a ligand molecule after applying transformations to the ligand.
-* lzmap: computes many sets of contacts between a receptor and a ligand molecule, one for each applied ligand transformation.
+* zmap: computes the contacts between a receptor and a ligand molecule after applying transformations to the ligand coordinates
+* lzmap: computes many sets of contacts between a receptor and a ligand molecule, one for each applied ligand transformation
 
 #### Parameters
 
@@ -86,14 +87,18 @@ We usually work with molecules in the PDB format. We can use the [pyproteinsExt]
 import pyproteinsExt
 parser = PDB.Parser()
 pdbREC = parser.load(file="dummy_A.pdb")
-pdbDictREC = pdbREC.atomDictorize pdbDictREC.keys() #dict_keys(['x', 'y', 'z', 'seqRes', 'chainID', 'resName', 'name']) ```
+pdbDictREC = pdbREC.atomDictorize
+pdbDictREC.keys()
+#dict_keys(['x', 'y', 'z', 'seqRes', 'chainID', 'resName', 'name']) ```
 ```
 
 By convention, following examples will use two molecules names REC(eptor) and LIG(and).
 
 ```python
 pdbLIG = parser.load(file="dummy_B.pdb")
-pdbDictLIG = pdbLIG.atomDictorize pdbDictLIG.keys() #dict_keys(['x', 'y', 'z', 'seqRes', 'chainID', 'resName', 'name']) ```
+pdbDictLIG = pdbLIG.atomDictorize
+pdbDictLIG.keys()
+#dict_keys(['x', 'y', 'z', 'seqRes', 'chainID', 'resName', 'name']) ```
 ```
 
 ## Examples
@@ -113,12 +118,13 @@ ccmap.cmap(pdbDictLIG, d=6.0, encode=True)
 Using default contact distance and recovering atomic contact maps as JSON object string. The first positional argument specifies a list of bodies to process independently. 
 
 ```python
-import json json.load( ccmap.lcmap([ pdbDictLIG, pdbDictREC ] , atomic=True) )
+import json
+json.load( ccmap.lcmap([ pdbDictLIG, pdbDictREC ], atomic=True) )
 ```
 
 ### Computing two-body contact map
 
-#### Straight Computation of one map
+#### Straight computation of one map
 
 The second positional argument of **cmap** is optional and defines the second body.
 
@@ -126,7 +132,7 @@ The second positional argument of **cmap** is optional and defines the second bo
 ccmap.cmap(pdbDictLIG, pdbDictLIG, d=6.0, encode=True)
 ```
 
-#### Straight Computation of many maps
+#### Straight computation of many maps
 
 The second positional argument of **lcmap** is an optional list of second bodies. The first two arguments must be of the same size, as the *i*-element of the first will be processed with the *i*-element of the second.
 
@@ -144,6 +150,8 @@ Use the **zmap** function with third and fourth positional arguments respectivel
 ```python
 ccmap.zmap(pdbDictREC, pdbDictLIG , (e1, e2, e3), (t1, t2, t3) )
 ```
+
+Transformations are always applied to the coordinates provided as a second argument, e.g. : `pdbDictLIG`.
 
 #### Computation of many maps after conformational changes
 
