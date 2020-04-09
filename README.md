@@ -1,6 +1,6 @@
 # A Python package and C library for fast molecular contact map computation  **WIP**
 
-[Current Version 2.1](https://pypi.org/project/ccmap/)
+[Current Version 2.1.2](https://pypi.org/project/ccmap/)
 
 This package was designed as a tool to quickly compute thousands of sets of atomic or residue molecular contacts. The contacts can be evaluated inside a single body or across two bodies. The library scales well, with the support of native python multi-threading.
 We provided docking poses evaluation by the application of triplets of euler angles and translation vectors to initial unbound conformations.
@@ -56,8 +56,8 @@ if True, contacts are returned as integers. Each integer encoding one pair of at
 
 ```python
 def K2IJ(k, sizeBody1, sizeBody2):
-    nCol = sizeBody2 if sizeBody2 else sizeBody1
-    return int(k/nCol), k%nCol
+nCol = sizeBody2 if sizeBody2 else sizeBody1
+return int(k/nCol), k%nCol
 ```
 
 if False, contacts are returned as strings of JSON Objects
@@ -110,7 +110,6 @@ Setting contact distance of 6.0 and recovering residue-residue contact as an int
 
 ```python
 ccmap.cmap(pdbDictLIG, d=6.0, encode=True)
-
 ```
 
 ###### Computing many maps
@@ -118,8 +117,8 @@ ccmap.cmap(pdbDictLIG, d=6.0, encode=True)
 Using default contact distance and recovering atomic contact maps as JSON object string. The first positional argument specify a list of bodies to process independantly. 
 
 ```python
- import json
- json.load( ccmap.lcmap([ pdbDictLIG, pdbDictREC ] , atomic=True) )
+import json
+json.load( ccmap.lcmap([ pdbDictLIG, pdbDictREC ] , atomic=True) )
 ```
 
 
@@ -139,7 +138,6 @@ The second positional argument of **lcmap** is an optional list of second bodies
 
 ```python
 ccmap.lcmap([pdbDictREC_1, ..., pdbDictREC_n], [pdbDictLIG_1, pdbDictLIG_n], d=6.0, encode=True)
-
 ```
 
 ###### Computation of one map after conformational change
@@ -150,7 +148,7 @@ Use the **zmap** function with third and fourth positional arguments respectivel
 * translation vector
 
 ```python
- ccmap.zmap(pdbDictREC, pdbDictLIG , $\alpha$, $\beta$, $\gamma$), (t1, t2, t3) )
+ccmap.zmap(pdbDictREC, pdbDictLIG , $\alpha$, $\beta$, $\gamma$), (t1, t2, t3) )
 ```
 
 ###### Computation of many maps after conformational changes
@@ -158,7 +156,7 @@ Use the **zmap** function with third and fourth positional arguments respectivel
 Use the **lzmap** function, arguments are similar but for the Euler angles and translation vectors which must be supplied as lists.
 
 ```python
- ccmap.lzmap(pdbDictREC, pdbDictLIG , [($\alpha$, $\beta$, $\gamma$),], [(t1, t2, t3),] )
+ccmap.lzmap(pdbDictREC, pdbDictLIG , [($\alpha$, $\beta$, $\gamma$),], [(t1, t2, t3),] )
 ```
 
 ##### Generating docking conformations
@@ -169,20 +167,18 @@ Here, offset vectors `[u1, u2, u3]` and `[v1, v2, v3]` respectively center `pdbD
 ```python
 # Perform computation & alter provided dictionaries
 ccmap.zmap( pdbDictREC, pdbDictLIG,     \
-            [e1, e2, e3], [t1, t2, t3], \
-            offsetRec=[u1, u2, u3],     \
-            offsetLig=[v1, v2, v3],     \
-            apply=True)
-
+[e1, e2, e3], [t1, t2, t3], \
+offsetRec=[u1, u2, u3],     \
+offsetLig=[v1, v2, v3],     \
+apply=True)
 # Update PDB containers from previous examples
-    pdbREC.setCoordinateFromDictorize(pdbDictREC)
-    pdbLIG.setCoordinateFromDictorize(pdbDictLIG)
-
+pdbREC.setCoordinateFromDictorize(pdbDictREC)
+pdbLIG.setCoordinateFromDictorize(pdbDictLIG)
 # Dump to coordinate files
-    with open("new_receptor.pdb", "w") as fp:
-        fp.write( str(pdbREC) )
-    with open("new_ligand.pdb", "w") as fp:
-        fp.write( str(pdbLIG) )
+with open("new_receptor.pdb", "w") as fp:
+fp.write( str(pdbREC) )
+with open("new_ligand.pdb", "w") as fp:
+fp.write( str(pdbLIG) )
 ```
 
 #### Multithreading
@@ -202,7 +198,3 @@ C executable can be generated with the provided makefile. The low level function
 
 * One computation per executable call
 * no multithreading.
-
-
-----
-last_rev:04/09/2020
