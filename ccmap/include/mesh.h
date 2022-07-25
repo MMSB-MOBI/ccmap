@@ -7,6 +7,7 @@
 #include "cell_crawler.h"
 #include "cell.h"
 #include "encode.h"
+#include "sasa.h";
 
 #ifdef AS_PYTHON_EXTENSION
 #include <Python.h>
@@ -51,7 +52,7 @@ string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults);
 // Mesh engine Fn
 ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bAtomic);
 
-void meshCrawler(meshContainer_t *meshContainer,  cellCrawler_t *cellCrawler);
+void meshCrawler(meshContainer_t *meshContainer,  cellCrawler_t *cellCrawler, cellSasaCrawler_t *cellSasaCrawler);
 cell_t ** vectorizeMesh(mesh_t *mesh);
 // Constructors/Destructors
 meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double step);

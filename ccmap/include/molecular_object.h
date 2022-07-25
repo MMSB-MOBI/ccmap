@@ -10,6 +10,8 @@
 #include <assert.h>
 #include "pdb_coordinates.h"
 #include "mesh_default.h"
+#include "fibonacci.h"
+#include "chem_constants.h"
 
 typedef struct residue {
     struct atom *elements;
@@ -35,10 +37,12 @@ typedef struct atom {
     float z;
     char *resName;
     char *name;
+    float radius;
     struct atom *nextAtomList;
     struct atom *nextCellAtom;
     struct atom *nextResidueAtom;
     unsigned int index;
+    struct fibo_grid *f_grid;
 } atom_t;
 
 typedef struct atomPair {
@@ -72,8 +76,8 @@ atom_t *destroyAtom(atom_t *atom);
 
 unsigned int atomPairListLen(atomPair_t *);
 unsigned int atomListLen(atom_t *);
-atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom);
-atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name);
+atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, bool bASA, float probeRadius);
+atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, bool bASA, float probeRadius);
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
 
 atom_t *legacy_readCoordinates(char *fname, int *_nAtom);

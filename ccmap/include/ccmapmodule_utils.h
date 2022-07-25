@@ -22,5 +22,5 @@ int unpackChainID(PyObject *pListChainID, char **buffer);
 int unpackString(PyObject *pListOfStrings, char ***buffer);
 double *unpackCoordinates(PyObject *pListCoor);
 void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
-atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms);
+atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, bool bASA, float probeRadius);
 void setBooleanFromParsing(PyObject *, bool *);

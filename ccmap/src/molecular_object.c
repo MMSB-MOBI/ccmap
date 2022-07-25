@@ -92,6 +92,7 @@ void jsonifyAtomPair(atomPair_t *atomPair, char *jsonString) {
 }
 
 // Replace the x,yz values of the 2nd list by those of the 1st list
+// Compute fibo grid if needed
 // Returns true if lists were of even size
 bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo) {
     
@@ -99,6 +100,8 @@ bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo) {
         atomListTo->x = atomListFrom->x;
         atomListTo->y = atomListFrom->y;
         atomListTo->z = atomListFrom->z;
+        if(atomListFrom->f_grid != NULL) 
+           atomListTo->f_grid = computeFiboGrid(atomListTo->x, atomListTo->y, atomListTo->z, atomListTo->radius);
         
         atomListFrom = atomListFrom->nextAtomList;
         atomListTo   = atomListTo->nextAtomList;
@@ -244,6 +247,8 @@ atom_t *destroyAtom(atom_t *atom){
     free(atom->resID);
     free(atom->resName);
     free(atom->name);
+    if (atom->f_grid != NULL)
+        destroyFiboGrid(atom->f_grid);
     //free(atom); No need to free atom structure itself, malloc was operate on an array
 #ifdef DEBUG
     printf("Ok\n");
@@ -269,7 +274,7 @@ unsigned int atomListLen(atom_t *atomList) {
     return n;
 }
 
-atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom) {
+atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, bool bASA) {
     #ifdef DEBUG
     fprintf(stderr, "Entering CreateAtomListFromPdbContainer\n");
     #endif
@@ -282,7 +287,7 @@ atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateCo
     char **atomName;
     //atom_t *atomList = NULL;
     *nAtom = pdbContainerToArrays(pdbCoordinateContainer, &x, &y, &z, &chainID, &resSeq, &resName, &atomName);
-    atom_t *atomList = readFromArrays(*nAtom, x, y, z, chainID, resSeq, resName, atomName);
+    atom_t *atomList = readFromArrays(*nAtom, x, y, z, chainID, resSeq, resName, atomName, bASA);
     
     freeAtomListCreatorBuffers(x, y, z, chainID, resSeq, resName, atomName, *nAtom);
     #ifdef DEBUG
@@ -306,7 +311,7 @@ void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, 
     free(name);
 }
 // MEMORY ALLOCATION OF atom LIST
-atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name) {
+atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, bool bASA, float probeRadius) {
     #ifdef DEBUG
     fprintf(stderr, "Entering readFromArrays\n");
     #endif
@@ -334,6 +339,18 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
 
         if (n > 0)
             atomList[n - 1].nextAtomList = &atomList[n];
+
+        atomList[n].radius = \
+            atomList[n].name[0] == 'N' ?\
+                VDW_N : atomList[n].name[0] == 'C' ?\
+                    VDW_C : atomList[n].name[0] == 'O' ?\
+                        VDW_O : atomList[n].name[0] == 'S' ?\
+                            VDW_S : VDW_DEFAULT;
+
+        if (bASA)
+            atomList[n].f_grid = computeFiboGrid(atomList[n].x, atomList[n].y, atomList[n].z, atomList[n].radius + probeRadius);
+        else 
+            atomList[n].f_grid = NULL;
     }
     #ifdef DEBUG
     fprintf(stderr, "Read from array done for %d\n", nAtoms);

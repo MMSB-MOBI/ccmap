@@ -123,7 +123,7 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
     //printResidueCellProjection(" 121", 'A', results, jResidueList);
     bool dual = jResidueList != NULL;
     cellCrawler_t *cellCrawler = createCellCrawler(bAtomic, dual, ctc_dist);
-    meshCrawler(meshContainer, cellCrawler);
+    meshCrawler(meshContainer, cellCrawler, NULL);
     ccmapResults_t *results = createCcmapResults(cellCrawler, iResidueList, jResidueList);
     meshContainer = destroyMeshContainer(meshContainer);
 
@@ -210,9 +210,12 @@ string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults) {
 // MESH ITERATOR
 // Go through none empty cells
 // Get its following cells neighbours
-void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
+void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler, cellSasaCrawler_t *cellSasaCrawler) {
 #ifdef DEBUG
-    fprintf(stderr, "Starting meshCrawler %s\n", cellCrawler->dual?"dual mode":"not dual mode");
+    if (cellCrawler != NULL)
+        fprintf(stderr, "Starting meshCrawler %s\n", cellCrawler->dual?"dual mode":"not dual mode");
+    if (cellSasaCrawler != NULL)
+        fprintf(stderr, "Starting SASA meshCrawler %s\n");
 #endif
     mesh_t *mesh = meshContainer->mesh;
     cell_t **cellList = meshContainer->filledCells;
@@ -221,7 +224,11 @@ void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
     cell_t ***grid = mesh->grid;
     cell_t *cur_cell;
     int kStart, jStart;
-    bool extractBool = cellCrawler->threshold > 0.0;
+    bool extractBool = false;
+    if(cellCrawler != NULL) 
+        extractBool = cellCrawler->threshold > 0.0;
+    if(cellSasaCrawler != NULL)
+        extractBool = cellSasaCrawler->debug;
 
 #ifdef DEBUG
     printf("Enumerating Distance between %d grid cells (Grid step is %g)\n", nCells, meshContainer->step);
@@ -568,7 +575,7 @@ void meshDummy(int a, int b, int c) {
     dummyMeshContainer->nFilled = dum_mesh->n;
 
     cellCrawler_t *dummyCellCrawler = createCellCrawler(true, true, -1); //just filled it, TO CHECK TEST
-    meshCrawler(dummyMeshContainer, dummyCellCrawler);
+    meshCrawler(dummyMeshContainer, dummyCellCrawler, NULL);
 
     dummyMeshContainer = destroyMeshContainer(dummyMeshContainer);
     assert(destroyCellCrawler(dummyCellCrawler) == NULL);

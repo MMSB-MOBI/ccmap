@@ -370,7 +370,7 @@ void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, c
 /*
     WE NEED ERROR MANAGMENT
 */
-atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
+atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, bool bASA, float probeRadius) {
 
 #ifdef PYMEM_CHECK
     fprintf(stderr, "structDictToAtoms entry MEMORY SUMMARY\n");
@@ -422,7 +422,7 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms) {
     Py_DECREF(   pyObj_atomName);
 
     /* Create data structures and compute */
-    atom_t *atomList = readFromArrays(*nAtoms, coorX, coorY, coorZ, chainID, resSeq, resName, atomName);
+    atom_t *atomList = readFromArrays(*nAtoms, coorX, coorY, coorZ, chainID, resSeq, resName, atomName, bASA, probeRadius);
 
     freeBuffers(coorX, coorY, coorZ, chainID, resSeq, resName,  atomName, *nAtoms);
 
