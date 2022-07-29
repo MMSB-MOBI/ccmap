@@ -47,7 +47,7 @@ sasaResults_t *computeSasaResults(residueList_t *residueList) {
     sasaResults->residueSasaList = malloc( residueList->length *sizeof(residue_sasa_t) );
     float tSurface, bSurface;
     residue_t *currentResidue = residueList->root;
-    u_int16_t iResidue = 0; 
+    uint16_t iResidue = 0; 
     #ifdef DEBUG
         fprintf(stderr, "computeSasaResults: Iteration start\n");
     #endif
