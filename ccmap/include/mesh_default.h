@@ -2,8 +2,10 @@
 #ifndef MESH_DEFAULT_H
 #define MESH_DEFAULT_H
 
-typedef enum { false, true } bool;
 
+#ifndef _USE_MATH_DEFINES
+    #define _USE_MATH_DEFINES
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -12,6 +14,9 @@ typedef enum { false, true } bool;
 #include <stdint.h>
 #include <string.h>
 #include "miscellaneous.h"
+
+typedef enum { false, true } bool;
+
 
 typedef struct string string_t;
 
