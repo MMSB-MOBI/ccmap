@@ -29,7 +29,7 @@ typedef struct residue {
 
 typedef struct residueList {
     struct residue *root;
-    u_int16_t length;
+    uint16_t length;
 } residueList_t;
 
 typedef struct atom {

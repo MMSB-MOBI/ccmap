@@ -15,7 +15,7 @@ typedef struct residue_sasa {
 
 typedef struct sasaResults {
     residue_sasa_t *residueSasaList;
-    u_int16_t length;
+    uint16_t length;
 } sasaResults_t;
 
 sasaResults_t *computeSasaResults(residueList_t *residueList);

@@ -67,7 +67,7 @@ while(currAtomPair != NULL){
 }
 
 #ifdef DEBUG
-for (u_int16_t i = 0 ; i < *totalContacts ; i++)
+for (uint16_t i = 0 ; i < *totalContacts ; i++)
   fprintf(fp, "(%d)%d\n", i, table[i]);
 fclose(fp); 
 #endif
