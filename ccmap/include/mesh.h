@@ -7,7 +7,7 @@
 #include "cell_crawler.h"
 #include "cell.h"
 #include "encode.h"
-#include "sasa.h";
+#include "sasa.h"
 
 #ifdef AS_PYTHON_EXTENSION
 #include <Python.h>
@@ -20,9 +20,10 @@ typedef struct ccmapView {
 } ccmapView_t;
 
 typedef struct ccmapResults {
-    residue_t *iResidueList;
-    residue_t *jResidueList;
+    residueList_t *iResidueList;
+    residueList_t *jResidueList;
     cellCrawler_t *cellCrawler;
+    sasaResults_t *sasaResults;
     bool fused;
 } ccmapResults_t;
 
@@ -43,23 +44,23 @@ typedef struct mesh {
 
 
 // ** API computing Fn **
-ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded);
-ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded);
+ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded, bool bASA);
+ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded, bool bASA);
 //Results display
-char *jsonifyContactList(residue_t *residueList); // BUMP TO string_t* TO DO
+char *jsonifyContactList(residueList_t *residueList); // BUMP TO string_t* TO DO
 string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults);
 
 // Mesh engine Fn
-ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bAtomic);
+ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bAtomic, bool bASA);
 
-void meshCrawler(meshContainer_t *meshContainer,  cellCrawler_t *cellCrawler, cellSasaCrawler_t *cellSasaCrawler);
+void meshCrawler(meshContainer_t *meshContainer,  cellCrawler_t *cellCrawler);
 cell_t ** vectorizeMesh(mesh_t *mesh);
 // Constructors/Destructors
 meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double step);
 mesh_t *createMesh(int iDim, int jDim, int kDim);
 meshContainer_t *destroyMeshContainer(meshContainer_t *container);
 mesh_t *destroyMesh(mesh_t *i_mesh);
-ccmapResults_t *createCcmapResults(cellCrawler_t *, residue_t *, residue_t *);
+ccmapResults_t *createCcmapResults(cellCrawler_t *, residueList_t *, residueList_t *);
 ccmapResults_t *destroyCcmapResults (ccmapResults_t *results);
 ccmapView_t *createCcmapView(void);
 ccmapView_t *destroyCcmapView(ccmapView_t *);

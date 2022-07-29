@@ -1,39 +1,92 @@
 #include "sasa.h"
 #include "mesh.h"
 
-/* Computing sasa w/out contact as DVL */
-sasaResults_t *sasaCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, float probeRadius) {
-
-    residue_t *iResidueList                     = createResidueList(iAtomList);
-    residue_t *jResidueList = jAtomList != NULL ? createResidueList(jAtomList) : NULL;
-
-    double step = probeRadius * 2 + VDW_MAX * 2;
-    meshContainer_t *meshContainer = createMeshContainer(iAtomList, iAtom, jAtomList, jAtom, step);
+string_t *jsonifySasaResults(sasaResults_t *sasaResults) {
+    #ifdef DEBUG
+    fprintf(stderr, "Starting jsonifySasaResults over %d sasaResults\n",\
+        sasaResults->length);
+    #endif
+    string_t *jsonString = createString();
+    jsonString->append(jsonString, "{freeSASA : [");
+    if (sasaResults->length == 0) {
+        fprintf(stderr, "sasaResults empty\n");
+        jsonString->append(jsonString, "]}");
+        return jsonString;
+    }
+    char buffer[1024];
+    residue_sasa_t *residue_sasa = NULL;
+    residue_t *residue_curr      = NULL;
+    for (int i = 0 ; i < sasaResults->length ; i++) {
+        fprintf(stderr, "-->%d\n", i);
+        jsonString->append(jsonString, "{\"residue\":");
+        fprintf(stderr, "toto\n");
+        residue_sasa = &sasaResults->residueSasaList[i];
+        fprintf(stderr, "toto2\n");
+        residue_curr = residue_sasa->residue;
+        fprintf(stderr, "toto3\n");
+        jsonifyResidue(residue_curr, buffer);
+        fprintf(stderr, "toto3a\n");
+        jsonString->append(jsonString, buffer);
+        fprintf(stderr, "toto4\n");
+        sprintf(buffer, ", \"SASA\": %.3g, \"norm\"%.3g, \"frac\": %.3g]}", \
+                       residue_sasa->nominal - residue_sasa->buried,\
+                       residue_sasa->nominal, residue_sasa->frac);
+        if(i < sasaResults->length - 1)
+            jsonString->append(jsonString, ",\n");
+    }
+    jsonString->append(jsonString, "]}");
    
-    cellSasaCrawler_t *cellSasaCrawler = createCellSasaCrawler();
-    meshCrawler(meshContainer, NULL, cellSasaCrawler);
-    sasaResults_t *results = createSasaResults_t(cellSasaCrawler, iResidueList, jResidueList);
-    meshContainer = destroyMeshContainer(meshContainer);
-    destroyCellSasaCrawler(cellSasaCrawler);
-   
+    return jsonString;
+}
+/* Compute freeSASA over a list of residues */
+sasaResults_t *computeSasaResults(residueList_t *residueList) {
+    #ifdef DEBUG
+        fprintf(stderr, "\ncomputeSasaResults:starting\n");
+    #endif
+    sasaResults_t *sasaResults   = malloc(sizeof(sasaResults_t));
+    sasaResults->residueSasaList = malloc( residueList->length *sizeof(residue_sasa_t) );
+    float tSurface, bSurface;
+    residue_t *currentResidue = residueList->root;
+    u_int16_t iResidue = 0; 
+    #ifdef DEBUG
+        fprintf(stderr, "computeSasaResults: Iteration start\n");
+    #endif
+    residue_sasa_t *currentResidueSasa = NULL;
+    while(currentResidue != NULL) {
+        currentResidueSasa = &sasaResults->residueSasaList[iResidue];
+        currentResidueSasa->residue   = currentResidue;
+        currentResidueSasa->nominal   = 0;
+        currentResidueSasa->buried    = 0;
+        for (int iAtom = 0 ; iAtom < currentResidue->nAtoms ; iAtom++) {
+            #ifdef DEBUG
+                fprintf(stderr, "computeSasaResults:%d %d [max is %d]\n", iResidue, iAtom, currentResidue->nAtoms);
+            #endif
+            computeFiboSphereASA(currentResidue->elements[iAtom].f_grid, &tSurface, &bSurface);
+            currentResidueSasa->nominal += tSurface ;
+            currentResidueSasa->buried  += bSurface;
+        }
+        #ifdef DEBUG
+                fprintf(stderr, "computeSasaResults: assigning %f %f \n",\
+                sasaResults->residueSasaList[iResidue].buried,\
+                sasaResults->residueSasaList[iResidue].nominal);
+            #endif
+        currentResidueSasa->frac = \
+            currentResidueSasa->buried / currentResidueSasa->nominal;
+
+        currentResidue = currentResidue->nextResidueList;
+        iResidue++;
+    }
+    sasaResults->length = iResidue;
 #ifdef DEBUG
-    fprintf(stderr, "Exiting sasaCore\n");
+    fprintf(stderr, "Exiting createSasaResults\n");
 #endif
 
-    return results;
+    return sasaResults;
 }
 
-sasaResults_t *createSasaResults_t(cellSasaCrawler_t *cellSasaCrawler,residue_t *iResidueList, residue_t *jResidueList){
+sasaResults_t *destroySasaResults(sasaResults_t *sasaResults){
+    free(sasaResults->residueSasaList);
+    free(sasaResults);
 
-}
-sasaResults_t *destroySasaResults_t(sasaResults_t *createSasaResults_t){
-
-}
-cellSasaCrawler_t *createCellSasaCrawler() {
-
-}
-
-cellSasaCrawler_t *destroyCellSasaCrawler(cellSasaCrawler_t *createCellSasaCrawler) {
-
-
+    return sasaResults;
 }

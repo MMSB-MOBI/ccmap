@@ -7,6 +7,7 @@
 #include "ccmapmodule_utils.h"
 #include "ccmapmodule_allocation.h"
 #include "fibonacci.h"
+//#include "sasa.h"
 
 struct module_state {
     PyObject *error;
@@ -18,19 +19,63 @@ struct module_state {
 static PyObject *free_sasa_compute(PyObject* self, PyObject* args, PyObject* kwargs) {
 static char *kwlist[] = {"", "probe", NULL};
 
-PyObject *coorDictI  = NULL;
+PyObject *coorDictI, *coorDictJ  = NULL;
+atom_t *iAtomList    = NULL;
+atom_t *jAtomList    = NULL; // Not used yet
+
+
+
+
 float probeRadius  = 1.4;
-int iLen             = 0;
+int iLen, jLen     = 0;
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
                                 "O!|f", kwlist,\
-                                &PyDict_Type, &coorDictI, \                              
+                                &PyDict_Type, &coorDictI,\
                                 &probeRadius)) {
     PyErr_SetString(PyExc_TypeError, "Wrong parameters");
     return NULL;
 }
 
-PySys_WriteStderr("Hello from sasa\n");
-iAtomList = structDictToAtoms(coorDictI, &iLen, true, probeRadius);
+bool bEncode = false;
+bool bASA    = true;
+
+PySys_WriteStderr("Hello from sasa prime %f\n", probeRadius);
+
+iAtomList = structDictToAtoms(coorDictI, &iLen, bASA, probeRadius);
+
+/*
+string_t  *fg = jsonifyFiboGrid(iAtomList[0].f_grid) ;
+char *s = fg->toChar(fg);
+PySys_FormatStdout( "%s", s );
+free(s);
+destroyString(fg);
+*/
+
+#ifdef DEBUG
+PySys_WriteStderr("Running sasa with %s coordinates sets probeRadius=%f bEncode:%s\n",\
+                                    jAtomList == NULL ? "one" : "two",\
+                                    probeRadius,\
+                                    bEncode ? "true" : "false");
+#endif
+
+// For now sasa results only live w/in below function
+ccmapView_t *ccmapView = atomicContactMap(iAtomList, iLen, jAtomList, jLen, (probeRadius + VDW_MAX) * 2, bEncode, bASA);
+/*PyObject *rValue = ComputeSasaFromCcmapViewToPyObject(ccmapView, bEncode);
+// Build returned pyObject
+PyObject *rValue = ccmapViewToPyObject(ccmapView, bEncode);
+*/
+
+// Cleaning 
+destroyAtomList(iAtomList, iLen);
+if(coorDictJ != NULL)
+    destroyAtomList(jAtomList, jLen);
+
+// Not carrying out asa info yet
+PyObject *rValue = ccmapViewToPyObject(ccmapView, bEncode);
+destroyCcmapView(ccmapView);
+
+return rValue;
+}
 /*
     Python API exposed as cmap
 */
@@ -49,6 +94,8 @@ int iLen             = 0;
 int jLen             = 0;
 bool bASA = true;
 
+float dummyProbeRadius = 2.0;
+
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
                                 "O!|O!fOO", kwlist,\
                                 &PyDict_Type, &coorDictI, \
@@ -66,21 +113,22 @@ setBooleanFromParsing(encodeBool, &bEncode);
 
 // Parsing coordinates
 
-iAtomList = structDictToAtoms(coorDictI, &iLen, bASA);
+iAtomList = structDictToAtoms(coorDictI, &iLen, dummyProbeRadius, bASA);
 if(coorDictJ != NULL)
-    jAtomList = structDictToAtoms(coorDictJ, &jLen, bASA);
-/*
-PySys_WriteStderr("Running with %s coordinates sets dist=%f bAtom:%s bEncode:%s",\
+    jAtomList = structDictToAtoms(coorDictJ, &jLen, dummyProbeRadius, bASA);
+
+#ifdef DEBUG
+PySys_WriteStderr("Running sasa with %s coordinates sets dist=%f bAtom:%s bEncode:%s",\
                                     jAtomList == NULL ? "one" : "two",\
                                     userThreshold,\
                                     bAtomic ? "true" : "false",\
                                     bEncode ? "true" : "false");
-*/
+#endif
 // Computing
-ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtomic\
+ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, bool) = bAtomic\
                     ? &atomicContactMap
                     : &residueContactMap;
-ccmapView_t *ccmapView = computeMap(iAtomList, iLen, jAtomList, jLen, userThreshold, bEncode);
+ccmapView_t *ccmapView = computeMap(iAtomList, iLen, jAtomList, jLen, userThreshold, bEncode, bASA);
 
 // Build returned pyObject
 PyObject *rValue = ccmapViewToPyObject(ccmapView, bEncode);
@@ -137,6 +185,7 @@ bool dual = false;
 bool bAtomic = false;
 ccmapView_t **ccmapViewList;
 
+float dummyProbeRadius = 2.0;
 
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OfOO", kwlist,\
                     &pyDictArray_I, \
@@ -184,13 +233,13 @@ ccmap_compute_list_allocate(&ccmapViewList, \
     for (int iStructPair = 0 ; iStructPair < (int)structFrameLen ; iStructPair++) {
         pStructAsDict_I                 = PyArray_GetItem(pyDictArray_I, iStructPair);
         Py_INCREF(pStructAsDict_I);
-        atomListList_I[iStructPair]     = structDictToAtoms(pStructAsDict_I, &nAtomsList_I[iStructPair], bASA);    
+        atomListList_I[iStructPair]     = structDictToAtoms(pStructAsDict_I, &nAtomsList_I[iStructPair], dummyProbeRadius, bASA);    
         Py_DECREF(pStructAsDict_I);
 
         if(dual) {
             pStructAsDict_J             = PyArray_GetItem(pyDictArray_J, iStructPair);
             Py_INCREF(pStructAsDict_J);
-            atomListList_J[iStructPair] = structDictToAtoms(pStructAsDict_J, &nAtomsList_J[iStructPair], bASA);    
+            atomListList_J[iStructPair] = structDictToAtoms(pStructAsDict_J, &nAtomsList_J[iStructPair], dummyProbeRadius, bASA);    
             Py_DECREF(pStructAsDict_J);
         }
     }
@@ -203,12 +252,12 @@ Py_BEGIN_ALLOW_THREADS
 for (int i = 0; i < (int)structFrameLen ; i++) {
     atom_t *optAtomList_J = dual ? atomListList_J[i] : NULL;
     int opt_nAtom_J = dual ? nAtomsList_J[i] : -1;
-    ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtomic\
+    ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, bool) = bAtomic\
                     ? &atomicContactMap
                     : &residueContactMap;
     ccmapViewList[i] = computeMap(atomListList_I[i], nAtomsList_I[i], \
                                   optAtomList_J, opt_nAtom_J, \
-                                  userThreshold, bEncode);
+                                  userThreshold, bEncode, bASA);
 }
 Py_END_ALLOW_THREADS
 
@@ -293,8 +342,9 @@ setBooleanFromParsing(applyBool,  &bApply);
 setBooleanFromParsing(atomicBool, &bAtomic);
 
 bool bASA = false;
-atomListRec       = structDictToAtoms(pyDictRec, &nAtomsRec, bASA);
-atomListLig       = structDictToAtoms(pyDictLig, &nAtomsLig, bASA);
+float dummyProbeRadius = 2.0;
+atomListRec       = structDictToAtoms(pyDictRec, &nAtomsRec, dummyProbeRadius, bASA);
+atomListLig       = structDictToAtoms(pyDictLig, &nAtomsLig, dummyProbeRadius, bASA);
 
 eulerAngle        = unpackVector3(eulerArray); // euler angle to generate pose
 translation       = unpackVector3(translationArray) ; // translation vector to generate pose
@@ -322,10 +372,10 @@ transformAtomList(atomListRec, NULL, offsetRecVector);
 transformAtomList(atomListLig, eulerAngle, offsetLigVector);
 transformAtomList(atomListLig, NULL, translation);
 
-ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtomic\
+ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, bool) = bAtomic\
                 ? &atomicContactMap
                 : &residueContactMap;
-ccmapView = computeMap(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold, bEncode);
+ccmapView = computeMap(atomListRec, nAtomsRec, atomListLig, nAtomsLig, userThreshold, bEncode, bASA);
 Py_END_ALLOW_THREADS
 
 PyObject *rValue = ccmapViewToPyObject(ccmapView, bEncode);
@@ -445,14 +495,15 @@ if(transTriplets == NULL) {
 }
 
 bool bASA = false;
+float dummyProbeRadius = 2.0;
 // Reading provided ligand, receptor conformations
-atomListRec = structDictToAtoms(pyDictRec, &nAtomsRec, bASA);
-atomListLig = structDictToAtoms(pyDictLig, &nAtomsLig, bASA);
-atomListLigBuffer = structDictToAtoms(pyDictLig, &nAtomsLig, bASA);
+atomListRec = structDictToAtoms(pyDictRec, &nAtomsRec, dummyProbeRadius, bASA);
+atomListLig = structDictToAtoms(pyDictLig, &nAtomsLig, dummyProbeRadius, bASA);
+atomListLigBuffer = structDictToAtoms(pyDictLig, &nAtomsLig, dummyProbeRadius, bASA);
 
 // Alloc for results structures
 ccmapViews = PyMem_New(ccmapView_t *, nPose); // MAybe not safe has access and subsequent malloc occur in thread below
-ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtomic\
+ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, bool) = bAtomic\
                     ? &atomicContactMap
                     : &residueContactMap;
 
@@ -463,7 +514,7 @@ for (int iPose = 0 ; iPose < nPose ; iPose++) {
     // Transform Ligand
     transformAtomList(atomListLigBuffer, eulerTriplets[iPose], offsetLigVector);
     transformAtomList(atomListLigBuffer, NULL                , transTriplets[iPose]);
-    ccmapViews[iPose] = computeMap(atomListRec, nAtomsRec, atomListLigBuffer, nAtomsLig, userThreshold, bEncode);
+    ccmapViews[iPose] = computeMap(atomListRec, nAtomsRec, atomListLigBuffer, nAtomsLig, userThreshold, bEncode, bASA);
     // Reset ligand coordinates
     applyCoordinates(atomListLig, atomListLigBuffer);
 }
@@ -528,6 +579,10 @@ static PyMethodDef ccmapMethods[] = {
         "\t\"encode\", Encoding flag, boolean. Default=False\n"\
         "\t\"atomic\", boolean. If True compute atomic contact map else compute residue contact map. Default=False\n"\
     "\nReturn\n\tA string if Encoding flag is false, a list of list of residue/atom numbers otherwise\n"
+    },
+    {
+    "sasa", (PyCFunction/*PyCFunctionWithKeywords*/)free_sasa_compute, METH_VARARGS | METH_KEYWORDS,
+        "Compute Free SASA\n"\
     },
     {
     "zmap",  (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_zdock_pose, METH_VARARGS | METH_KEYWORDS,

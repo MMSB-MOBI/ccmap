@@ -18,8 +18,8 @@
     ccmapView_t *ccmap = atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded)
 }*/
 char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordinateContainer_t *pdbCoordinateContainerJ,
-                    float dist, bool bEncode, bool bAtomic) {
-    ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool) = bAtomic\
+                    float dist, bool bEncode, bool bAtomic, bool bASA) {
+    ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, bool) = bAtomic\
                         ? &atomicContactMap
                         : &residueContactMap;
     
@@ -27,18 +27,18 @@ char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordi
     atom_t *jAtomList = NULL;
     int iAtom = 0;
     int jAtom = 0;
-    iAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerI, &iAtom);
+    iAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerI, &iAtom, bASA, 0.0);
     #ifdef DEBUG
     printAtomList(iAtomList, stderr);
     #endif
 
     if(pdbCoordinateContainerJ != NULL) 
-        jAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerJ, &jAtom);
+        jAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerJ, &jAtom, false, 0.0);
     printf("Computing %s ccmap with %d pdb records as %s...\n", \
                             bAtomic?"atomic":"residue",\
                             pdbCoordinateContainerJ != NULL?2:1,\
                             bEncode?"integers vector":"JSON");
-    ccmapView_t *ccmapView = computeMap(iAtomList, iAtom, jAtomList, jAtom, dist, bEncode);
+    ccmapView_t *ccmapView = computeMap(iAtomList, iAtom, jAtomList, jAtom, dist, bEncode, bASA);
     #ifdef DEBUG
     printf("JSON ccmapView:\n%s\n", ccmapView->asJSON);
     #endif
@@ -123,6 +123,7 @@ int main (int argc, char *argv[]) {
     extern char *optarg;
     extern int optind, optopt, opterr;
     char *optDist = NULL;
+    char *optPrad = NULL;
     float eulerAngleREC[3]  = { 0.0, 0.0, 0.0 };
     float translationREC[3] = { 0.0, 0.0, 0.0 };
     float eulerAngleLIG[3]  = { 0.0, 0.0, 0.0 };
@@ -130,15 +131,17 @@ int main (int argc, char *argv[]) {
     float translationLIG2[3] = { 0.0, 0.0, 0.0 };
     bool bAtomic = false;
     bool bEncode = false;
+    bool bASA    = false;
     pdbCoordinateContainer_t *pdbCoordinateContainerJ = NULL;
     pdbCoordinateContainer_t *pdbCoordinateContainerI = NULL;
+    float prad = 1.4;
 //int readFile(char *fname, double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name) {
 
     /*
     int (*readerFunc)(char*, double**, double**, double**, char**, char***, char***, char***) = NULL;
     readerFunc = &readPdbFile;
     */
-    const char    *short_opt = "hcea:b:t:f:d:w:o:";
+    const char    *short_opt = "hcesa:b:t:f:d:p:w:o:";
     struct option   long_opt[] =
     {
         {"help",               no_argument, NULL, 'h'},
@@ -157,6 +160,8 @@ int main (int argc, char *argv[]) {
         {"enc",               no_argument, NULL, 'e'},
         {"atm",               no_argument, NULL, 'c'},
         {"out",               no_argument, NULL, 'o'},
+        {"sasa",               no_argument, NULL, 's'},
+        {"prad",          required_argument, NULL, 'p'},
 
         {NULL,            0,                NULL, 0  }
     };
@@ -191,6 +196,9 @@ int main (int argc, char *argv[]) {
             case 'd':
                 optDist = strdup(optarg);
                 break;
+            case 'p':
+                optPrad = strdup(optarg);
+            break;
             case 'w':
                 outFile = strdup(optarg);
                 break;
@@ -199,6 +207,9 @@ int main (int argc, char *argv[]) {
                 break;
             case 'e':
                 bEncode = true;
+                break;
+            case 's':
+                bASA = true;
                 break;
             case 'o':
                 optResultFile = strdup(optarg);
@@ -264,16 +275,19 @@ int main (int argc, char *argv[]) {
         eulerAngleLIG[0],  eulerAngleLIG[1] , eulerAngleLIG[2] , \
         translationLIG2[0], translationLIG2[1], translationLIG2[2]);
     #endif
-    
-    
+
     if (optDist != NULL) {
         double step = atof(optDist);
-        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, step, bEncode, bAtomic);
+        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, step, bEncode, bAtomic, bASA);
         FILE *fp = optResultFile != NULL       \
                     ? fopen(optResultFile, "w") \
                     : fopen("ccmap.json", "w");
         fprintf(fp, "%s", ccmap);
         fclose(fp);
+        free(ccmap); 
+    } else if (bASA) {
+        prad = optPrad != NULL ? atof(optPrad) : prad;
+        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, 2* (VDW_MAX + prad) , bEncode, bAtomic, bASA);
         free(ccmap); 
     } else {
         fprintf(stderr, "No contact distance specified, No cc map computed\n");

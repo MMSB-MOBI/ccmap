@@ -5,7 +5,7 @@ Create a cellCrawler struct to perform pariwse cell operations featuring:
 - Dual OR not-dual atom pair enumeration 
 - Residue OR atom level contact registering 
 */
-cellCrawler_t *createCellCrawler(bool atomic, bool dual, double dist) {
+cellCrawler_t *createCellCrawler(bool atomic, bool dual, double dist, bool bASA) {
     #ifdef DEBUG
     fprintf(stderr, "Starting createCellCrawler(%s, %s, %g)\n", \
                                             atomic ? "true" : "false",\
@@ -14,7 +14,7 @@ cellCrawler_t *createCellCrawler(bool atomic, bool dual, double dist) {
     cellCrawler_t *cellCrawler = malloc(sizeof(cellCrawler_t));
     cellCrawler->atomPairProcess = &processPairwiseDistance;
     cellCrawler->threshold = dist;
-    
+    cellCrawler->fiboSphereProcess = bASA ? &FiboSpherePairProcess : NULL;
     cellCrawler->enumerator = &pairwiseCellEnumerate;
     if (dual)
         cellCrawler->enumerator = &pairwiseCellEnumerateDual;
@@ -55,7 +55,7 @@ void extendCellCrawler(cellCrawler_t *cellCrawler) {
 // iAtom is guaranted to be from 1st body coordinate sets, or single
 // jAtom is guaranted to be from 2 body coordinate sets, or single
 bool processPairwiseDistance(cellCrawler_t* cellCrawler, atom_t* iAtom, atom_t* jAtom) {
-    double currDist = distance(iAtom, jAtom);
+    double currDist = atomic_distance(iAtom, jAtom);
     
     #ifdef DEBUG    
     fprintf(stderr, "Starting processPairwiseDistance T:%g\n", cellCrawler->threshold);
@@ -196,6 +196,9 @@ void pairwiseCellEnumerate(cellCrawler_t *cellCrawler, cell_t *refCell, cell_t *
                 fprintf(stderr, "calling atomPairProcess for  %s VS %s\n", iAtomString, jAtomString);
                 #endif
                 cellCrawler->atomPairProcess(cellCrawler, iAtom, jAtom);
+                if(cellCrawler->fiboSphereProcess != NULL)
+                    cellCrawler->fiboSphereProcess(iAtom->f_grid, jAtom->f_grid);
+
             }
             jAtom = jAtom->nextCellAtom;
         }
@@ -257,7 +260,7 @@ void pairwiseCellEnumerateDual(cellCrawler_t *cellCrawler, cell_t *refCell, cell
 #endif
 }
 
-double distance(atom_t *iAtom, atom_t *jAtom) {
+double atomic_distance(atom_t *iAtom, atom_t *jAtom) {
     #ifdef DEBUG 
     FILE *fp = fopen("shadow.lst", "a");
     char a1[100];
@@ -269,6 +272,5 @@ double distance(atom_t *iAtom, atom_t *jAtom) {
     fprintf(fp, "%s %s %.5g\n", a1, a2, _);
     fclose(fp);
     #endif
-
-    return sqrt( (iAtom->x - jAtom->x) * (iAtom->x - jAtom->x) + (iAtom->y - jAtom->y) * (iAtom->y - jAtom->y) + (iAtom->z - jAtom->z) * (iAtom->z - jAtom->z) );
+    return euclideanDistance3(iAtom->x, iAtom->y,iAtom->z, jAtom->x, jAtom->y,jAtom->z);
 }

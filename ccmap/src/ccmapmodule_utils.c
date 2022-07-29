@@ -366,17 +366,25 @@ void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, c
     PyMem_Free(name);
 }
 
-
-/*
-    WE NEED ERROR MANAGMENT
-*/
+// Convert a Python dictionnarized structure into a list of atoms, expecting no hydrogens.
 atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, bool bASA, float probeRadius) {
+#ifdef DEBUG
+    char DBG_buffer[1024];
+    sprintf(DBG_buffer, "Running structDictToAtoms: bASA:%s, probeRadius:%f\n", bASA ? "true": "false", probeRadius);
+     
+    #ifdef AS_PYTHON_EXTENSION
+        PySys_WriteStderr("%s", DBG_buffer);
+    #elif
+        fprintf(stderr, "%s", DBG_buffer);
+    #endif
+#endif
+
 
 #ifdef PYMEM_CHECK
     fprintf(stderr, "structDictToAtoms entry MEMORY SUMMARY\n");
     fprintf(stderr, "pyDictObject:%zd\n", Py_REFCNT(pyDictObject) );
 #endif
-
+    
     PyObject* pyObj_x        = PyDict_GetItemString(pyDictObject, "x");
     Py_INCREF(pyObj_x);
     PyObject* pyObj_y        = PyDict_GetItemString(pyDictObject, "y");
@@ -394,7 +402,7 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, bool bASA, float 
     Py_ssize_t n             = PyList_Size(pyObj_x);
     *nAtoms = (int) n;
 
-
+   
     /*
     All unpackXX calls do memory allocation, which needs subsequent common call to freeBuffer()
     */
@@ -421,11 +429,17 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, bool bASA, float 
     unpackString(pyObj_atomName, &atomName);
     Py_DECREF(   pyObj_atomName);
 
+    #ifdef DEBUG
+        sprintf(DBG_buffer, "structDictToAtoms: Calling readFromArrays over %d atoms\n", *nAtoms);
+        printOnContextStderr(DBG_buffer);
+    #endif
+    // Safe here
     /* Create data structures and compute */
     atom_t *atomList = readFromArrays(*nAtoms, coorX, coorY, coorZ, chainID, resSeq, resName, atomName, bASA, probeRadius);
-
+    
     freeBuffers(coorX, coorY, coorZ, chainID, resSeq, resName,  atomName, *nAtoms);
 
+    
 #ifdef PYMEM_CHECK
     fprintf(stderr, "structDictToAtoms exit MEMORY SUMMARY\n");
     fprintf(stderr, "pyObj_x:%zd\n", Py_REFCNT(pyObj_x) );
@@ -439,8 +453,9 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, bool bASA, float 
 #endif
 
     #ifdef DEBUG
-    fprintf(stderr, "Exiting from structDictToAtoms\n");
+        printOnContextStderr("structDictToAtoms: All buffer free, exiting\n");
     #endif
+
     return atomList;
 }
 

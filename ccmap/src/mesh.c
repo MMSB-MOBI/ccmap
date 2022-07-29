@@ -1,16 +1,24 @@
 #include "mesh.h"
 
 // TO DO: implementation of atomic integer encoding
-ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded) {
+ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded, bool bASA) {
     
     //assert(!bEncoded); 
     
     #ifdef DEBUG
-    fprintf(stderr, "Starting atomicContactMap\n");
+        printOnContextStderr("Starting atomicContactMap\n");
     #endif
     bool bAtomic = true;
-    ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic);
+    ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic, bASA); // <--- sasa computation inside
+    
+    if(bASA){
+        string_t *sasaJson = jsonifySasaResults(ccmapResults->sasaResults);
+        printf("%s\n", sasaJson->value);
+        destroyString(sasaJson);
+    }
+    
     ccmapView_t *ccmapView = createCcmapView();
+    
     /* ----- HERE  TO TEST ----- */
     if (bEncoded) {
         unsigned int finalLen;
@@ -35,12 +43,12 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
 }
 
 // ENCODED single residue set currently DISABLED SHOULD BE ENABLED, REALLY ?
-ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded) {
+ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded, bool bASA) {
     #ifdef DEBUG
-    fprintf(stderr, "Starting residueContactMap\n");
+        printOnContextStderr("Starting atomicContactMap\n");
     #endif
     bool bAtomic = false;
-    ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic);
+    ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic, bASA);
     ccmapView_t *ccmapView = createCcmapView();
 
     if (bEncoded) {
@@ -75,13 +83,14 @@ ccmapView_t *destroyCcmapView(ccmapView_t *ccmapView) {
     return ccmapView;
 }
 
-ccmapResults_t *createCcmapResults(cellCrawler_t *cellCrawler, residue_t *iResidueList , residue_t *jResidueList) {
+// Create Contact map results w/ optional field for sasa
+ccmapResults_t *createCcmapResults(cellCrawler_t *cellCrawler, residueList_t *iResidueList , residueList_t *jResidueList) {
     ccmapResults_t *results = malloc(sizeof(ccmapResults_t));
     results->iResidueList = iResidueList;
     results->jResidueList = jResidueList;
     results->cellCrawler = cellCrawler;
     results->fused = jResidueList != NULL;
-    
+    results->sasaResults = NULL;
     return results;
 }
 // IS IT SAFE TO DESTROY jResidue after fusion?
@@ -92,16 +101,19 @@ ccmapResults_t *destroyCcmapResults (ccmapResults_t *results){
         results->jResidueList = destroyResidueList(results->jResidueList);
         
     destroyCellCrawler(results->cellCrawler);
+    if(results->sasaResults != NULL)
+        results->sasaResults = destroySasaResults(results->sasaResults);
     free(results);
+    
     return results;
 }
 
-ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bAtomic) {
+ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bAtomic, bool bASA) {
 #ifdef DEBUG
     printf("Starting ccmapCore %s mode\n", bAtomic?"atomic":"not atomic");
 #endif
-    residue_t *iResidueList                     = createResidueList(iAtomList);
-    residue_t *jResidueList = jAtomList != NULL ? createResidueList(jAtomList) : NULL;
+    residueList_t *iResidueList                     = createResidueList(iAtomList);
+    residueList_t *jResidueList = jAtomList != NULL ? createResidueList(jAtomList) : NULL;
 
 #ifdef DEBUG
     printf("Computing residue contact map w/ %.2g Angstrom step\n", ctc_dist);
@@ -122,9 +134,13 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
     // printResidueCellProjection(" 101", 'B', results, iResidueList);
     //printResidueCellProjection(" 121", 'A', results, jResidueList);
     bool dual = jResidueList != NULL;
-    cellCrawler_t *cellCrawler = createCellCrawler(bAtomic, dual, ctc_dist);
-    meshCrawler(meshContainer, cellCrawler, NULL);
-    ccmapResults_t *results = createCcmapResults(cellCrawler, iResidueList, jResidueList);
+    cellCrawler_t *cellCrawler = createCellCrawler(bAtomic, dual, ctc_dist, bASA);
+    meshCrawler(meshContainer, cellCrawler);
+    ccmapResults_t *results = createCcmapResults(cellCrawler, iResidueList, \
+                                                              jResidueList != NULL ? jResidueList : NULL);
+    if(bASA)
+        results->sasaResults = computeSasaResults(iResidueList);
+       
     meshContainer = destroyMeshContainer(meshContainer);
 
 #ifdef DEBUG
@@ -133,9 +149,9 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
     return results;
 }
 // Old string-less implementation
-char *jsonifyContactList(residue_t *residueList) {
+char *jsonifyContactList(residueList_t *residueList) {
     //residueList = iterate over residue list, iterate over its contact jsonIfy;
-    residue_t *residue_curr = residueList;
+    residue_t *residue_curr = residueList->root;
     residue_t *residue_partner = NULL;
     char residueJsonString_current[81];
     char residueJsonString_partner[81];
@@ -210,12 +226,10 @@ string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults) {
 // MESH ITERATOR
 // Go through none empty cells
 // Get its following cells neighbours
-void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler, cellSasaCrawler_t *cellSasaCrawler) {
+void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
 #ifdef DEBUG
     if (cellCrawler != NULL)
         fprintf(stderr, "Starting meshCrawler %s\n", cellCrawler->dual?"dual mode":"not dual mode");
-    if (cellSasaCrawler != NULL)
-        fprintf(stderr, "Starting SASA meshCrawler %s\n");
 #endif
     mesh_t *mesh = meshContainer->mesh;
     cell_t **cellList = meshContainer->filledCells;
@@ -225,10 +239,7 @@ void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler, cel
     cell_t *cur_cell;
     int kStart, jStart;
     bool extractBool = false;
-    if(cellCrawler != NULL) 
-        extractBool = cellCrawler->threshold > 0.0;
-    if(cellSasaCrawler != NULL)
-        extractBool = cellSasaCrawler->debug;
+    extractBool = cellCrawler->threshold > 0.0;
 
 #ifdef DEBUG
     printf("Enumerating Distance between %d grid cells (Grid step is %g)\n", nCells, meshContainer->step);
@@ -263,7 +274,7 @@ void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler, cel
     uint64_t ccByAtom    = cellCrawler->updater->totalByAtom;
     uint64_t ccByResidue = cellCrawler->updater->totalByResidue;
     printf("\n ---> %llu valid atomic distances computed for a total of %llu residue contacts\n", ccByAtom, ccByResidue);
-    fprintf(stderr, "Exiting meshCrawler");
+    fprintf(stderr, "Exiting meshCrawler\n");
 #endif
     
 }
@@ -574,8 +585,8 @@ void meshDummy(int a, int b, int c) {
     dummyMeshContainer->filledCells = dummy_filledCells;
     dummyMeshContainer->nFilled = dum_mesh->n;
 
-    cellCrawler_t *dummyCellCrawler = createCellCrawler(true, true, -1); //just filled it, TO CHECK TEST
-    meshCrawler(dummyMeshContainer, dummyCellCrawler, NULL);
+    cellCrawler_t *dummyCellCrawler = createCellCrawler(true, true, -1, false); //just filled it, TO CHECK TEST
+    meshCrawler(dummyMeshContainer, dummyCellCrawler);
 
     dummyMeshContainer = destroyMeshContainer(dummyMeshContainer);
     assert(destroyCellCrawler(dummyCellCrawler) == NULL);

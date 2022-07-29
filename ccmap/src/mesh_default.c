@@ -44,6 +44,7 @@ void dumpString (string_t* this) {
         printf("%d:\"%c\"\n", i, this->value[i]);
     }
 }
+
 bool appendString(string_t *this, char *word) {
     size_t wLen = strlen(word);
     if (this->length + wLen >= this->capacity) { //>= to rpeserve 1 slot for '\0'

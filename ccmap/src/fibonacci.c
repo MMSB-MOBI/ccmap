@@ -1,8 +1,31 @@
 #include "fibonacci.h"
 
+// Compute Sphere Total and buried ASA
+void computeFiboSphereASA(fibo_grid_t *iFiboGrid, float *totalSurface, float *buriedSurface) {
+    *(totalSurface)   = iFiboGrid->radius * iFiboGrid->radius * 4 * M_PI;
+    float spotSurface = *(totalSurface) / (float)FIBO_K14;
+    *(buriedSurface)  = 0;
+    for (int k = 0; k < iFiboGrid->n_spots ; k++)
+        *(buriedSurface) += iFiboGrid->spots[k].buried * spotSurface;
+}
+
+// Computes if i grid spots penetrates j sphere
+void FiboSpherePairProcess(fibo_grid_t *iFiboGrid, fibo_grid_t *jFiboGrid) {
+    for (int k = 0; k < iFiboGrid->n_spots ; k++) {
+        if(iFiboGrid->spots[k].buried) continue;
+        iFiboGrid->spots[k].buried = \
+            euclideanDistance3(\
+                iFiboGrid->spots[k].x, iFiboGrid->spots[k].y, iFiboGrid->spots[k].z,\
+                jFiboGrid->center.x  , jFiboGrid->center.y  , jFiboGrid->center.z)\
+            < iFiboGrid->radius + jFiboGrid->radius;
+    }
+}
+
+
+
 fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius) {
     #ifdef DEBUG
-    fprintf(stderr, "Starting atomicFiboGrid\n");
+    fprintf(stderr, "Starting atomicFiboGrid [%g, %g, %g]\n", x, y, z);
     #endif
     //radius = 50;
     fibo_grid_t *fibo_grid = createFiboGrid(FIBO_K14);
@@ -12,6 +35,7 @@ fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius) {
     fibo_grid->center.x = x;
     fibo_grid->center.y = y;
     fibo_grid->center.z = z;
+    fibo_grid->radius   = radius;
 
     for (int i_spot = 0 ; i_spot < FIBO_K14 ; i_spot++) {
         phi_prime = phi_prime + FIBO_K13 <= FIBO_K14 ? \
@@ -66,7 +90,7 @@ string_t *jsonifyFiboGrid(fibo_grid_t *fibo_grid){
             fibo_grid->spots[i].z);
 
         jsonString->append(jsonString, buffer);
-        if(i < fibo_grid->n_spots - 1)
+        if(i < (fibo_grid->n_spots - 1))
             jsonString->append(jsonString, ",\n");
 
     }

@@ -11,6 +11,7 @@ typedef enum { false, true } bool;
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include "miscellaneous.h"
 
 typedef struct string string_t;
 

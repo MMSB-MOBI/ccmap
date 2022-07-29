@@ -11,6 +11,7 @@
 #include "molecular_object.h"
 #include "mesh_default.h"
 #include "cell.h"
+#include "fibonacci.h"
 
 #ifdef AS_PYTHON_EXTENSION
 #include <Python.h>
@@ -41,11 +42,12 @@ struct cellCrawler {
     updaterStruct_t *updater;
     double threshold;
     bool (*atomPairProcess)(cellCrawler_t*, atom_t*, atom_t*);
+    void (*fiboSphereProcess)(fibo_grid_t*, fibo_grid_t*); 
 };
 
 bool processPairwiseDistance(cellCrawler_t*, atom_t*, atom_t*);
 
-cellCrawler_t *createCellCrawler(bool atomic, bool dual, double dist);
+cellCrawler_t *createCellCrawler(bool atomic, bool dual, double dist, bool bASA);
 void extendCellCrawler(cellCrawler_t *cellCrawler);
 cellCrawler_t *destroyCellCrawler(cellCrawler_t *cellCrawler);
 
@@ -57,6 +59,6 @@ bool updateAtomContact(cellCrawler_t *, atom_t *iAtom, atom_t *jAtom, double dis
 // Residue lvl contact registring
 bool updateResidueContact(cellCrawler_t *, atom_t *iAtom, atom_t *jAtom, double dist);
 
-double distance(atom_t *iAtom, atom_t *jAtom);
+double atomic_distance(atom_t *iAtom, atom_t *jAtom);
 
 #endif

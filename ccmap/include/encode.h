@@ -11,7 +11,7 @@
 #define ENCODE_IJ2K(iRec, jLig, nLig) ( (iRec) * (nLig) + (jLig) )
 #include "molecular_object.h"
 
-unsigned int *encodeContactMapResidue(residue_t *iResidueList, residue_t *jResidueList, unsigned int *totalContacts);
+unsigned int *encodeContactMapResidue(residueList_t *iResidueList, residueList_t *jResidueList, unsigned int *totalContacts);
 unsigned int *encodeContactMapAtomic(atom_t *iatomList, atom_t *jAtomList, atomPair_t *ccList, unsigned int *totalContacts);
 unsigned int *copyTable(unsigned int *table, int lenTable );
 

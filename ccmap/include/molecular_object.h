@@ -16,7 +16,7 @@
 typedef struct residue {
     struct atom *elements;
     int nAtoms;
-    int index;
+    int index;   // The index(numbering/rank) of the residue
     char *resID;
     char chainID;
     char *resName;
@@ -26,6 +26,11 @@ typedef struct residue {
     int nContacts;
    // struct residue
 } residue_t;
+
+typedef struct residueList {
+    struct residue *root;
+    u_int16_t length;
+} residueList_t;
 
 typedef struct atom {
     struct residue *belongsTo;
@@ -54,8 +59,8 @@ typedef struct atomPair {
 
 
 // Display molecular objects content
-void printResidueList(FILE *stream, residue_t *residueList);
-unsigned int residueListLen(residue_t *);
+void printResidueList(FILE *stream, residueList_t *residueList);
+//unsigned int residueListLen(residue_t *);
 void printResidue(FILE *stream, residue_t *residue);
 void printAtomList(atom_t *atomList, FILE *stream);
 void stringifyAtom(atom_t *atom, char *atomString);
@@ -66,9 +71,9 @@ void jsonifyAtomPair(atomPair_t *atomPair, char *jsonString);
 
 bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo);
 residue_t *createResidue(atom_t *atom, int n);
-residue_t *createResidueList(atom_t * atomList);
-void fuseResidueLists(residue_t *iResidueList, residue_t *jResidueList);
-residue_t *destroyResidueList(residue_t *residueList);
+residueList_t *createResidueList(atom_t * atomList);
+residueList_t *fuseResidueLists(residueList_t *iResidueList, residueList_t *jResidueList);
+residueList_t *destroyResidueList(residueList_t *residueList);
 residue_t *destroyResidue(residue_t *residue);
 atom_t *destroyAtomList(atom_t *atomList, int nAtom);
 atom_t *destroyAtom(atom_t *atom);

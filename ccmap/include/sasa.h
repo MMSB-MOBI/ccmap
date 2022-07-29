@@ -4,21 +4,24 @@
 
 #include "molecular_object.h"
 #include "chem_constants.h"
+#include "fibonacci.h"
 
 typedef struct residue_sasa {
     residue_t *residue;
-    float sasa;
+    float buried;
+    float nominal;
+    float frac;
 } residue_sasa_t;
 
 typedef struct sasaResults {
     residue_sasa_t *residueSasaList;
-
+    u_int16_t length;
 } sasaResults_t;
 
-sasaResults_t *sasaCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, float probeRadius);
+sasaResults_t *computeSasaResults(residueList_t *residueList);
+sasaResults_t *destroySasaResults(sasaResults_t *sasaResults);
 
-typedef struct cellSasaCrawler {
-    // TO DO
-} cellSasaCrawler_t;
+string_t      *jsonifySasaResults(sasaResults_t *sasaResults);
+
 
 #endif

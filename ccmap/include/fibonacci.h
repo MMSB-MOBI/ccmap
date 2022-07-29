@@ -3,6 +3,7 @@
 #define FIBONACCI_H
 
 #include "mesh_default.h"
+#include "miscellaneous.h"
 
 #define FIBO_K14 (377)
 #define FIBO_K13 (233)
@@ -21,6 +22,7 @@ typedef struct fibo_grid {
     struct spot center;
     struct spot *spots;
     int n_spots;
+    float radius;
     /* data */
 } fibo_grid_t;
 
@@ -31,5 +33,7 @@ fibo_grid_t *destroyFiboGrid(fibo_grid_t *fibo_grid);
 
 void printFiboGrid(fibo_grid_t *fibo_grid);
 string_t *jsonifyFiboGrid(fibo_grid_t *fibo_grid);
+void FiboSpherePairProcess(fibo_grid_t *iFiboGrid, fibo_grid_t *jFiboGrid);
+void computeFiboSphereASA(fibo_grid_t *iFiboGrid, float *totalSurface, float *buriedSurface);
 
 #endif
