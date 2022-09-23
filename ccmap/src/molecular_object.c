@@ -211,9 +211,14 @@ residueList_t *createResidueList(atom_t * atomList) {
 
         curr_atom = curr_atom->nextAtomList;
     }
+    // GL patches 09/2022 set to actual length, seems to be w/out effect as all 
+    // residueList operations seems to employ the chain list pointers
+    residueList->length += 1;
+    //--
 #ifdef DEBUG
     fprintf(stderr, "Created %d residues, exiting createResidueList\n", residueList->length + 1);
 #endif
+    //
     return residueList;
 }
 
@@ -355,7 +360,7 @@ void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, 
     free(name);
 }
 // MEMORY ALLOCATION OF atom LIST
-atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, bool bASA, float probeRadius) {
+atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, bool bASA, float probeRadius, VDW_MAPPER) { // Resume here
     #ifdef DEBUG
         char DBG_buffer[81];
         sprintf(DBG_buffer, "readFromArray: Running readFromArrays over %d atoms\n", nAtoms);
