@@ -360,7 +360,7 @@ void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, 
     free(name);
 }
 // MEMORY ALLOCATION OF atom LIST
-atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, bool bASA, float probeRadius, VDW_MAPPER) { // Resume here
+atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, bool bASA, float probeRadius) { // Resume here
     #ifdef DEBUG
         char DBG_buffer[81];
         sprintf(DBG_buffer, "readFromArray: Running readFromArrays over %d atoms\n", nAtoms);

@@ -78,7 +78,7 @@ pdbCoordinateContainer_t *pdbFileToContainer(char *fileName) {
         newAtom = &(pdbCoordinateContainer->atomRecordArray[i]);
 
         createAtomRecord(atomRecordBuffer[i], newAtom);
-        //stringifyAtomRecord( newAtom, lineBuffer );
+        //stringifyAtomRecord( newAtom, lineBuffer );createA
 
 
      /*   printf("%s", atomRecordBuffer[i]);

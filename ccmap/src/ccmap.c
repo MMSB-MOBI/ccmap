@@ -9,6 +9,7 @@
 #include "pdb_coordinates.h"
 #include <getopt.h>
 #include "parameters.h"
+#include "atom_mapper.h"
 
 // IMPLEMENT CORRECT CALL TO MESH API
 
@@ -101,6 +102,7 @@ void displayHelp() {
     --atm / c, atomic ccmap flag\n\
     --dst / d, contact distance threshold\n\
     --dump / w, log dump filepath\n\
+    --vrad / r, van der waals atom radi definition file\n\
     --fmt  format (default is PDB)\n"
     );
 }
@@ -134,14 +136,16 @@ int main (int argc, char *argv[]) {
     bool bASA    = false;
     pdbCoordinateContainer_t *pdbCoordinateContainerJ = NULL;
     pdbCoordinateContainer_t *pdbCoordinateContainerI = NULL;
+    atom_map_t               *atomMap             = NULL;                             
     float prad = 1.4;
+    char *vradFilePath = NULL;
 //int readFile(char *fname, double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name) {
 
     /*
     int (*readerFunc)(char*, double**, double**, double**, char**, char***, char***, char***) = NULL;
     readerFunc = &readPdbFile;
     */
-    const char    *short_opt = "hcesa:b:t:f:d:p:w:o:";
+    const char    *short_opt = "hcesa:b:t:f:d:p:w:o:r:";
     struct option   long_opt[] =
     {
         {"help",               no_argument, NULL, 'h'},
@@ -162,6 +166,7 @@ int main (int argc, char *argv[]) {
         {"out",               no_argument, NULL, 'o'},
         {"sasa",               no_argument, NULL, 's'},
         {"prad",          required_argument, NULL, 'p'},
+        {"vrad",          required_argument, NULL, 'r'},
 
         {NULL,            0,                NULL, 0  }
     };
@@ -213,7 +218,10 @@ int main (int argc, char *argv[]) {
                 break;
             case 'o':
                 optResultFile = strdup(optarg);
-            break; 
+            break;
+            case 'r':
+                vradFilePath = strdup(optarg);
+                break;
             case 'h':
                 displayHelp();
                 return(0);
@@ -229,6 +237,11 @@ int main (int argc, char *argv[]) {
         }
     }
 
+    if (vradFilePath == NULL && bASA){
+        fprintf(stderr, "--vrad and --sasa options are mutually required\n");
+        displayHelp();
+        exit(0);
+    }
     /*
     Parsing mandatory 1st molecule aka "REC"
     Eventually moving it
@@ -287,8 +300,12 @@ int main (int argc, char *argv[]) {
         free(ccmap); 
     } else if (bASA) {
         prad = optPrad != NULL ? atof(optPrad) : prad;
+        atomMap = readAtomMapperFromFile(vradFilePath, prad);
+        if (atomMap == NULL)
+            exit(1);
         char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, 2* (VDW_MAX + prad) , bEncode, bAtomic, bASA);
-        free(ccmap); 
+        free(ccmap);
+        destroyAtomMapper(atomMap);
     } else {
         fprintf(stderr, "No contact distance specified, No cc map computed\n");
     }
