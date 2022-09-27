@@ -19,8 +19,8 @@
     ccmapView_t *ccmap = atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded)
 }*/
 char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordinateContainer_t *pdbCoordinateContainerJ,
-                    float dist, bool bEncode, bool bAtomic, bool bASA) {
-    ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, bool) = bAtomic\
+                    float dist, bool bEncode, bool bAtomic, atom_map_t *aMap) {
+    ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, atom_map_t *) = bAtomic\
                         ? &atomicContactMap
                         : &residueContactMap;
     
@@ -28,7 +28,7 @@ char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordi
     atom_t *jAtomList = NULL;
     int iAtom = 0;
     int jAtom = 0;
-    iAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerI, &iAtom, bASA, 0.0);
+    iAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerI, &iAtom, aMap, 0.0);
     #ifdef DEBUG
     printAtomList(iAtomList, stderr);
     #endif
@@ -39,7 +39,7 @@ char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordi
                             bAtomic?"atomic":"residue",\
                             pdbCoordinateContainerJ != NULL?2:1,\
                             bEncode?"integers vector":"JSON");
-    ccmapView_t *ccmapView = computeMap(iAtomList, iAtom, jAtomList, jAtom, dist, bEncode, bASA);
+    ccmapView_t *ccmapView = computeMap(iAtomList, iAtom, jAtomList, jAtom, dist, bEncode, aMap);
     #ifdef DEBUG
     printf("JSON ccmapView:\n%s\n", ccmapView->asJSON);
     #endif
@@ -291,7 +291,7 @@ int main (int argc, char *argv[]) {
 
     if (optDist != NULL) {
         double step = atof(optDist);
-        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, step, bEncode, bAtomic, bASA);
+        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, step, bEncode, bAtomic, NULL);
         FILE *fp = optResultFile != NULL       \
                     ? fopen(optResultFile, "w") \
                     : fopen("ccmap.json", "w");
@@ -303,7 +303,7 @@ int main (int argc, char *argv[]) {
         atomMap = readAtomMapperFromFile(vradFilePath, prad);
         if (atomMap == NULL)
             exit(1);
-        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, 2* (VDW_MAX + prad) , bEncode, bAtomic, bASA);
+        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, 2* (VDW_MAX + prad) , bEncode, bAtomic, atomMap);
         free(ccmap);
         destroyAtomMapper(atomMap);
     } else {

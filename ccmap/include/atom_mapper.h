@@ -5,9 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 #define MAX_ATOM_PAYLOAD 50 // Max number ot atom beads/atoms per residue
-
+#define MAX_RESIDUE_TYPES 1024 // Max number of residue/atom groups
+#define DEFAULT_RADIUS 1.4 // default probe radius
 typedef struct {
     char name[81];
     float radius;
@@ -30,13 +32,15 @@ typedef struct {
 
 atom_map_t *readAtomMapperFromFile(char *filePath, float probeRadius);
 atom_map_t *destroyAtomMapper(atom_map_t *map);
-void create_buffers(char ***names_buffer, char ***residue_names_buffer, float **radii_buffer);
+void create_buffers(char ***names_buffer/*, char ***residue_names_buffer*/, float **radii_buffer);
+void destroy_buffers(char **names_buffer/*, char ***residue_names_buffer*/, float *radii_buffer);
 
+atom_map_t *createAtomMapper();
+void addMapGroup(atom_map_t *map, char **atom_names, char *residue_name, float *radii, int nb_elem);
 /*
 void readMapperInputs(FILE *fp, char **atom_names, char **residue_names, float **radii, float probeRadius);
 atom_map_t *createAtomMapper(char **atom_names, char **residue_names, float **radii);
-
+*/
 
 float getRadius(atom_map_t *map, char *atom_name, char *residue_name);
-*/
 #endif

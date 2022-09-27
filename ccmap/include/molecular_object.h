@@ -12,6 +12,7 @@
 #include "mesh_default.h"
 #include "fibonacci.h"
 #include "chem_constants.h"
+#include "atom_mapper.h"
 
 typedef struct residue {
     struct atom *elements;
@@ -42,7 +43,7 @@ typedef struct atom {
     float z;
     char *resName;
     char *name;
-    float radius;
+    float _radius;
     struct atom *nextAtomList;
     struct atom *nextCellAtom;
     struct atom *nextResidueAtom;
@@ -82,7 +83,7 @@ atom_t *destroyAtom(atom_t *atom);
 unsigned int atomPairListLen(atomPair_t *);
 unsigned int atomListLen(atom_t *);
 atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, bool bASA, float probeRadius);
-atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, bool bASA, float probeRadius);
+atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius);
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
 
 atom_t *legacy_readCoordinates(char *fname, int *_nAtom);
