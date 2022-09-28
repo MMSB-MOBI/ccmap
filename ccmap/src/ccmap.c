@@ -20,26 +20,28 @@
 }*/
 char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordinateContainer_t *pdbCoordinateContainerJ,
                     float dist, bool bEncode, bool bAtomic, atom_map_t *aMap) {
-    ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, atom_map_t *) = bAtomic\
+    ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, bool) = bAtomic\
                         ? &atomicContactMap
                         : &residueContactMap;
     
+    float probeRadius = aMap != NULL ? aMap->probeRadius : 0.0;
+
     atom_t *iAtomList = NULL;
     atom_t *jAtomList = NULL;
     int iAtom = 0;
     int jAtom = 0;
-    iAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerI, &iAtom, aMap, 0.0);
+    iAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerI, &iAtom, aMap, probeRadius);
     #ifdef DEBUG
     printAtomList(iAtomList, stderr);
     #endif
 
     if(pdbCoordinateContainerJ != NULL) 
-        jAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerJ, &jAtom, false, 0.0);
+        jAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerJ, &jAtom, aMap, probeRadius);
     printf("Computing %s ccmap with %d pdb records as %s...\n", \
                             bAtomic?"atomic":"residue",\
                             pdbCoordinateContainerJ != NULL?2:1,\
                             bEncode?"integers vector":"JSON");
-    ccmapView_t *ccmapView = computeMap(iAtomList, iAtom, jAtomList, jAtom, dist, bEncode, aMap);
+    ccmapView_t *ccmapView = computeMap(iAtomList, iAtom, jAtomList, jAtom, dist, bEncode, aMap != NULL);
     #ifdef DEBUG
     printf("JSON ccmapView:\n%s\n", ccmapView->asJSON);
     #endif
@@ -301,6 +303,7 @@ int main (int argc, char *argv[]) {
     } else if (bASA) {
         prad = optPrad != NULL ? atof(optPrad) : prad;
         atomMap = readAtomMapperFromFile(vradFilePath, prad);
+        //atomMapperPrint(atomMap);
         if (atomMap == NULL)
             exit(1);
         char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, 2* (VDW_MAX + prad) , bEncode, bAtomic, atomMap);

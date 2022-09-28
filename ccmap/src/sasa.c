@@ -39,6 +39,7 @@ string_t *jsonifySasaResults(sasaResults_t *sasaResults) {
    
     return jsonString;
 }
+
 /* Compute freeSASA over a list of residues */
 sasaResults_t *computeSasaResults(residueList_t *residueList) {
     #ifdef DEBUG

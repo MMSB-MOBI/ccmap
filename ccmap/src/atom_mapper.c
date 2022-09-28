@@ -57,6 +57,7 @@ atom_map_t *readAtomMapperFromFile(char *filePath, float probeRadius) {
         }
         strcpy(prev_resname, cur_resname);
         strcpy(atom_name_buffer[cur_count], cur_name);
+        //fprintf(stderr, ">>%s<<\n", cur_name);
         radii_buffer[cur_count] = cur_radius;
         cur_count++;
     }
@@ -91,12 +92,29 @@ atom_map_t *createAtomMapper() {
     return aMap;
 }
 
+void atomMapperPrint(atom_map_t *aMap){
+    int i, j, k;
+    for (i = 0 ; i < aMap->length ; i++) {
+        fprintf(stderr, "Residue map [%d]", i); 
+        for(j = 0 ; j < aMap->map[i].names_length ; j++)
+            fprintf(stderr, " >%s<", aMap->map[i].names[j]);
+        fprintf(stderr, "\n");
+
+        for(k = 0 ; k <  aMap->map[i].atom_payload_length ; k++)
+            fprintf(stderr, "%s %f\n",\
+                aMap->map[i].atom_payload_list[k].name,\
+                aMap->map[i].atom_payload_list[k].radius);
+    }
+    fprintf(stderr, "\n--------\n");
+}
+
 void addMapGroup(atom_map_t *aMap, char **atom_names, char *residue_names, float *radii, int nb_elem) {
+    /*
     fprintf(stderr, "addMapGroup for following %s [%d nb_elem]:\n", residue_names, nb_elem);
     int c = 0;
     for (c = 0 ; c < nb_elem ; c++ )
         fprintf(stderr, "%s\t%f\n", atom_names[c], radii[c]);
-
+    */
 
     atom_payload_map_t *newGroup = &(aMap->map[aMap->length]);
     newGroup->atom_payload_length = nb_elem;
@@ -120,18 +138,32 @@ void addMapGroup(atom_map_t *aMap, char **atom_names, char *residue_names, float
     nb_resname = 0;
     int offset = 0;
     int j;
+   //fprintf(stderr, "Parsing %s\n",residue_names);
     while(residue_names[i] != '\0') {
-        
+        //fprintf(stderr, "char resideus name %c\n", residue_names[i]);
         if(residue_names[i] == '|') {
-            for ( j = offset ; offset + j < i ; j++)
-                names_buffer[j - offset] = residue_names[offset + j];
+          //  fprintf(stderr, "| found at %d\n", i);
+           // fprintf(stderr, "loop paramters j = 0 ; %d + j < %d ; j++\n", offset, i);
+            for ( j = 0 ; offset + j < i ; j++) {
+                names_buffer[j] = residue_names[offset + j];
+            //    fprintf(stderr, "buffering %c at %d\n", residue_names[offset + j], j - offset);
+            }
             names_buffer[i - offset] = '\0';
+            /*fprintf(stderr, "putting 00  at %d\n",i - offset);
+            fprintf(stderr, "Storing %s[%d:%d]\n", names_buffer, offset, i - 1);
+            */
             strcpy(newGroup->names[nb_resname], names_buffer);
             offset = i + 1;        
             nb_resname++;
         }
         i++;
     }
+    for ( j = 0 ; offset + j < i ; j++)
+        names_buffer[j] = residue_names[offset + j];
+    names_buffer[i - offset] = '\0';
+
+    //fprintf(stderr, "last copy of %s at altresname index %d\n", names_buffer, nb_resname);
+    strcpy(newGroup->names[nb_resname], names_buffer);
 
     int iAtom;
     for (iAtom = 0 ; iAtom < nb_elem ; iAtom++) {
@@ -143,25 +175,42 @@ void addMapGroup(atom_map_t *aMap, char **atom_names, char *residue_names, float
 }
 
 float getRadius(atom_map_t *aMap, char *atom_name, char *residue_name) {
-    fprintf("getRadius for %s %s\n", residue_name, atom_name);
+    char stripedName[81];
+    strip(stripedName, atom_name);
 
-    int iRes, iAtom, iAltName;
-    for (iRes = 0 ; iRes < aMap->length ; iRes++) {
-        for(iAltName = 0 ; iAltName <= aMap->map[iRes].names_length ; iAltName++) {
-            if( strcmp( aMap->map[iRes].names[iAltName], residue_name ) == 0) {
-                for(iAtom = 0 ; iAtom <  aMap->map[iRes].atom_payload_length ; iAtom++)
-                    if ( strcmp(aMap->map[iRes].atom_payload_list[iAtom].name, atom_name) == 0 )
-                        return aMap->map[iRes].atom_payload_list[iAtom].radius;
+    //fprintf(stderr, "getRadius for %s %s\n", residue_name, stripedName);
 
-                }
-            fprintf(stderr, "Unknown atom  %s within residue %s\n", atom_name, residue_name);
+    atom_payload_map_t *payloadMap = getPayloadMap(aMap, residue_name);
+    if (payloadMap == NULL) {
+         fprintf(stderr, "Residue %s not found in atom map atom\n", residue_name);
             return 0.0;
+    }
+
+    int i;
+    for(i = 0 ; i < payloadMap->atom_payload_length ; i++) {
+       // fprintf(stderr, " >%s< vs >%s<\n", payloadMap->atom_payload_list[i].name, stripedName);
+        if( strcmp( payloadMap->atom_payload_list[i].name, stripedName ) == 0 ) 
+            return payloadMap->atom_payload_list[i].radius;
+    }
+    fprintf(stderr, "Unknown atom  >%s< within residue %s\n", stripedName, residue_name);
+    return 0.0;
+}
+
+atom_payload_map_t *getPayloadMap(atom_map_t * aMap, char *resname) {
+    int i,j;
+    atom_payload_map_t *payloadMap;
+    for (i = 0 ; i < aMap->length ; i++) {
+        payloadMap = &(aMap->map[i]);
+        for(j = 0 ; j < payloadMap->names_length ; j++) {
+          //  fprintf(stderr, "Payload search %s vs %s\n", resname, payloadMap->names[j]);
+            if (strcmp(resname, payloadMap->names[j]) == 0)
+                return payloadMap;
         }
     }
-    fprintf(stderr, "Unknown residue name  %s %s\n", residue_name, atom_name);
-    return 0.0;
-
+    return NULL;
 }
+
+
 
 /*
 atom_map_t *readAtomMapperFromFile(char *filePath, float probeRadius);

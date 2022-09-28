@@ -131,7 +131,7 @@ void jsonifyAtomPair(atomPair_t *atomPair, char *jsonString) {
 
 // Replace the x,yz values of the 2nd list by those of the 1st list
 // Compute fibo grid if needed
-// Returns true if lists were of even size
+// Returns true if lists were of even size  -> FIBO GRID RADIAUS VALUE IS WRONG
 bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo) {
     
     while (atomListFrom != NULL && atomListTo != NULL ) {
@@ -323,9 +323,9 @@ unsigned int atomListLen(atom_t *atomList) {
     return n;
 }
 
-atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, bool bASA, float probeRadius) {
+atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius) {
     #ifdef DEBUG
-    fprintf(stderr, "Entering CreateAtomListFromPdbContainer bASA: %s probe radius:%g\n", bASA?"true":"false",probeRadius);
+    fprintf(stderr, "Entering CreateAtomListFromPdbContainer bASA: %s probe radius:%g\n", aMap != NULL ?"true":"false",probeRadius);
     #endif
     double *x;
     double *y;
@@ -336,7 +336,7 @@ atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateCo
     char **atomName;
     //atom_t *atomList = NULL;
     *nAtom = pdbContainerToArrays(pdbCoordinateContainer, &x, &y, &z, &chainID, &resSeq, &resName, &atomName);
-    atom_t *atomList = readFromArrays(*nAtom, x, y, z, chainID, resSeq, resName, atomName, bASA, probeRadius);
+    atom_t *atomList = readFromArrays(*nAtom, x, y, z, chainID, resSeq, resName, atomName, aMap, probeRadius);
     
     freeAtomListCreatorBuffers(x, y, z, chainID, resSeq, resName, atomName, *nAtom);
     #ifdef DEBUG
@@ -404,15 +404,18 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
                         VDW_O : atomList[n].name[0] == 'S' ?\
                             VDW_S : VDW_DEFAULT;
             */
-
+        fprintf(stderr, "Assiging to atom object[%g, %g, %g] %c, %s, %s %s %g\n",\
+                atomList[n].x, atomList[n].y, atomList[n].z, atomList[n].chainID, atomList[n].resID,\
+                atomList[n].resName, atomList[n].name, atomList[n]._radius);
         #ifdef DEBUG
             sprintf(DBG_buffer, "Assiging to atom object[%g, %g, %g] %c, %s, %s %s %g\n",\
                 atomList[n].x, atomList[n].y, atomList[n].z, atomList[n].chainID, atomList[n].resID,\
-                atomList[n].resName, atomList[n].name, atomList[n].radius);
+                atomList[n].resName, atomList[n].name, atomList[n]._radius);
             printOnContextStderr(DBG_buffer);
         #endif
         
         if (aMap != NULL) {
+            //fprintf(stderr, "POUET %f + %f = %f\n",atomList[n]._radius, probeRadius,atomList[n]._radius + probeRadius );
             atomList[n].f_grid = computeFiboGrid(atomList[n].x, atomList[n].y, atomList[n].z, atomList[n]._radius + probeRadius);
             #ifdef DEBUG
             printOnContextStderr("f_grid build succesfull\n");

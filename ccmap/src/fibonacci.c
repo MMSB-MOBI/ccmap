@@ -21,43 +21,43 @@ void computeFiboSphereASA(fibo_grid_t *iFiboGrid, float *totalSurface, float *bu
         *(buriedSurface) += (float)iFiboGrid->spots[k].buried * spotSurface;
     }
     #ifdef DEBUG
-        fprintf(stderr, "Computing FiboSphereASA total = %f  buried %f [unit:%f, nb_buried:%d, total:%d]\n",\
-                *totalSurface, *buriedSurface, spotSurface, nbBuried, FIBO_K14);
+        fprintf(stderr, "Computing FiboSphereASA rad = %f total = %f  buried %f [unit:%f, nb_buried:%d, total:%d]\n",\
+                iFiboGrid->radius, *totalSurface, *buriedSurface, spotSurface, nbBuried, FIBO_K14);
     #endif
     
     // Rounding up and summing can exceed exact total
     *(buriedSurface) = *buriedSurface > *totalSurface ? *totalSurface : *buriedSurface;
 }
 
-// Computes if i grid spots penetrates j sphere
+// Computes if i grid spots penetrates j sphere// we perform a similar operation on  j grid spots
 void FiboSpherePairProcess(fibo_grid_t *iFiboGrid, fibo_grid_t *jFiboGrid) {
     #ifdef DEBUG
-        int nb_buried = 0;
+        int nb_buried_iSpots = 0;
+        int nb_buried_jSpots = 0;
     #endif
-    
+    assert(iFiboGrid->n_spots == jFiboGrid->n_spots);
     for (int k = 0; k < iFiboGrid->n_spots ; k++) {
-        #ifndef DEBUG
-        if(iFiboGrid->spots[k].buried) continue;
-        #endif
-        iFiboGrid->spots[k].buried = \
-            euclideanDistance3(\
-                iFiboGrid->spots[k].x, iFiboGrid->spots[k].y, iFiboGrid->spots[k].z,\
-                jFiboGrid->center.x  , jFiboGrid->center.y  , jFiboGrid->center.z)\
-            < jFiboGrid->radius; //iFiboGrid->radius + jFiboGrid->radius;
+        if( !iFiboGrid->spots[k].buried ){ //continue;
+            iFiboGrid->spots[k].buried = \
+                euclideanDistance3(\
+                    iFiboGrid->spots[k].x, iFiboGrid->spots[k].y, iFiboGrid->spots[k].z,\
+                    jFiboGrid->center.x  , jFiboGrid->center.y  , jFiboGrid->center.z)\
+                < jFiboGrid->radius;
+        }
+        if( !jFiboGrid->spots[k].buried ){ //continue;
+            jFiboGrid->spots[k].buried = \
+                euclideanDistance3(\
+                    jFiboGrid->spots[k].x, jFiboGrid->spots[k].y, jFiboGrid->spots[k].z,\
+                    iFiboGrid->center.x  , iFiboGrid->center.y  , iFiboGrid->center.z)\
+                < iFiboGrid->radius;
+        }
         #ifdef DEBUG
-            nb_buried += iFiboGrid->spots[k].buried;
-            fprintf(stderr, "Euclidean3[ (%f %f %f), (%f %f %f) ] = %f vs %g ==>%d\n",\
-                    iFiboGrid->spots[k].x, iFiboGrid->spots[k].y, iFiboGrid->spots[k].z,\
-                    jFiboGrid->center.x  , jFiboGrid->center.y  , jFiboGrid->center.z,\
-                    euclideanDistance3(\
-                    iFiboGrid->spots[k].x, iFiboGrid->spots[k].y, iFiboGrid->spots[k].z,\
-                    jFiboGrid->center.x  , jFiboGrid->center.y  , jFiboGrid->center.z),\
-                    /*iFiboGrid->radius + */jFiboGrid->radius, iFiboGrid->spots[k].buried\
-                    );
+            nb_buried_iSpots += iFiboGrid->spots[k].buried;
+            nb_buried_jSpots += jFiboGrid->spots[k].buried;
         #endif
     }
     #ifdef DEBUG
-        fprintf(stderr, "TOTAL_BURIED_SPOT = %d\n", nb_buried);
+        fprintf(stderr, "CURRENT TOTAL_BURIED_SPOT i/j = %d\n", nb_buried_iSpots, nb_buried_jSpots);
     #endif
 }
 
@@ -65,7 +65,7 @@ void FiboSpherePairProcess(fibo_grid_t *iFiboGrid, fibo_grid_t *jFiboGrid) {
 
 fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius) {
     #ifdef DEBUG
-    fprintf(stderr, "Starting atomicFiboGrid [%g, %g, %g]\n", x, y, z);
+    fprintf(stderr, "Starting atomicFiboGrid [%g, %g, %g] r=%f\n", x, y, z, radius);
     #endif
     //radius = 50;
     fibo_grid_t *fibo_grid = createFiboGrid(FIBO_K14);

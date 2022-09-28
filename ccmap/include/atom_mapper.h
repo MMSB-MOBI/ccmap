@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include "miscellaneous.h"
 
 #define MAX_ATOM_PAYLOAD 50 // Max number ot atom beads/atoms per residue
 #define MAX_RESIDUE_TYPES 1024 // Max number of residue/atom groups
@@ -43,4 +44,7 @@ atom_map_t *createAtomMapper(char **atom_names, char **residue_names, float **ra
 */
 
 float getRadius(atom_map_t *map, char *atom_name, char *residue_name);
+void atomMapperPrint(atom_map_t *aMap);
+atom_payload_map_t *getPayloadMap(atom_map_t * aMap, char *resname);
+
 #endif
