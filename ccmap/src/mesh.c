@@ -11,14 +11,13 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
     bool bAtomic = true;
     ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic, bASA); // <--- sasa computation inside
     
-    if(bASA){
-        string_t *sasaJson = jsonifySasaResults(ccmapResults->sasaResults);
-        printf("%s\n", sasaJson->value);
-        destroyString(sasaJson);
-    }
-    
     ccmapView_t *ccmapView = createCcmapView();
-    
+
+    if(bASA){
+        // We steal reference to the sasa aggregated results created within ccmapCore
+        ccmapView->sasaResults    = ccmapResults->sasaResults;
+        ccmapResults->sasaResults = NULL;     
+    }
     /* ----- HERE  TO TEST ----- */
     if (bEncoded) {
         unsigned int finalLen;
@@ -70,11 +69,14 @@ ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, 
 
 ccmapView_t *createCcmapView() {
     ccmapView_t *ccmapView = malloc( sizeof(ccmapView_t) );
-    ccmapView->asJSON = NULL;
-    ccmapView->asENCODE = NULL;
+    ccmapView->asJSON      = NULL;
+    ccmapView->asENCODE    = NULL;
+    ccmapView->sasaResults = NULL; // Used to steal reference created in ccmapResults;
     return ccmapView;
 }
 ccmapView_t *destroyCcmapView(ccmapView_t *ccmapView) {
+    if (ccmapView->sasaResults != NULL) 
+        destroySasaResults(ccmapView->sasaResults);
     if (ccmapView->asJSON != NULL)
         free(ccmapView->asJSON);
     else
@@ -138,9 +140,10 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
     meshCrawler(meshContainer, cellCrawler);
     ccmapResults_t *results = createCcmapResults(cellCrawler, iResidueList, \
                                                               jResidueList != NULL ? jResidueList : NULL);
+   
     if(bASA)
         results->sasaResults = computeSasaResults(iResidueList);
-       
+   
     meshContainer = destroyMeshContainer(meshContainer);
 
 #ifdef DEBUG

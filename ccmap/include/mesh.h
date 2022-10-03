@@ -17,6 +17,7 @@ typedef struct ccmapView {
     char *asJSON;
     unsigned int *asENCODE;
     size_t encodeLen;
+    sasaResults_t *sasaResults;
 } ccmapView_t;
 
 typedef struct ccmapResults {

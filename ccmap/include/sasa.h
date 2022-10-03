@@ -7,7 +7,11 @@
 #include "fibonacci.h"
 
 typedef struct residue_sasa {
-    residue_t *residue;
+    //residue_t *residue; bound to residue lifetime we dont want that
+    char resname[81];
+    int res_index;   // The index(numbering/rank) of the residue
+    char resID[81];
+    char chainID;
     float buried;
     float nominal;
     float frac;
@@ -22,6 +26,4 @@ sasaResults_t *computeSasaResults(residueList_t *residueList);
 sasaResults_t *destroySasaResults(sasaResults_t *sasaResults);
 
 string_t      *jsonifySasaResults(sasaResults_t *sasaResults);
-
-
 #endif

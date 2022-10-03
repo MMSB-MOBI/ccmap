@@ -14,20 +14,15 @@ string_t *jsonifySasaResults(sasaResults_t *sasaResults) {
         return jsonString;
     }
     char buffer[1024];
+    char residue_buffer[81];
     residue_sasa_t *residue_sasa = NULL;
-    residue_t *residue_curr      = NULL;
+   
     for (int i = 0 ; i < sasaResults->length ; i++) {
-       // fprintf(stderr, "-->%d\n", i);
         jsonString->append(jsonString, "{\"residue\":");
-        //fprintf(stderr, "toto\n");
         residue_sasa = &sasaResults->residueSasaList[i];
-        //fprintf(stderr, "toto2\n");
-        residue_curr = residue_sasa->residue;
-        //fprintf(stderr, "toto3\n");
-        jsonifyResidue(residue_curr, buffer);
-        //fprintf(stderr, "toto3a\n");
-        jsonString->append(jsonString, buffer);
-        //fprintf(stderr, "toto4\n");
+        sprintf(residue_buffer,"%c %s %s", residue_sasa->chainID, residue_sasa->resname, residue_sasa->resID);
+        jsonString->append(jsonString, residue_buffer);
+        
         sprintf(buffer, ", \"SASA\": %f, \"norm\": %f, \"frac\": %f]}", \
                        residue_sasa->nominal - residue_sasa->buried,\
                        residue_sasa->nominal, residue_sasa->frac);
@@ -39,6 +34,7 @@ string_t *jsonifySasaResults(sasaResults_t *sasaResults) {
    
     return jsonString;
 }
+
 
 /* Compute freeSASA over a list of residues */
 sasaResults_t *computeSasaResults(residueList_t *residueList) {
@@ -58,7 +54,10 @@ sasaResults_t *computeSasaResults(residueList_t *residueList) {
     while(currentResidue != NULL) {
 
         currentResidueSasa = &sasaResults->residueSasaList[iResidue];
-        currentResidueSasa->residue   = currentResidue;
+        strcpy(currentResidueSasa->resname, currentResidue->resName);
+        strcpy(currentResidueSasa->resID, currentResidue->resID);
+        currentResidueSasa->chainID  = currentResidue->chainID;
+        currentResidueSasa->res_index  = currentResidue->index;
         currentResidueSasa->nominal   = 0;
         currentResidueSasa->buried    = 0;
     

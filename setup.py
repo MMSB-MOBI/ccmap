@@ -4,7 +4,7 @@ import os
 import sysconfig
 
 extra_compile_args = sysconfig.get_config_var('CFLAGS').split()
-extra_compile_args += ['-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic', '-D', 'DEBUG']#, '-D', 'PYMEM_CHECK']
+extra_compile_args += ['-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic' ]#, '-D', 'DEBUG']#, '-D', 'PYMEM_CHECK']
 core = Extension('ccmap',
               libraries = ['m'],
               include_dirs = ['ccmap/include'],
@@ -14,7 +14,9 @@ core = Extension('ccmap',
                          'ccmap/src/pdb_coordinates.c', 'ccmap/src/cell_crawler.c',\
                          'ccmap/src/mesh.c', 'ccmap/src/transform_mesh.c', \
                          'ccmap/src/mesh_default.c', 'ccmap/src/fibonacci.c',\
-                         'ccmap/src/miscellaneous.c', 'ccmap/src/sasa.c'],
+                         'ccmap/src/miscellaneous.c', 'ccmap/src/sasa.c',\
+                         'ccmap/src/atom_mapper.c'
+                            ],
               extra_compile_args=extra_compile_args
 		)
 setup (name = 'ccmap',

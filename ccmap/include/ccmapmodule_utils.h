@@ -6,6 +6,8 @@ bool PyArray_Equal(PyObject *arrayI, PyObject *arrayJ) ;
 // Returns a representaion of ccmapVie as a PyList if bEncode, PyString otherwise
 PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode);
 PyObject *ccmapViewsToPyObject(ccmapView_t **, int, bool);
+PyObject *ccmapViewToSasaPyDict(ccmapView_t *ccmapView);
+
 int PyObject_AsDouble(PyObject *py_obj, double *x);
 int PyList_IntoDoubleArray(PyObject *py_list, double *x, int size);
 int backMapCoordinates(atom_t *atomListRoot,  PyObject *pyDictObject);
@@ -22,5 +24,9 @@ int unpackChainID(PyObject *pListChainID, char **buffer);
 int unpackString(PyObject *pListOfStrings, char ***buffer);
 double *unpackCoordinates(PyObject *pListCoor);
 void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
-atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, bool bASA, float probeRadius);
+atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, float probeRadius, atom_map_t *aMap);
 void setBooleanFromParsing(PyObject *, bool *);
+
+
+atom_map_t *dictRadiiToAtomMapper(PyObject *atomRadiiPyDict);
+void PyObject_ToChar(PyObject *source, char *target);

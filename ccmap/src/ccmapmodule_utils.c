@@ -1,5 +1,6 @@
 #include "ccmapmodule_utils.h"
 #include "mesh.h"
+#include "atom_mapper.h"
 
 // --------------------- Utility Functions ---------------------  XREF SANITY ?
 
@@ -27,6 +28,20 @@ PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode) {
         return rValue;
     }
     return Py_BuildValue("s", ccmapView->asJSON);
+}
+
+//https://docs.python.org/3/c-api/arg.html#building-values
+PyObject *ccmapViewToSasaPyDict(ccmapView_t *ccmapView) {
+    sasaResults_t *sasaResults = ccmapView->sasaResults;
+
+    Py_ssize_t len = 0;
+    PyObject *mainDict = PyDict_New();
+    const char* mKey = "freeASA"; 
+    PyDict_SetItemString( mainDict, mKey , PyList_New(len) );
+
+    
+    // We dont decref 
+    return mainDict;
 }
 
 // NEED TO CHECK XREFs !!!
@@ -366,11 +381,68 @@ void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, c
     PyMem_Free(name);
 }
 
+// Load content of a Python dictionary of residue atom radii into a atomMapper
+// Expected to be loaded once per "thread"
+atom_map_t *dictRadiiToAtomMapper(PyObject *pyRadiiDictObject) {
+    PyObject *key, *value;
+    PyObject *pItem_atom_name_radius_tuple;
+    Py_ssize_t pos = 0;
+
+    char resname[81];
+    int i_atom, nb_atom;
+    PyObject *pyObj_atom_name, *pyObj_atom_radius;
+    
+    char **atom_name_buffer;
+    float *atom_radii_buffer;
+    create_buffers(&atom_name_buffer, &atom_radii_buffer);
+    atom_map_t *atom_map = createAtomMapper();
+    
+    // Atom data as list or tuple
+    PyObject *(*get_item) (PyObject *, Py_ssize_t) = NULL;
+    while (PyDict_Next(pyRadiiDictObject, &pos, &key, &value)) {
+        Py_INCREF(key);
+        PyObject_ToChar(key, resname);
+        Py_DECREF(key);
+        
+        nb_atom = PyList_Size(value);
+        #ifdef DEBUG
+        PySys_WriteStderr("Current Key is %s [%d atoms]\n", resname, nb_atom);
+        #endif
+        for (i_atom = 0 ; i_atom < nb_atom ; i_atom++) {
+            pItem_atom_name_radius_tuple = PyList_GetItem(value, i_atom);
+            Py_INCREF(pItem_atom_name_radius_tuple);
+            if(get_item == NULL)
+                get_item = PyTuple_Check(pItem_atom_name_radius_tuple) ? \
+                            PyTuple_GetItem :\
+                            PyList_GetItem;
+
+
+            pyObj_atom_name   = get_item(pItem_atom_name_radius_tuple, 0); // Py_INCREF // Py_DECREF ??
+            Py_INCREF(pyObj_atom_name);
+            PyObject_ToChar(pyObj_atom_name, atom_name_buffer[i_atom]);
+            pyObj_atom_radius = get_item(pItem_atom_name_radius_tuple, 1);
+            Py_INCREF(pyObj_atom_radius);
+            atom_radii_buffer[i_atom] =  (float) PyFloat_AsDouble(pyObj_atom_radius);
+            
+            Py_DECREF(pyObj_atom_name);
+            Py_DECREF(pyObj_atom_radius);       
+
+            Py_DECREF(pItem_atom_name_radius_tuple);
+        }
+        addMapGroup(atom_map, atom_name_buffer, resname, atom_radii_buffer, nb_atom);
+       
+    }
+    Py_DECREF(pyRadiiDictObject); // not sure
+    destroy_buffers(atom_name_buffer, atom_radii_buffer);
+    return atom_map;
+}
+
 // Convert a Python dictionnarized structure into a list of atoms, expecting no hydrogens.
-atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, bool bASA, float probeRadius) {
+// bASA Shall be a optional atomMapper pointer
+atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, float probeRadius, atom_map_t *aMap) {
 #ifdef DEBUG
     char DBG_buffer[1024];
-    sprintf(DBG_buffer, "Running structDictToAtoms: bASA:%s, probeRadius:%f\n", bASA ? "true": "false", probeRadius);
+    sprintf(DBG_buffer, "Running structDictToAtoms: bASA:%s, probeRadius:%f\n", aMap != NULL ? "true": "false", probeRadius);
      
     #ifdef AS_PYTHON_EXTENSION
         PySys_WriteStderr("%s", DBG_buffer);
@@ -435,7 +507,7 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, bool bASA, float 
     #endif
     // Safe here
     /* Create data structures and compute */
-    atom_t *atomList = readFromArrays(*nAtoms, coorX, coorY, coorZ, chainID, resSeq, resName, atomName, bASA, probeRadius);
+    atom_t *atomList = readFromArrays(*nAtoms, coorX, coorY, coorZ, chainID, resSeq, resName, atomName, aMap, probeRadius);
     
     freeBuffers(coorX, coorY, coorZ, chainID, resSeq, resName,  atomName, *nAtoms);
 
@@ -473,4 +545,13 @@ if (pyObjectBool != NULL) {
     if (pyObjectBool != NULL)
         fprintf(stderr, "setBooleanFromParsing pyObjectBool refcount %zd\n", pyObjectBool->ob_refcnt);
 #endif
+}
+
+
+void PyObject_ToChar(PyObject *source, char *target) {
+    PyObject *pyStr = PyUnicode_AsUTF8String(source);
+    const char *s = PyBytes_AS_STRING(pyStr);
+    strcpy(target, s); 
+    
+    Py_DECREF(pyStr);
 }

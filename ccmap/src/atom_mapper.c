@@ -1,5 +1,6 @@
 #include "atom_mapper.h"
 
+// We must add an alternative allocation if PYTHON_EXTENSION
 void create_buffers(char ***names_buffer/*, char ***residue_names_buffer*/, float **radii_buffer){
     int i;
 
@@ -178,8 +179,9 @@ float getRadius(atom_map_t *aMap, char *atom_name, char *residue_name) {
     char stripedName[81];
     strip(stripedName, atom_name);
 
-    //fprintf(stderr, "getRadius for %s %s\n", residue_name, stripedName);
-
+    #ifdef DEBUG
+        fprintf(stderr, "getRadius for \'%s\' \'%s\'\n", residue_name, stripedName);
+    #endif
     atom_payload_map_t *payloadMap = getPayloadMap(aMap, residue_name);
     if (payloadMap == NULL) {
          fprintf(stderr, "Residue %s not found in atom map atom\n", residue_name);

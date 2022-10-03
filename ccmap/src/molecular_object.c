@@ -139,7 +139,7 @@ bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo) {
         atomListTo->y = atomListFrom->y;
         atomListTo->z = atomListFrom->z;
         if(atomListFrom->f_grid != NULL) 
-           atomListTo->f_grid = computeFiboGrid(atomListTo->x, atomListTo->y, atomListTo->z, atomListTo->_radius);
+           atomListTo->f_grid = computeFiboGrid(atomListTo->x, atomListTo->y, atomListTo->z, atomListTo->_radiusASA);
         
         atomListFrom = atomListFrom->nextAtomList;
         atomListTo   = atomListTo->nextAtomList;
@@ -396,27 +396,19 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
         if (n > 0)
             atomList[n - 1].nextAtomList = &atomList[n];
 
-        atomList[n]._radius = aMap != NULL ? getRadius(aMap, atomList[n].name, atomList[n].resName)\
-                                           : VDW_DEFAULT; /*\
-            atomList[n].name[0] == 'N' ?\
-                VDW_N : atomList[n].name[0] == 'C' ?\
-                    VDW_C : atomList[n].name[0] == 'O' ?\
-                        VDW_O : atomList[n].name[0] == 'S' ?\
-                            VDW_S : VDW_DEFAULT;
-            */
-        fprintf(stderr, "Assiging to atom object[%g, %g, %g] %c, %s, %s %s %g\n",\
-                atomList[n].x, atomList[n].y, atomList[n].z, atomList[n].chainID, atomList[n].resID,\
-                atomList[n].resName, atomList[n].name, atomList[n]._radius);
+        atomList[n]._radiusASA = aMap != NULL ? getRadius(aMap, atomList[n].name, atomList[n].resName)\
+                                           : VDW_DEFAULT; 
+        atomList[n]._radiusASA += probeRadius;
+        
         #ifdef DEBUG
             sprintf(DBG_buffer, "Assiging to atom object[%g, %g, %g] %c, %s, %s %s %g\n",\
                 atomList[n].x, atomList[n].y, atomList[n].z, atomList[n].chainID, atomList[n].resID,\
-                atomList[n].resName, atomList[n].name, atomList[n]._radius);
+                atomList[n].resName, atomList[n].name, atomList[n]._radiusASA);
             printOnContextStderr(DBG_buffer);
         #endif
         
-        if (aMap != NULL) {
-            //fprintf(stderr, "POUET %f + %f = %f\n",atomList[n]._radius, probeRadius,atomList[n]._radius + probeRadius );
-            atomList[n].f_grid = computeFiboGrid(atomList[n].x, atomList[n].y, atomList[n].z, atomList[n]._radius + probeRadius);
+        if (aMap != NULL) {           
+            atomList[n].f_grid = computeFiboGrid(atomList[n].x, atomList[n].y, atomList[n].z, atomList[n]._radiusASA);
             #ifdef DEBUG
             printOnContextStderr("f_grid build succesfull\n");
             #endif

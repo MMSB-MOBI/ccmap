@@ -45,7 +45,11 @@ char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordi
     #ifdef DEBUG
     printf("JSON ccmapView:\n%s\n", ccmapView->asJSON);
     #endif
-
+    if (aMap != NULL) {
+        string_t *sasaJson = jsonifySasaResults(ccmapView->sasaResults);
+        printf("%s\n", sasaJson->value);
+        destroyString(sasaJson);
+    }
     char *ccmapAsChar;
     if (bEncode) {
         

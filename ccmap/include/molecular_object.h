@@ -43,7 +43,7 @@ typedef struct atom {
     float z;
     char *resName;
     char *name;
-    float _radius;
+    float _radiusASA;
     struct atom *nextAtomList;
     struct atom *nextCellAtom;
     struct atom *nextResidueAtom;
