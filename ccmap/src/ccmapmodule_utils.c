@@ -31,16 +31,34 @@ PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode) {
 }
 
 //https://docs.python.org/3/c-api/arg.html#building-values
+// https://web.mit.edu/people/amliu/vrut/python/ext/buildValue.html
 PyObject *ccmapViewToSasaPyDict(ccmapView_t *ccmapView) {
     sasaResults_t *sasaResults = ccmapView->sasaResults;
-
-    Py_ssize_t len = 0;
+    residue_sasa_t curResSasa;
+    PyObject *pyValue;
+    char chainID[2];
+    chainID[1] = '\0';
+    Py_ssize_t len = sasaResults->length;
     PyObject *mainDict = PyDict_New();
     const char* mKey = "freeASA"; 
-    PyDict_SetItemString( mainDict, mKey , PyList_New(len) );
+    PyObject *mainList = PyList_New(len);
+    PyDict_SetItemString( mainDict, mKey , mainList);
+    for (int i = 0; i < sasaResults->length ; i++) {
+        curResSasa = sasaResults->residueSasaList[i];
+        chainID[0] = curResSasa.chainID;
 
-    
-    // We dont decref 
+        pyValue = Py_BuildValue("{s:s,s:s,s:s,s:f,s:f}",
+                      "resname" , curResSasa.resname,
+                       "resID"  , curResSasa.resID, 
+                       "chainID", chainID,
+                       "SASA"   , curResSasa.nominal - curResSasa.buried,
+                       "frac"   ,  curResSasa.frac );
+        PyList_SetItem(mainList, i, pyValue); 
+    }
+//    fprintf(stderr, "mainDict:%zd\n", Py_REFCNT(mainDict) );
+ //   fprintf(stderr, "mainList:%zd\n", Py_REFCNT(mainList) ); //- > 2
+    Py_DECREF(mainList);
+   
     return mainDict;
 }
 
