@@ -2,9 +2,10 @@
 
 // We must add an alternative allocation if PYTHON_EXTENSION
 void create_buffers(char ***names_buffer/*, char ***residue_names_buffer*/, float **radii_buffer){
+    #ifdef DEBUG
+        fprintf(stderr, "Created buffer of length %d\n", MAX_ATOM_PAYLOAD);
+    #endif
     int i;
-
-    fprintf(stderr, "Created buffer of length %d\n", MAX_ATOM_PAYLOAD);
     *names_buffer         = malloc( MAX_ATOM_PAYLOAD * sizeof(char**) );
     //*residue_names_buffer = malloc( MAX_ATOM_PAYLOAD * sizeof(char**) );
     for(i = 0 ; i < MAX_ATOM_PAYLOAD ; i++) {
@@ -12,11 +13,15 @@ void create_buffers(char ***names_buffer/*, char ***residue_names_buffer*/, floa
         //(*residue_names_buffer)[i] = malloc( 81 * sizeof(char) );
     }
     *radii_buffer         = malloc ( MAX_ATOM_PAYLOAD * sizeof(float) );
-    fprintf(stderr, "Buffer allocated\n");
+    #ifdef DEBUG
+        fprintf(stderr, "Buffer allocated\n");
+    #endif
 }
 void destroy_buffers(char **names_buffer, /*char **residue_names_buffer,*/ float *radii_buffer){
+    #ifdef DEBUG
+        fprintf(stderr, "destroying buffer...\n");
+    #endif
     int i;
-    fprintf(stderr, "destroying buffer...\n");
     for (i = 0 ; i < MAX_ATOM_PAYLOAD ; i++) {
         free(names_buffer[i]);
         //free(residue_names_buffer[i]);
@@ -24,7 +29,9 @@ void destroy_buffers(char **names_buffer, /*char **residue_names_buffer,*/ float
     free(names_buffer);
     //free(residue_names_buffer);
     free(radii_buffer);
-    fprintf(stderr, "buffer free'd\n");
+    #ifdef DEBUG
+        fprintf(stderr, "buffer free'd\n");
+    #endif
 }
 
 atom_map_t *readAtomMapperFromFile(char *filePath, float probeRadius) {

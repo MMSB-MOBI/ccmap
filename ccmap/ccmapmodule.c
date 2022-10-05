@@ -18,9 +18,10 @@ struct module_state {
 
 #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
 
+/* Python API exposed as sasa */
 
 static PyObject *free_sasa_compute(PyObject* self, PyObject* args, PyObject* kwargs) {
-static char *kwlist[] = {"", "probe", NULL};
+static char *kwlist[] = {"", "", "probe", NULL};
 
 PyObject *coorDictI, *atomRadiilist  = NULL;
 atom_t *iAtomList    = NULL;
@@ -28,7 +29,7 @@ atom_t *iAtomList    = NULL;
 float probeRadius  = 1.4;
 int iLen           = 0;
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
-                                "O!O!|f", kwlist,\
+                                "O!O!|$f", kwlist,\
                                 &PyDict_Type, &coorDictI,\
                                 &PyDict_Type, &atomRadiilist,\
                                 &probeRadius)) {
@@ -37,12 +38,11 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
 }
 
 bool bEncode = false;
-bool bASA    = true;
 
 // Loading atom radii def 
 atom_map_t *aMap = dictRadiiToAtomMapper(atomRadiilist);
 
-PySys_WriteStderr("Hello from sasa prime %f\n", probeRadius);
+//PySys_WriteStderr("Hello from sasa prime %f\n", probeRadius);
 #ifdef DEBUG
     atomMapperPrint(aMap);
 #endif
@@ -55,29 +55,94 @@ PySys_WriteStderr("Running sasa with 1 coordinates sets probeRadius=%f bEncode:%
                                     bEncode ? "true" : "false");
 #endif
 
-// For now sasa results only live w/in below function bASA should
+
 ccmapView_t *ccmapView = atomicContactMap(iAtomList, iLen, NULL, 0, (probeRadius + VDW_MAX) * 2, bEncode, aMap != NULL);
-
-// Cleaning 
 destroyAtomList(iAtomList, iLen);
+aMap   = destroyAtomMapper(aMap);
 
+#ifdef DEBUG
+string_t *sasaJson = jsonifySasaResults(ccmapView->sasaResults);
+printf("%s\n", sasaJson->value);
+destroyString(sasaJson);
+#endif
 
-PyObject *rValue = NULL;
-// Branching on ASA or ccmap rValue, 
-if (aMap != NULL) {
-    // DEBUGING PURPOSE
-    string_t *sasaJson = jsonifySasaResults(ccmapView->sasaResults);
-    printf("%s\n", sasaJson->value);
-    destroyString(sasaJson);
-    aMap   = destroyAtomMapper(aMap);
-    rValue = ccmapViewToSasaPyDict(ccmapView);
-} else {
-    rValue = ccmapViewToPyObject(ccmapView, bEncode);
-}
+PyObject *rValue = ccmapViewToSasaPyDict(ccmapView);
 
 destroyCcmapView(ccmapView);
+
 return rValue;
 }
+
+/*
+    Python API exposed as sasa_list
+*/
+
+static PyObject *free_sasa_many(PyObject* self, PyObject* args, PyObject* kwargs) {
+static char *kwlist[] = {"", "", "probe", NULL};
+PyObject *coorDictList, *atomRadiilist  = NULL;
+ccmapView_t **ccmapViewList             = NULL;
+
+float probeRadius  = 1.4;
+if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
+                                "O!O!|$f", kwlist,\
+                                &PyList_Type, &coorDictList,\
+                                &PyDict_Type, &atomRadiilist,\
+                                &probeRadius)) {
+    PyErr_SetString(PyExc_TypeError, "Wrong parameters");
+    return NULL;
+}
+
+atom_map_t *aMap          = dictRadiiToAtomMapper(atomRadiilist);
+Py_ssize_t structFrameLen = PyArray_Size(coorDictList);
+
+atom_t **atomListList   = NULL;
+int *nAtomsList         = NULL;
+PyObject *pyStructAsDict = NULL;
+
+ccmap_compute_list_allocate( &ccmapViewList,\
+                             &atomListList, &nAtomsList, \
+                             NULL, NULL, \
+                             structFrameLen, false);
+
+// Loop over 
+for (int iStruct = 0 ; iStruct < (int)structFrameLen ; iStruct++) {
+    pyStructAsDict                 = PyArray_GetItem(coorDictList, iStruct);
+    Py_INCREF(pyStructAsDict);
+    atomListList[iStruct]     = structDictToAtoms(pyStructAsDict, &nAtomsList[iStruct], probeRadius, aMap);    
+    //iAtomList = structDictToAtoms(coorDictI, &iLen, probeRadius, aMap);
+    Py_DECREF(pyStructAsDict);
+}
+
+Py_BEGIN_ALLOW_THREADS
+for (int i = 0; i < (int)structFrameLen ; i++) {
+    /*
+    ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, bool) = bAtomic\
+                    ? &atomicContactMap
+                    : &residueContactMap;
+    */
+   //ccmapView_t *ccmapView = atomicContactMap(iAtomList, iLen, NULL, 0, (probeRadius + VDW_MAX) * 2, bEncode, aMap != NULL);
+    ccmapViewList[i] = atomicContactMap(atomListList[i], nAtomsList[i], \
+                                  NULL, 0,\
+                                  (probeRadius + VDW_MAX) * 2,\
+                                   true, true);
+}
+Py_END_ALLOW_THREADS
+
+PyObject *PyListResults   = PyList_New(structFrameLen);
+for (int i = 0; i < (int)structFrameLen ; i++) {
+    PyObject *cValue = ccmapViewToSasaPyDict(ccmapViewList[i]);
+    PyList_SetItem(PyListResults, i, cValue); // Reference cValue is stolen
+}
+
+ccmap_compute_list_cleanOnExit(ccmapViewList, \
+                                atomListList, nAtomsList,\
+                                NULL, 0,\
+                                structFrameLen, false);
+
+return PyListResults;
+}
+
+
 /*
     Python API exposed as cmap
 */
@@ -109,7 +174,7 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
     PyErr_SetString(PyExc_TypeError, "Wrong parameters");
     return NULL;
 }
-PySys_WriteStderr("Hello from Fibonacci\n");
+//PySys_WriteStderr("Hello from Fibonacci\n");
 // Parsing map type and encoding scheme
 setBooleanFromParsing(atomicBool, &bAtomic);
 setBooleanFromParsing(encodeBool, &bEncode);
@@ -586,6 +651,10 @@ static PyMethodDef ccmapMethods[] = {
     {
     "sasa", (PyCFunction/*PyCFunctionWithKeywords*/)free_sasa_compute, METH_VARARGS | METH_KEYWORDS,
         "Compute Free SASA\n"\
+    },
+    {
+    "sasa_list", (PyCFunction/*PyCFunctionWithKeywords*/)free_sasa_many, METH_VARARGS | METH_KEYWORDS,
+        "Compute Free SASA over a list of structures\n"\
     },
     {
     "zmap",  (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_zdock_pose, METH_VARARGS | METH_KEYWORDS,
