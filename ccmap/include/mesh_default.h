@@ -15,9 +15,6 @@
 #include <string.h>
 #include "miscellaneous.h"
 
-typedef enum { false, true } bool;
-
-
 typedef struct string string_t;
 
 #define STRING_CHUNCK (1024)//(2)

@@ -8,11 +8,23 @@
 #include <math.h>
 #include <string.h>
 #include <assert.h>
+//#include "numpy_headers.h"
+
+
 #include "pdb_coordinates.h"
 #include "mesh_default.h"
 #include "fibonacci.h"
 #include "chem_constants.h"
 #include "atom_mapper.h"
+#include "python_utils.h"
+
+
+#define NO_IMPORT_ARRAY
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define PY_ARRAY_UNIQUE_SYMBOL CCMAP_ARRAY_API
+#include <Python.h>
+#include "numpy/arrayobject.h"
+
 
 typedef struct residue {
     struct atom *elements;
@@ -87,5 +99,9 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
 
 atom_t *legacy_readCoordinates(char *fname, int *_nAtom);
+
+atom_t *readFromNumpyArrays(PyArrayObject *positions, PyArrayObject *names,\
+                            PyArrayObject *resnames,  PyArrayObject *resids, PyArrayObject *segids, atom_map_t *aMap, float probeRadius);
+ 
 #endif
 

@@ -1,7 +1,3 @@
-//File: miscellanous.h
-#ifndef MISCELLANEOUS_H
-#define MISCELLANEOUS_H
-
 #include "miscellaneous.h"
 
 double euclideanDistance3(float x0, float y0, float z0, float x1, float y1, float z1) {
@@ -32,4 +28,4 @@ void strip(char *dest, char *src) { // Remove space from src into dest
     dest[i] = '\0';
 
 }
-#endif
+

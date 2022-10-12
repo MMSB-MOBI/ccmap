@@ -359,6 +359,157 @@ void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, 
     free(resName);
     free(name);
 }
+
+//https://numpy.org/doc/stable/user/c-info.how-to-extend.html#example
+
+atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
+                            PyArrayObject *_resnames,  PyArrayObject *_resids, PyArrayObject *_segids,\
+                            atom_map_t *aMap, float probeRadius){
+
+    int nAtoms = (int) PyArray_SIZE(_names);
+   
+    atom_t *atomList = malloc(nAtoms * sizeof(atom_t));
+    PySys_WriteStderr(">>%d<<\n", nAtoms);
+    PyObject *name, *x, *y, *z, *resid, *resname, *segid = NULL;
+    char buffer[81];
+   
+    int resid_buf;
+    for (int i = 0 ; i < nAtoms ; i++) {
+
+        name    = PyArray_GETITEM(_names, PyArray_GETPTR1(_names, i) );
+     //   x       = PyArray_GETITEM(_positions, PyArray_GETPTR2(_positions, i, 0) );
+     //   y       = PyArray_GETITEM(_positions, PyArray_GETPTR2(_positions, i, 1) );
+     //   z       = PyArray_GETITEM(_positions, PyArray_GETPTR2(_positions, i, 2) );
+        resid   = PyArray_GETITEM(_resids, PyArray_GETPTR1(_resids, i) );
+        resname = PyArray_GETITEM(_resnames, PyArray_GETPTR1(_resnames, i) );
+        segid   = PyArray_GETITEM(_segids, PyArray_GETPTR1(_segids, i) );
+
+        atomList[i].index = i;
+        atomList[i].nextAtomList = NULL;
+        atomList[i].belongsTo = NULL;
+        atomList[i].inCell = NULL;
+        atomList[i].nextResidueAtom = NULL;
+
+        // atom name
+        PyObject_ToChar(name,  buffer);
+        atomList[i].name = malloc( (strlen(buffer) + 1) * sizeof(char));
+        strcpy(atomList[i].name, buffer);
+
+        // atom resid, provided as integer by mdanalysis
+        // int my_val = (int) PyInt_AsLong(pyObj_val);
+        sprintf(buffer, "%l", PyLong_AsLong(resid) );
+        atomList[i].resID = malloc( (strlen(buffer) + 1) * sizeof(char));
+        strcpy(atomList[i].resID, buffer);
+
+        if(i%1000 == 0) {
+            fprintf(stderr, "%s\n", atomList[i].name);
+            fprintf(stderr, "%s\n", atomList[i].resID);
+        }
+       // PyObject_ToChar(resname,  buffer);
+       /*
+        PyObject_ToChar(resid,  buffer);
+        if(i%1000 == 0) 
+            fprintf(stderr, "->%s\n", buffer);
+
+       // atomList[i].resID = malloc( (strlen(buffer) + 1) * sizeof(char));
+       // strcpy(atomList[i].resID, buffer);
+        */
+      /*  if(i%1000 == 0)
+            fprintf(stderr, "%s||%s\n", atomList[i].name, atomList[i].resID\
+            );*/
+
+/*
+        PyObject_ToChar(resname,  buffer);
+        atomList[i].resName = malloc( (strlen(buffer) + 1) * sizeof(char));
+        strcpy(atomList[i].resName, buffer);
+
+        PyObject_ToChar(segid,  buffer);
+        atomList[i].chainID = buffer[0];
+
+        atomList[i].x = (float)PyFloat_AS_DOUBLE(x);
+        atomList[i].y = (float)PyFloat_AS_DOUBLE(y);
+        atomList[i].z = (float)PyFloat_AS_DOUBLE(z);
+       
+        stringifyAtom(&(atomList[i]), buffer);
+        PySys_WriteStdout("%s\n", buffer);
+
+        */
+        /*
+        PySys_WriteStdout("%s\n", buffer);
+        PyObject_ToChar(name,  name_buffer);
+        */
+        /*
+        PySys_WriteStderr("### %s name %f %f %f\n",\
+            name_buffer, *x, *y, *z);//names[i]);
+        */
+       
+        Py_DECREF(name);
+        Py_DECREF(resid);
+
+       /* Py_DECREF(x);
+        Py_DECREF(y);
+        Py_DECREF(z);
+  
+        Py_DECREF(resname);
+        Py_DECREF(segid);
+        */
+    }
+    return NULL;//atomList;
+}
+
+/*    atom_t *atomList = malloc(nAtoms * sizeof(atom_t));
+    for (int n = 0 ; n < nAtoms ; n++) {
+        atomList[n].index = n;
+        atomList[n].nextAtomList = NULL;
+        atomList[n].belongsTo = NULL;
+        atomList[n].inCell = NULL;
+        atomList[n].nextResidueAtom = NULL;
+
+        atomList[n].resID = malloc( (strlen(resID[n]) + 1) * sizeof(char));
+        strcpy(atomList[n].resID, resID[n]);
+
+        atomList[n].resName = malloc( (strlen(resName[n]) + 1) * sizeof(char));
+        strcpy(atomList[n].resName, resName[n]);
+
+        atomList[n].name = malloc( (strlen(name[n]) + 1) * sizeof(char));
+        strcpy(atomList[n].name, name[n]);
+
+        atomList[n].x = x[n];
+        atomList[n].y = y[n];
+        atomList[n].z = z[n];
+        atomList[n].chainID = chainID[n];
+
+        if (n > 0)
+            atomList[n - 1].nextAtomList = &atomList[n];
+
+        atomList[n]._radiusASA = aMap != NULL ? getRadius(aMap, atomList[n].name, atomList[n].resName)\
+                                           : VDW_DEFAULT; 
+        atomList[n]._radiusASA += probeRadius;
+        
+        #ifdef DEBUG
+            sprintf(DBG_buffer, "Assiging to atom object[%g, %g, %g] %c, %s, %s %s %g\n",\
+                atomList[n].x, atomList[n].y, atomList[n].z, atomList[n].chainID, atomList[n].resID,\
+                atomList[n].resName, atomList[n].name, atomList[n]._radiusASA);
+            printOnContextStderr(DBG_buffer);
+        #endif
+        
+        if (aMap != NULL) {           
+            atomList[n].f_grid = computeFiboGrid(atomList[n].x, atomList[n].y, atomList[n].z, atomList[n]._radiusASA);
+            #ifdef DEBUG
+            printOnContextStderr("f_grid build succesfull\n");
+            #endif
+        } else {
+            atomList[n].f_grid = NULL;
+        }
+
+
+
+    }
+    
+    */
+
+//}
+
 // MEMORY ALLOCATION OF atom LIST
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius) { // Resume here
     #ifdef DEBUG

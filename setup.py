@@ -2,12 +2,13 @@
 from setuptools import setup, find_packages, Extension
 import os
 import sysconfig
+import numpy
 
 extra_compile_args = sysconfig.get_config_var('CFLAGS').split()
-extra_compile_args += ['-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic' ]#, '-D', 'DEBUG']#, '-D', 'PYMEM_CHECK']
+extra_compile_args += ['-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic', '-D', '_DARWIN_C_SOURCE' ]#, '-D', 'DEBUG']#, '-D', 'PYMEM_CHECK']
 core = Extension('ccmap',
               libraries = ['m'],
-              include_dirs = ['ccmap/include'],
+              include_dirs = [numpy.get_include(), 'ccmap/include'],
               sources = ['ccmap/ccmapmodule.c', 'ccmap/src/ccmapmodule_utils.c',\
                          'ccmap/src/ccmapmodule_allocation.c','ccmap/src/decoygen.c',\
                          'ccmap/src/encode.c', 'ccmap/src/molecular_object.c',\
@@ -15,11 +16,12 @@ core = Extension('ccmap',
                          'ccmap/src/mesh.c', 'ccmap/src/transform_mesh.c', \
                          'ccmap/src/mesh_default.c', 'ccmap/src/fibonacci.c',\
                          'ccmap/src/miscellaneous.c', 'ccmap/src/sasa.c',\
-                         'ccmap/src/atom_mapper.c'
+                         'ccmap/src/atom_mapper.c', 'ccmap/src/python_utils.c'\
                             ],
               extra_compile_args=extra_compile_args
 		)
 setup (name = 'ccmap',
+       install_requires=['numpy'],
        version = '3.0.0',
        author = 'G.Launay', 
 	author_email='pitooon@gmail.com',

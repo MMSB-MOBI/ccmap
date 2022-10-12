@@ -1,12 +1,26 @@
+
 #include <Python.h>
 #include <stdlib.h>
+
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define PY_ARRAY_UNIQUE_SYMBOL CCMAP_ARRAY_API
+#include "numpy/arrayobject.h"
+//#include <numpy/ndarraytypes.h>
+
 #include "mesh.h"
 #include "mesh_io.h"
 #include "transform_mesh.h"
 #include "encode.h"
 #include "ccmapmodule_utils.h"
 #include "ccmapmodule_allocation.h"
-#include "fibonacci.h"
+#include "python_utils.h"
+//
+
+
+
+// #include "fibonacci.h"
+
+
 //#include "sasa.h"
 
 //https://docs.python.org/3/c-api/intro.html#reference-count-details
@@ -18,8 +32,89 @@ struct module_state {
 
 #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
 
-/* Python API exposed as sasa */
+static PyObject *np_read_coor(PyObject* self, PyObject* args, PyObject* kwargs) {
+static char *kwlist[] = {"", "", "", "", "", NULL};
 
+PyArrayObject *positions, *names, *resnames, *resids, *segids = NULL;
+if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
+                            "O!O!O!O!O!", kwlist,\
+                           &PyArray_Type, &positions,
+                           &PyArray_Type, &names,
+                           &PyArray_Type, &resnames,
+                           &PyArray_Type, &resids,
+                           &PyArray_Type, &segids)) {
+    PyErr_SetString(PyExc_TypeError, "Wrong parameters for numpy coordinates reading tests");
+    return NULL;
+}
+PySys_WriteStderr("Running np_read_coor\n");
+atom_t *atomList = NULL;
+atomList = readFromNumpyArrays(positions, names, resnames, resids, segids, /*aMap*/ NULL, /*probeRadius*/1.4);
+int nbAtoms = (int) PyArray_SIZE(names);
+PySys_WriteStderr("==>%d\n", nbAtoms);
+if(atomList != NULL)
+    destroyAtomList(atomList, nbAtoms);
+
+return NULL;
+}
+
+//https://scipy-lectures.org/advanced/interfacing_with_c/interfacing_with_c.html
+static PyObject *dummy_np(PyObject* self, PyObject* args, PyObject* kwargs) {
+static char *kwlist[] = {"", NULL};
+
+PyArrayObject *arg1;
+if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
+                            "O!", kwlist,\
+                           &PyArray_Type, &arg1)) {
+    PyErr_SetString(PyExc_TypeError, "Wrong parameters for numpy striding tests");
+    return NULL;
+}
+
+PyObject * output = NULL;
+
+PyArrayObject *arrInput_1 = (PyArrayObject *) PyArray_FROM_OTF(arg1, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+if (arrInput_1 == NULL){
+    Py_DECREF(arrInput_1);
+    return NULL;
+} 
+
+int ndim = PyArray_NDIM(arrInput_1);
+npy_intp *shape = PyArray_DIMS(arrInput_1);
+int size = (int) PyArray_SIZE(arrInput_1);
+
+double * in_data = (double *) PyArray_DATA(arrInput_1);
+
+output =  PyArray_SimpleNew(ndim, shape, NPY_DOUBLE);
+double * out_data = (double *) PyArray_DATA((PyArrayObject *) output);
+
+for (int i = 0; i < size; i++){
+    //out_data[i] = 1. / (1. + in_data[i]);
+    out_data[i] = 2 * in_data[i];
+}
+
+Py_DECREF(arrInput_1);
+return output;
+
+
+ 
+    /*
+    npy_intp extent_dims[] = {5};//{ 2, 2, 0 };
+    PyArrayObject *out_dummy = (PyArrayObject *) PyArray_SimpleNew(1, extent_dims, NPY_FLOAT);
+
+    npy_intp *nDim = PyArray_DIMS(out_dummy);
+    fprintf(stderr, "n dim = %d\n", (int)nDim);
+    */
+    /*
+    dims = PyArray_DIMS(<..>)  -- npy_intp array of length nd
+                                     showing length in each dim.
+    */
+
+//    dptr = (double *)PyArray_DATA(<..>)
+
+   // return out_dummy;
+    //atom_list_t *atomList = structDictToAtoms(coorDictI, &iLen, probeRadius, aMap);
+}
+
+/* Python API exposed as sasa */
 static PyObject *free_sasa_compute(PyObject* self, PyObject* args, PyObject* kwargs) {
 static char *kwlist[] = {"", "", "probe", NULL};
 
@@ -106,7 +201,7 @@ ccmap_compute_list_allocate( &ccmapViewList,\
 
 // Loop over 
 for (int iStruct = 0 ; iStruct < (int)structFrameLen ; iStruct++) {
-    pyStructAsDict                 = PyArray_GetItem(coorDictList, iStruct);
+    pyStructAsDict                 = MyPyArray_GetItem(coorDictList, iStruct);
     Py_INCREF(pyStructAsDict);
     atomListList[iStruct]     = structDictToAtoms(pyStructAsDict, &nAtomsList[iStruct], probeRadius, aMap);    
     //iAtomList = structDictToAtoms(coorDictI, &iLen, probeRadius, aMap);
@@ -269,14 +364,14 @@ if(pyDictArray_J != NULL)
     fprintf(stderr, "pyDictList:%zd\n", pyDictArray_J->ob_refcnt);
 #endif
 
-if (!PyArray_Check(pyDictArray_I)) {
+if (!MyPyArray_Check(pyDictArray_I)) {
     PyErr_SetString(PyExc_TypeError, "First coordinates set is not iterable");
     return NULL;
 }
 
 dual = pyDictArray_J != NULL;
 if(dual) {
-    if (!PyArray_Check(pyDictArray_J)) {
+    if (!MyPyArray_Check(pyDictArray_J)) {
         PyErr_SetString(PyExc_TypeError, "Optional coordinates set is not iterable");
         return NULL;
     }  
@@ -299,13 +394,13 @@ ccmap_compute_list_allocate(&ccmapViewList, \
     bool bASA = false; // TO DO
     // We off load from threads the loading of coordinates 
     for (int iStructPair = 0 ; iStructPair < (int)structFrameLen ; iStructPair++) {
-        pStructAsDict_I                 = PyArray_GetItem(pyDictArray_I, iStructPair);
+        pStructAsDict_I                 = MyPyArray_GetItem(pyDictArray_I, iStructPair);
         Py_INCREF(pStructAsDict_I);
         atomListList_I[iStructPair]     = structDictToAtoms(pStructAsDict_I, &nAtomsList_I[iStructPair], dummyProbeRadius, NULL);    
         Py_DECREF(pStructAsDict_I);
 
         if(dual) {
-            pStructAsDict_J             = PyArray_GetItem(pyDictArray_J, iStructPair);
+            pStructAsDict_J             = MyPyArray_GetItem(pyDictArray_J, iStructPair);
             Py_INCREF(pStructAsDict_J);
             atomListList_J[iStructPair] = structDictToAtoms(pStructAsDict_J, &nAtomsList_J[iStructPair], dummyProbeRadius, NULL);    
             Py_DECREF(pStructAsDict_J);
@@ -648,6 +743,14 @@ static PyMethodDef ccmapMethods[] = {
         "\t\"atomic\", boolean. If True compute atomic contact map else compute residue contact map. Default=False\n"\
     "\nReturn\n\tA string if Encoding flag is false, a list of list of residue/atom numbers otherwise\n"
     },
+    {"dummy_np",
+    (PyCFunction/*PyCFunctionWithKeywords*/)dummy_np, METH_VARARGS | METH_KEYWORDS,
+        "Testing numpy API\n"\
+    },    
+    {"np_read_coor",
+    (PyCFunction/*PyCFunctionWithKeywords*/)np_read_coor, METH_VARARGS | METH_KEYWORDS,
+        "Reading numpy atom coordinates\n"\
+    },
     {
     "sasa", (PyCFunction/*PyCFunctionWithKeywords*/)free_sasa_compute, METH_VARARGS | METH_KEYWORDS,
         "Compute Free SASA\n"\
@@ -720,6 +823,7 @@ PyInit_ccmap(void)
         Py_DECREF(module);
         INITERROR;
     }
+    import_array(); // Must be called to setup numpy
     return module;
 }
 

@@ -18,6 +18,7 @@ string_t *jsonifySasaResults(sasaResults_t *sasaResults) {
     residue_sasa_t *residue_sasa = NULL;
    
     for (int i = 0 ; i < sasaResults->length ; i++) {
+        
         jsonString->append(jsonString, "{\"residue\":");
         residue_sasa = &sasaResults->residueSasaList[i];
         sprintf(residue_buffer,"%c %s %s", residue_sasa->chainID, residue_sasa->resname, residue_sasa->resID);

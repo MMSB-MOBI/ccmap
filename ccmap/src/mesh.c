@@ -14,7 +14,7 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
     ccmapView_t *ccmapView = createCcmapView();
 
     if(bASA){
-        // We steal reference to the sasa aggregated results created within ccmapCore
+        // We steal reference to the sasa aggregated results created within ccmapCore // NOT ENOUGH as there residue reference bound to sasa results
         ccmapView->sasaResults    = ccmapResults->sasaResults;
         ccmapResults->sasaResults = NULL;     
     }
