@@ -2,7 +2,7 @@
 #include <limits.h>
 
 static int offsets[3] = {-1, 0, 1};
-static int bestLen = 999999;
+static int bestLen = DEFAULT_BWFS;
 /*
     meshContainer_t *meshContainer = createMeshContainer(iAtomList, iAtom, jAtomList, jAtom, step);
     pathfinder(meshContainer, cell_start, cell_end);
@@ -17,34 +17,70 @@ path_t *searchForPath(meshContainer_t *meshContainer, atom_t *atomStart, atom_t 
     cell_t *cell_start = atomStart->inCell; 
     cell_t *cell_stop = atomStop->inCell;
 
-
-    printf("Inital best length %d\n", bestLen);
+#ifdef DEBUG
+    fprintf(stderr, "Inital best length %d\n", bestLen);
+#endif
 
     cell_start->bwfs = 0;
     printf("Starting from cell (%d,%d, %d) (b=%d)\n", cell_start->i, cell_start->j, cell_start->k,\
     cell_start->memberCount);
     printf("Trying to reachcell (%d,%d, %d) (b=%d)\n", cell_stop->i, cell_stop->j, cell_stop->k,\
     cell_start->memberCount);
-    /*
-    offsets_t moves[26];
-    short int neighbourCount = sortNeighboursByMeshDistance(cell_start, cell_stop, meshContainer->mesh, moves);
-
-    for (int iCell = 0 ; iCell < neighbourCount ; iCell++) {
-        int i = moves[iCell].i;
-        int j = moves[iCell].j;        
-        int k = moves[iCell].k;
-        //printf("Browsable at  %d %d %d at c_dist %f\n", i, j, k, moves[iCell].abs_dist);
-        exploreCell(meshContainer, &meshContainer->mesh->grid[i][j][k], 0, cell_start, cell_stop);
-    }*/
+  
     exploreCell(meshContainer, cell_start, 0, cell_start, cell_stop);
-    printf("Best length is %d\n", bestLen);
+    
+    if (bestLen >= DEFAULT_BWFS) 
+        return NULL;
+
+#ifdef DEBUG
+    fprintf(stderr, "Best length is %d\n", bestLen);
+#endif
 
     return backtrack(meshContainer, cell_start, cell_stop );
 }
 
 path_t *backtrack(meshContainer_t *meshContainer, cell_t *startCell, cell_t *stopCell ) {
     path_t *best_path = malloc(sizeof (path_t));
+    best_path->len = stopCell->bwfs - 1;
+    best_path->cells = malloc( best_path->len * sizeof(cell_t*) );
+    best_path->start = startCell;
+    best_path->stop  = stopCell;
+
+    cell_t *buffer_cell = stopCell;
+    for (int i_step = best_path->len - 1 ; i_step >= 0 ; i_step--) {
+       buffer_cell = walkBack(buffer_cell, startCell, meshContainer);
+       best_path->cells[i_step] = buffer_cell;
+    }
     return best_path;
+}
+path_t *destroyPath(path_t *path){
+    free(path->cells);
+    free(path);
+    return NULL;
+}
+
+cell_t *walkBack(cell_t *currCell, cell_t *targetCell, meshContainer_t *meshContainer) {
+
+#ifdef DEBUG
+    fprintf(stderr, "Walking Back through %d %d %d bwfs= %d\n",\
+        currCell->i, currCell->j, currCell->k, currCell->bwfs);
+#endif
+
+    offsets_t moves[26];
+    short int neighbourCount = sortNeighboursByMeshDistance(currCell, \
+                                targetCell, meshContainer->mesh, moves);
+    
+    cell_t *closest_cell =  currCell; // seems ok as a dummy initializer
+    cell_t *buff_cell    =  NULL;
+    for (int iCell = 0 ; iCell < neighbourCount ; iCell++) {
+        int i = moves[iCell].i;
+        int j = moves[iCell].j;        
+        int k = moves[iCell].k;
+        buff_cell = &meshContainer->mesh->grid[i][j][k];
+        if (buff_cell->bwfs <  closest_cell->bwfs)
+            closest_cell = buff_cell;
+    }
+    return closest_cell;
 }
 
 bool areSameCells(cell_t *a, cell_t *b) {
@@ -52,33 +88,43 @@ bool areSameCells(cell_t *a, cell_t *b) {
 }
 
 void exploreCell(meshContainer_t *meshContainer, cell_t *currentCell, int nStepFromStart, cell_t *startCell, cell_t *endCell) {
-   // static unsigned int bestLen = 999999;
     offsets_t moves[26];
 #ifdef DEBUG
-    fprintf(stderr, "%d %d %d %d\n", currentCell->i, currentCell->j, currentCell->k, currentCell->memberCount);
+    fprintf(stderr, "%d %d %d %d\n", currentCell->i, currentCell->j, currentCell->k, currentCell->bwfs);
 #endif
-    printf("%d %d %d %d\n", currentCell->i, currentCell->j, currentCell->k, currentCell->bwfs);
+    //printf("%d %d %d %d\n", currentCell->i, currentCell->j, currentCell->k, currentCell->bwfs);
+    // Touchdown
     if (areSameCells(currentCell, endCell)) {
-        printf("Found destination at depth %d\n", nStepFromStart);
+#ifdef DEBUG
+        fprintf(stderr, "Found destination at depth %d\n", nStepFromStart);
+#endif
         bestLen = nStepFromStart;
-    }
-    if (nStepFromStart > 0 && areSameCells(currentCell, startCell) ) {
-        printf("BACK TO SQ ONE\n");
+        currentCell->bwfs = nStepFromStart;
         return;
     }
+    // Back to square 1
+    if (nStepFromStart > 0 && areSameCells(currentCell, startCell) )
+        return;
+    // Cell is blocked
     if (nStepFromStart > 0 && currentCell->memberCount > 0)
-        return; // Cell is blocked
-
-    if (nStepFromStart > currentCell->bwfs)
+        return; 
+    // Exhausted search path
+    if (nStepFromStart > 0 && nStepFromStart >= currentCell->bwfs)
         return;
-    currentCell->bwfs = nStepFromStart;
+
+    if (nStepFromStart > 0)
+        currentCell->bwfs = nStepFromStart;
+    
+    // About to exhaust search path
     if (c_dist(currentCell,  endCell) + currentCell->bwfs > bestLen) {
+#ifdef DEBUG     
         fprintf(stderr, "%d %d %d to far (%f)\n", \
         currentCell->i, currentCell->j, currentCell->k,\
         c_dist(currentCell,  endCell) + currentCell->bwfs);
+#endif
         return;
     }
-    
+    // Keep on searching
     short int neighbourCount = sortNeighboursByMeshDistance(currentCell, endCell, meshContainer->mesh, moves);
     for (int iCell = 0 ; iCell < neighbourCount ; iCell++) {
         int i = moves[iCell].i;

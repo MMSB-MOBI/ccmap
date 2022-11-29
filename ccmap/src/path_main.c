@@ -64,9 +64,9 @@ int main (int argc, char *argv[]) {
     extern char *optarg;
     extern int optind, optopt, opterr;
     pdbCoordinateContainer_t *pdbCoordinateContainer = NULL;
-    float cell_dim = 1.4;
+    float cellDim = 1.4;
     char *x_selector, *y_selector = NULL; // "RESNAME:RESNUM:ATOM:CHAIN"
-    
+    char *optCellDim = NULL;
     stringList_t *x_selectorElem, *y_selectorElem = NULL;
     char bufferLog[81];
     const char    *short_opt = "hi:x:y:o:s:";
@@ -96,7 +96,7 @@ int main (int argc, char *argv[]) {
                 oFile = strdup(optarg);
                 break;
             case 's':
-                oFile = strdup(optarg);
+                optCellDim = strdup(optarg);
                 break;
 
             case 'x':
@@ -119,7 +119,8 @@ int main (int argc, char *argv[]) {
                 return(-2);
         }
     }
-    
+
+    cellDim = optCellDim != NULL ? atof(optCellDim) : cellDim;
     if( x_selector == NULL ||
         y_selector == NULL )
         main_error("Please specify atom selectors\n");
@@ -129,11 +130,17 @@ int main (int argc, char *argv[]) {
 
     x_selectorElem = splitAndCreateStringList(x_selector, ':');
     y_selectorElem = splitAndCreateStringList(y_selector, ':');
+#ifdef DEBUG
     string_t *string;
     for (int i = 0 ; i < x_selectorElem->len ; i++) {
         string = x_selectorElem->elem[i];
         string->dump(string);
     }
+    for (int i = 0 ; i < y_selectorElem->len ; i++) {
+        string = y_selectorElem->elem[i];
+        string->dump(string);
+    }
+#endif
     pdbCoordinateContainer = pdbFileToContainer(iFile);
     int nAtoms = 0;
     // NULL -> no Fibogrid yet
@@ -152,28 +159,34 @@ int main (int argc, char *argv[]) {
         main_error(bufferLog);
     }
 
-    meshContainer_t *meshContainer = createMeshContainer(atomList, nAtoms, NULL, 0, 1.0);
+    meshContainer_t *meshContainer = createMeshContainer(atomList, nAtoms, NULL, 0, cellDim);
     printf("mesh [%dx%dx%d]created w/ %d filled cells\n",\
          meshContainer->mesh->iMax, meshContainer->mesh->jMax,\
          meshContainer->mesh->kMax, meshContainer->nFilled);
     path_t *best_walk = searchForPath(meshContainer, xAtom, yAtom);
-    //computePath(mesh, );
-    //destroyStringList(x_selectorElem[0]);
-
-
-    /*
-    Parsing mandatory pdb molecule
-    */
-   /*
-    if (iFile == NULL) {
-        fprintf(stderr, "-i option required\n");
-        displayHelp();
-        exit(0);
+    if (best_walk == NULL) {
+        printf("No pathway found connecting specified pair of atoms\n");
+    } else {
+        printf("###Best pathway\n");
+        printf("[%d] %d %d %d\n", best_walk->start->bwfs,\
+            best_walk->start->i, best_walk->start->j,\
+            best_walk->start->k);
+        for(int stp = 0 ; stp < best_walk->len ; stp++)
+            printf("[%d] %d %d %d\n", best_walk->cells[stp]->bwfs,\
+                best_walk->cells[stp]->i, best_walk->cells[stp]->j,\
+                best_walk->cells[stp]->k\
+            );
+        printf("[%d] %d %d %d\n", best_walk->stop->bwfs,\
+            best_walk->stop->i, best_walk->stop->j,\
+            best_walk->stop->k);
+            
+        best_walk = destroyPath(best_walk);
     }
-    */
-   destroyStringList(x_selectorElem);
-   destroyStringList(y_selectorElem);
-   destroyPdbCoordinateContainer(pdbCoordinateContainer);
-   destroyAtomList(atomList, nAtoms);
-   destroyMeshContainer(meshContainer);
+//Cleanup
+    
+    destroyStringList(x_selectorElem);
+    destroyStringList(y_selectorElem);
+    destroyPdbCoordinateContainer(pdbCoordinateContainer);
+    destroyAtomList(atomList, nAtoms);
+    destroyMeshContainer(meshContainer);
 }

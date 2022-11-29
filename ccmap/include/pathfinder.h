@@ -5,6 +5,7 @@
 #include <math.h>
 #include <mesh.h>
 
+#define DEFAULT_BWFS 999999
 
 typedef struct path {
     cell_t **cells;
@@ -27,4 +28,7 @@ float c_dist(cell_t *a, cell_t *b);
 void exploreCell(meshContainer_t *meshContainer, cell_t *currentCell, int nStepFromStart, cell_t *start_cell, cell_t *end_cell);
 bool areSameCells(cell_t *a, cell_t *b);
 path_t *backtrack(meshContainer_t *meshContainer, cell_t *startCell, cell_t *stopCell);
+cell_t *walkBack(cell_t *currCell, cell_t *targetCell, meshContainer_t *meshContainer);
+path_t *destroyPath(path_t *path);
+
 #endif

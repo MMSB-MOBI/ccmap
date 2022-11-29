@@ -324,15 +324,24 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
     cell_t ***grid = i_mesh->grid;
 
 #ifdef DEBUG
-    printf("Projecting ... \n");
+    printf("Projecting %d atoms ... into %d x %d x %d mesh dimensions\n", iAtom, iDim, jDim, kDim);
+    printf("Indexing theoritical max total %d non empty cells\n", i_mesh->n);
 #endif
     // We store the non-empty cells
     cell_t **filledCells = malloc(i_mesh->n * sizeof(cell_t*));
     int nFilled = 0;
 
     for (int c = 0 ; c < iAtom ; c++) {
+#ifdef DEBUG
+    printf("Projecting atom number %d\n", c);
+#endif 
         int i, j, k;
         cartesianToMesh(&iAtomList[c], &i, &j, &k, step, minCoor);
+#ifdef DEBUG
+    printf("(%f, %f, %f) Landing at [%d, %d, %d]\n",\
+    iAtomList[c].x, iAtomList[c].y, iAtomList[c].z,\
+    i, j, k);
+#endif        
         if (grid[i][j][k].memberCount == 0) {
             /*This cell is non-empty
             register its adress*/
