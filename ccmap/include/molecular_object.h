@@ -16,22 +16,24 @@
 #include "fibonacci.h"
 #include "chem_constants.h"
 #include "atom_mapper.h"
-#include "python_utils.h"
+#ifdef AS_PYTHON_EXTENSION
+    #include "python_utils.h"
 
 
-#define NO_IMPORT_ARRAY
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#define PY_ARRAY_UNIQUE_SYMBOL CCMAP_ARRAY_API
-#include <Python.h>
-#include "numpy/arrayobject.h"
-
+    #define NO_IMPORT_ARRAY
+    #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+    #define PY_ARRAY_UNIQUE_SYMBOL CCMAP_ARRAY_API
+    #include <Python.h>
+    #include "numpy/arrayobject.h"
+#endif
 
 typedef struct residue {
     struct atom *elements;
     int nAtoms;
     int index;   // The index(numbering/rank) of the residue
     char *resID;
-    char chainID;
+    char chainID;   
+    char *ext_chainID; // MD analysis segid mutli char storage
     char *resName;
     struct residue *nextResidueList;
     struct residue *prevResidueList;
@@ -49,6 +51,7 @@ typedef struct atom {
     struct residue *belongsTo;
     struct cell *inCell;
     char chainID;
+    char *ext_chainID; // MD analysis segid mutli char storage
     char *resID;
     float x;
     float y;
@@ -99,9 +102,10 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
 
 atom_t *legacy_readCoordinates(char *fname, int *_nAtom);
+#ifdef AS_PYTHON_EXTENSION
+    atom_t *readFromNumpyArrays(PyArrayObject *positions, PyArrayObject *names,\
+                                PyArrayObject *resnames,  PyArrayObject *resids, PyArrayObject *segids, atom_map_t *aMap, float probeRadius);
+#endif
 
-atom_t *readFromNumpyArrays(PyArrayObject *positions, PyArrayObject *names,\
-                            PyArrayObject *resnames,  PyArrayObject *resids, PyArrayObject *segids, atom_map_t *aMap, float probeRadius);
- 
 #endif
 

@@ -428,6 +428,7 @@ mesh_t *createMesh(int iDim, int jDim, int kDim) {
 
                 i_mesh->grid[i][j][k].iMemberCount = 0;
                 i_mesh->grid[i][j][k].jMemberCount = 0;
+                i_mesh->grid[i][j][k].bwfs = iDim * jDim * kDim; // Pathfinder longest possible road 
             }
         }
     }

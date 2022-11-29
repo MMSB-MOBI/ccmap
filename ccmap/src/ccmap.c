@@ -11,6 +11,8 @@
 #include "parameters.h"
 #include "atom_mapper.h"
 
+#include "pathfinder.h"
+
 // IMPLEMENT CORRECT CALL TO MESH API
 
 /*void contacMap (pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordinateContainer_t *pdbCoordinateContainerJ,

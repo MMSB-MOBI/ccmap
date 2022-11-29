@@ -54,7 +54,6 @@ void stringifyAtomRecord(atomRecord_t *atomRecord, char *atomRecordString);
 int pdbContainerToArrays(pdbCoordinateContainer_t *pdbCoordinateContainer, double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name);
 char *pdbContainerToString(pdbCoordinateContainer_t *pdbCoordinateContainer);
 
-
 // Unused kept just in case
 int legacy_readPdbFile(char *fname, double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name);
 int legacy_readFile(char *fname, double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name);

@@ -22,5 +22,6 @@ typedef struct cell {
     int n;
     struct neighbours *cell;
     int neighbourCount;
+    int bwfs;
 } cell_t;
 #endif

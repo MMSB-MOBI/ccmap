@@ -163,7 +163,11 @@ residue_t *createResidue(atom_t *atom, int n) {
     strcpy(residue->resName, atom->resName);
     residue->resID = malloc( (strlen(atom->resID) + 1) * sizeof(char) );
     strcpy(residue->resID, atom->resID);
-    
+    residue->ext_chainID = NULL;
+    if (atom->ext_chainID != NULL) {
+        residue->ext_chainID = malloc( (strlen(atom->ext_chainID) + 1) * sizeof(char));
+        strcpy(residue->ext_chainID, atom->ext_chainID);
+    }
     residue->chainID = atom->chainID;
     residue->elements = atom;
     residue->elements->nextResidueAtom = NULL;
@@ -266,6 +270,8 @@ residue_t *destroyResidue(residue_t *residue) {
     free(residue->contactResidueList);
     free(residue->resName);
     free(residue->resID);
+    if(residue->ext_chainID != NULL)
+        free(residue->ext_chainID);
     free(residue);
     return NULL;
 }
@@ -273,7 +279,7 @@ residue_t *destroyResidue(residue_t *residue) {
 atom_t *destroyAtomList(atom_t *atomList, int nAtom) {
     //atom_t *next_atom = NULL;
 #ifdef DEBUG
-    printf ("Destroying atomList\n");
+    fprintf (stderr, "Destroying atomList\n");
 #endif
 
     for (int n = 0 ; n < nAtom ; n++)
@@ -290,7 +296,7 @@ atom_t *destroyAtom(atom_t *atom){
 #ifdef DEBUG
     char atomString[81];
     stringifyAtom(atom, atomString);
-    printf ("Destroying atom %s\n", atomString);
+    fprintf(stderr, "Destroying atom %s\n", atomString);
 #endif
 
     free(atom->resID);
@@ -298,9 +304,11 @@ atom_t *destroyAtom(atom_t *atom){
     free(atom->name);
     if (atom->f_grid != NULL)
         destroyFiboGrid(atom->f_grid);
+    if (atom->ext_chainID != NULL)
+        free(atom->ext_chainID);
     //free(atom); No need to free atom structure itself, malloc was operate on an array
 #ifdef DEBUG
-    printf("Ok\n");
+    fprintf(stderr, "Ok\n");
 #endif
 return NULL;
 }
@@ -361,7 +369,7 @@ void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, 
 }
 
 //https://numpy.org/doc/stable/user/c-info.how-to-extend.html#example
-
+#ifdef AS_PYTHON_EXTENSION
 atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
                             PyArrayObject *_resnames,  PyArrayObject *_resids, PyArrayObject *_segids,\
                             atom_map_t *aMap, float probeRadius){
@@ -377,9 +385,9 @@ atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
     for (int i = 0 ; i < nAtoms ; i++) {
 
         name    = PyArray_GETITEM(_names, PyArray_GETPTR1(_names, i) );
-     //   x       = PyArray_GETITEM(_positions, PyArray_GETPTR2(_positions, i, 0) );
-     //   y       = PyArray_GETITEM(_positions, PyArray_GETPTR2(_positions, i, 1) );
-     //   z       = PyArray_GETITEM(_positions, PyArray_GETPTR2(_positions, i, 2) );
+        x       = PyArray_GETITEM(_positions, PyArray_GETPTR2(_positions, i, 0) );
+        y       = PyArray_GETITEM(_positions, PyArray_GETPTR2(_positions, i, 1) );
+        z       = PyArray_GETITEM(_positions, PyArray_GETPTR2(_positions, i, 2) );
         resid   = PyArray_GETITEM(_resids, PyArray_GETPTR1(_resids, i) );
         resname = PyArray_GETITEM(_resnames, PyArray_GETPTR1(_resnames, i) );
         segid   = PyArray_GETITEM(_segids, PyArray_GETPTR1(_segids, i) );
@@ -394,69 +402,62 @@ atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
         PyObject_ToChar(name,  buffer);
         atomList[i].name = malloc( (strlen(buffer) + 1) * sizeof(char));
         strcpy(atomList[i].name, buffer);
+        Py_DECREF(name);
 
-        // atom resid, provided as integer by mdanalysis
-        // int my_val = (int) PyInt_AsLong(pyObj_val);
-        sprintf(buffer, "%l", PyLong_AsLong(resid) );
+        // atom resid, provided as integer by mdanalysis    
+        //if(PyArray_IsIntegerScalar(resid)) 
+        sprintf(buffer, "%d", (int)PyLong_AsLong(resid) );
         atomList[i].resID = malloc( (strlen(buffer) + 1) * sizeof(char));
         strcpy(atomList[i].resID, buffer);
+        Py_DECREF(resid);
 
-        if(i%1000 == 0) {
-            fprintf(stderr, "%s\n", atomList[i].name);
-            fprintf(stderr, "%s\n", atomList[i].resID);
-        }
-       // PyObject_ToChar(resname,  buffer);
-       /*
-        PyObject_ToChar(resid,  buffer);
-        if(i%1000 == 0) 
-            fprintf(stderr, "->%s\n", buffer);
-
-       // atomList[i].resID = malloc( (strlen(buffer) + 1) * sizeof(char));
-       // strcpy(atomList[i].resID, buffer);
-        */
-      /*  if(i%1000 == 0)
-            fprintf(stderr, "%s||%s\n", atomList[i].name, atomList[i].resID\
-            );*/
-
-/*
+        // atom resname
         PyObject_ToChar(resname,  buffer);
         atomList[i].resName = malloc( (strlen(buffer) + 1) * sizeof(char));
         strcpy(atomList[i].resName, buffer);
-
+        Py_DECREF(resname);
+        
+        // atom segid, a string in MDanalysis
         PyObject_ToChar(segid,  buffer);
-        atomList[i].chainID = buffer[0];
+        atomList[i].ext_chainID = malloc( (strlen(buffer) + 1) * sizeof(char));
+        strcpy(atomList[i].ext_chainID, buffer);
+        Py_DECREF(segid);
+            // Setting native chainID to space char
+        atomList[i].chainID = ' ';
 
+        // coordinates
         atomList[i].x = (float)PyFloat_AS_DOUBLE(x);
         atomList[i].y = (float)PyFloat_AS_DOUBLE(y);
         atomList[i].z = (float)PyFloat_AS_DOUBLE(z);
-       
-        stringifyAtom(&(atomList[i]), buffer);
-        PySys_WriteStdout("%s\n", buffer);
-
-        */
-        /*
-        PySys_WriteStdout("%s\n", buffer);
-        PyObject_ToChar(name,  name_buffer);
-        */
-        /*
-        PySys_WriteStderr("### %s name %f %f %f\n",\
-            name_buffer, *x, *y, *z);//names[i]);
-        */
-       
-        Py_DECREF(name);
-        Py_DECREF(resid);
-
-       /* Py_DECREF(x);
+        Py_DECREF(x);
         Py_DECREF(y);
         Py_DECREF(z);
-  
-        Py_DECREF(resname);
-        Py_DECREF(segid);
+        /*
+        if(i%1000 == 0) {
+            fprintf(stderr, ">%s<\n", atomList[i].name);
+            fprintf(stderr, ">%s<\n", atomList[i].resID);
+            fprintf(stderr, ">%s<\n", atomList[i].resName);
+            fprintf(stderr, ">%s<\n", atomList[i].ext_chainID);
+            fprintf(stderr, ">%f %f %f<\n",  atomList[i].x,\
+            atomList[i].y,  atomList[i].z);
+        }
         */
-    }
-    return NULL;//atomList;
-}
+        if (i > 0)
+            atomList[i - 1].nextAtomList = &atomList[i];
+        
+        atomList[i]._radiusASA = aMap != NULL\
+                                ? getRadius(aMap, atomList[i].name, atomList[i].resName)\
+                                : VDW_DEFAULT; 
+        atomList[i]._radiusASA += probeRadius;
 
+        atomList[i].f_grid = aMap != NULL\
+            ? computeFiboGrid(atomList[i].x, atomList[i].y, atomList[i].z, atomList[i]._radiusASA)\
+            : NULL;
+        
+    }
+    return atomList;
+}
+#endif
 /*    atom_t *atomList = malloc(nAtoms * sizeof(atom_t));
     for (int n = 0 ; n < nAtoms ; n++) {
         atomList[n].index = n;
@@ -542,7 +543,8 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
         atomList[n].x = x[n];
         atomList[n].y = y[n];
         atomList[n].z = z[n];
-        atomList[n].chainID = chainID[n];
+        atomList[n].chainID     = chainID[n];
+        atomList[n].ext_chainID = NULL;
 
         if (n > 0)
             atomList[n - 1].nextAtomList = &atomList[n];

@@ -4,10 +4,10 @@
 GCC_FLAGS = -std=c99 -Wall -I./include -lm -pedantic 
 DEBUG=-g -D DEBUG -O0
 
-all: ccmap string
+all: ccmap string path
 
 debug: GCC_FLAGS += $(DEBUG)
-debug : ccmap
+debug : path
 
 #src/mesh_default.c deleted
 ccmap: src/ccmap.c
@@ -15,6 +15,13 @@ ccmap: src/ccmap.c
 
 string: src/string_test.c
 	gcc -o bin/$@ $< $(GCC_FLAGS) 
-     
+
+path: src/path_main.c
+	gcc -o bin/$@ $<  src/mesh_default.c src/molecular_object.c src/pdb_coordinates.c\
+					  src/my_string.c src/fibonacci.c src/atom_mapper.c src/miscellaneous.c\
+					  src/mesh.c src/decoygen.c src/cell_crawler.c src/encode.c src/sasa.c\
+					  src/pathfinder.c $(GCC_FLAGS)
+
+
 clean: 
 	rm ./bin/*

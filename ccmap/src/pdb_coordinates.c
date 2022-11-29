@@ -364,4 +364,3 @@ int legacy_readFile(char *fname, double **x, double **y, double **z, char **chai
     fclose(fp);
     return n;
 }
-
