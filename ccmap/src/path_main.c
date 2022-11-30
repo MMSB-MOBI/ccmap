@@ -92,7 +92,8 @@ int main (int argc, char *argv[]) {
     char *optCellDim = NULL;
     stringList_t *x_selectorElem, *y_selectorElem = NULL;
     char bufferLog[81];
-    const char    *short_opt = "hi:x:y:o:s:";
+    char defaultOutFile[] = "structure_path.pdb";
+    const char    *short_opt = "hi:x:y:o:s:c:";
     struct option   long_opt[] =
     {
         {"help",              no_argument, NULL, 'h'},
@@ -145,6 +146,9 @@ int main (int argc, char *argv[]) {
         }
     }
     
+    if(oFile == NULL)
+        oFile = defaultOutFile;
+
     cellDim = optCellDim != NULL ? atof(optCellDim) : cellDim;
     if( x_selector == NULL ||
         y_selector == NULL )
@@ -208,7 +212,14 @@ int main (int argc, char *argv[]) {
 
         necklaceThreading(pdbCoordinateContainer, meshContainer, best_walk, necklaceID);
         best_walk = destroyPath(best_walk);
-        
+       
+#ifdef DEBUG
+        char *pdbAsCharList = pdbContainerToString(pdbCoordinateContainer);
+        fprintf(stderr, "Attempting to write following pdb string content to %s\n", oFile);
+        fprintf(stderr, "%s", pdbAsCharList);
+        free(pdbAsCharList);
+#endif
+    pdbContainerToFile(pdbCoordinateContainer, oFile, "w");
     }
 //Cleanup
         

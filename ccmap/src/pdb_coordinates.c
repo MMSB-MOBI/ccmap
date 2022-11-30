@@ -113,8 +113,8 @@ atomRecord_t *createAtomRecordArrayElements(atomRecord_t *newAtom,
     char *element,
     char *charge
 ) {
-    if (strlen(recordType) > 6) {
-        fprintf(stderr, "createAtomRecord: recordType field \"%s\"too long\n", recordType);
+    if (strlen(recordType) !=  6) {
+        fprintf(stderr, "createAtomRecord: recordType field \"%s\" has invalid length\n", recordType);
         return NULL;
     }
     if (strlen(name) > 4) {
@@ -139,6 +139,10 @@ atomRecord_t *createAtomRecordArrayElements(atomRecord_t *newAtom,
     }
 
     strcpy(newAtom->recordName, recordType);
+    newAtom->recordName[6] = '\0';
+  //  memcpy( newAtom->recordName, recordType, 6 );
+   // newAtom->recordName[6] = '\0';
+
     newAtom->serial = recordNumber;
 
     strcpy(newAtom->name, name);
@@ -268,7 +272,7 @@ void stringifyAtomRecord(atomRecord_t *atomRecord, char *atomRecordString) {
     /*char test[81];
     sprintf(test, "%6s",\
             atomRecord->recordName);*/
-    sprintf(atomRecordString, "%6s%5d %4s%C%3s %c%4s%c   %8.3f%8.3f%8.3f%6.2f%6.2f          %-2s%-2s",\
+    sprintf(atomRecordString, "%6s%5d %4s%c%3s %c%4s%c   %8.3f%8.3f%8.3f%6.2f%6.2f          %-2s%-2s",\
             atomRecord->recordName, atomRecord->serial, atomRecord->name, atomRecord->altLoc,\
             atomRecord->resName, atomRecord->chainID, atomRecord->resSeq, atomRecord->iCode,\
             atomRecord->x, atomRecord->y, atomRecord->z, atomRecord->occupancy,\
@@ -442,13 +446,14 @@ bool appendArraysToPdbContainer(pdbCoordinateContainer_t *pdbContainer, int nbNe
 #endif
     
     atomRecord_t *atomRecordTmp = (atomRecord_t *) realloc(pdbContainer->atomRecordArray,\
-        pdbContainer->atomCount + nbNew);
+        sizeof(atomRecord_t) * (pdbContainer->atomCount + nbNew) );
    
     if(atomRecordTmp == NULL) {
         fprintf(stderr, "Could not reallocation memory for atomRecord list from %d to%d\n",\
         pdbContainer->atomCount, pdbContainer->atomCount + nbNew);
         return false;
     }
+    pdbContainer->atomRecordArray = atomRecordTmp;
     for(int n = pdbContainer->atomCount; n < pdbContainer->atomCount + nbNew ; n++) {
         int i = n - pdbContainer->atomCount;
         atomRecord_t *newAtom = &(pdbContainer->atomRecordArray[n]);
@@ -458,8 +463,8 @@ bool appendArraysToPdbContainer(pdbCoordinateContainer_t *pdbContainer, int nbNe
             )   
             return false; // Probably stuff to free here
     }
-    pdbContainer->atomCount = pdbContainer->atomCount + nbNew;
-    pdbContainer->atomRecordArray = atomRecordTmp;
+    pdbContainer->atomCount += nbNew;
+    
     
 #ifdef DEBUG
     fprintf(stderr, "Extended pdb Container now holds %d atoms\n", pdbContainer->atomCount);

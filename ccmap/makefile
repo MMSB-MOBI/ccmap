@@ -3,11 +3,14 @@
 
 GCC_FLAGS = -std=c99 -Wall -I./include -lm -pedantic 
 DEBUG=-g -D DEBUG -O0
-
+VALGRIND_ONLY=-g -O0;
 all: ccmap string path
 
 debug: GCC_FLAGS += $(DEBUG)
 debug : path
+
+valgrind: GCC_FLAGS += $(VALGRIND_ONLY)
+valgrind: path
 
 #src/mesh_default.c deleted
 ccmap: src/ccmap.c

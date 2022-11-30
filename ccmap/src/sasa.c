@@ -14,7 +14,7 @@ string_t *jsonifySasaResults(sasaResults_t *sasaResults) {
         return jsonString;
     }
     char buffer[1024];
-    char residue_buffer[81];
+    char residue_buffer[1024];
     residue_sasa_t *residue_sasa = NULL;
    
     for (int i = 0 ; i < sasaResults->length ; i++) {

@@ -518,7 +518,7 @@ atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
 // MEMORY ALLOCATION OF atom LIST
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius) { // Resume here
     #ifdef DEBUG
-        char DBG_buffer[81];
+        char DBG_buffer[200];
         sprintf(DBG_buffer, "readFromArray: Running readFromArrays over %d atoms\n", nAtoms);
         printOnContextStderr(DBG_buffer);
         for (int i = 0 ; i < nAtoms ; i++) {
