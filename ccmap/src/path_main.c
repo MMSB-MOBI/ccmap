@@ -14,6 +14,7 @@
 
 void displayHelp(){
     fprintf(stderr, "path_main -x <ATOM_SELECTOR> -y <ATOM_SELECTOR> -i <PDB_FILE_PATH>\n");
+    fprintf(stderr, "options:\n\t -c <LINKER CHAIN_ID>\n\t-s <GRID_STEP>\n");
 }
 
 void main_error(char *msg){
@@ -52,6 +53,27 @@ atom_t *getAtomFromList(atom_t *list, int i_max, stringList_t *selector) {
     return NULL;
 }
 
+void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer, path_t *best_walk, char segID) {
+     // Necklace threading
+        double *pearl_x, *pearl_y, *pearl_z = NULL;
+        char *pearl_chainID = NULL;
+        char **pearl_resID, **pearl_resName, **pearl_name = NULL;
+        createRecordArraysFromPath(best_walk, meshContainer,\
+            &pearl_x, &pearl_y, &pearl_z, &pearl_chainID, &pearl_resID, &pearl_resName, &pearl_name,\
+            segID);    
+        appendArraysToPdbContainer(pdbContainer, best_walk->len, \
+            pearl_x, pearl_x, pearl_z, pearl_chainID, pearl_resID, pearl_resName,  pearl_name);
+    
+#ifdef DEBUG
+        char *data = pdbContainerToString(pdbContainer);
+        printf("%s\n", data);
+        free(data);
+#endif
+        freeAtomListCreatorBuffers(pearl_x, pearl_y, pearl_z,\
+            pearl_chainID, pearl_resID, pearl_resName,  pearl_name, best_walk->len);
+        
+}
+
 int main (int argc, char *argv[]) {
 
     #ifdef DEBUG
@@ -59,6 +81,7 @@ int main (int argc, char *argv[]) {
     #endif
 
     int c;
+    char necklaceID = 'A';
     char *iFile = NULL;
     char *oFile = NULL;
     extern char *optarg;
@@ -79,7 +102,7 @@ int main (int argc, char *argv[]) {
         {"to",          required_argument, NULL, 'y'},
         {"out",         required_argument, NULL, 'o'},
         {"sz" ,         required_argument, NULL, 's'},
-       
+        {"seg",         required_argument, NULL, 'c'},
         {NULL,            0,               NULL,  0 }
     };
 
@@ -98,7 +121,9 @@ int main (int argc, char *argv[]) {
             case 's':
                 optCellDim = strdup(optarg);
                 break;
-
+            case 'c':
+                necklaceID = optarg[0];
+                break;
             case 'x':
                 x_selector = strdup(optarg);
                 break;
@@ -119,7 +144,7 @@ int main (int argc, char *argv[]) {
                 return(-2);
         }
     }
-
+    
     cellDim = optCellDim != NULL ? atof(optCellDim) : cellDim;
     if( x_selector == NULL ||
         y_selector == NULL )
@@ -160,6 +185,7 @@ int main (int argc, char *argv[]) {
     }
 
     meshContainer_t *meshContainer = createMeshContainer(atomList, nAtoms, NULL, 0, cellDim);
+
     printf("mesh [%dx%dx%d]created w/ %d filled cells\n",\
          meshContainer->mesh->iMax, meshContainer->mesh->jMax,\
          meshContainer->mesh->kMax, meshContainer->nFilled);
@@ -179,14 +205,18 @@ int main (int argc, char *argv[]) {
         printf("[%d] %d %d %d\n", best_walk->stop->bwfs,\
             best_walk->stop->i, best_walk->stop->j,\
             best_walk->stop->k);
-            
+
+        necklaceThreading(pdbCoordinateContainer, meshContainer, best_walk, necklaceID);
         best_walk = destroyPath(best_walk);
+        
     }
 //Cleanup
-    
+        
     destroyStringList(x_selectorElem);
     destroyStringList(y_selectorElem);
     destroyPdbCoordinateContainer(pdbCoordinateContainer);
     destroyAtomList(atomList, nAtoms);
     destroyMeshContainer(meshContainer);
 }
+
+

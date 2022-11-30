@@ -54,6 +54,9 @@ path_t *backtrack(meshContainer_t *meshContainer, cell_t *startCell, cell_t *sto
     return best_path;
 }
 path_t *destroyPath(path_t *path){
+#ifdef DEBUG
+    fprintf(stderr, "Destroying path object\n");
+#endif
     free(path->cells);
     free(path);
     return NULL;
@@ -216,4 +219,48 @@ int cmpOffsetfunc (const void * a, const void * b) {
     if (oA->abs_dist > oB->abs_dist)
         return 1;
     return 0;
+}
+// Generate a necklace of dummy atoms along the path
+// Lame code duplication from pdb_coordinates.c: pdbContainerToArrays
+void createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, double **x, double **y, double **z,\
+                                char **chainID, char ***resID, char ***resName, char ***name,\
+                                char uID) {
+    int n = self->len;
+    *x = malloc(n * sizeof(double));
+    *y = malloc(n * sizeof(double));
+    *z = malloc(n * sizeof(double));
+    *chainID = malloc(n * sizeof(char));
+    *resID = malloc(n * sizeof(char*));
+    *resName = malloc(n * sizeof(char*));
+    *name = malloc(n * sizeof(char*));
+    double x_prime, y_prime, z_prime;
+    char resSeqBuffer[81];
+    char baseResName[] = "DUM" ;
+    char baseName[] = "CA ";
+
+#ifdef DEBUG
+    fprintf(stderr, "Create Following Necklace arrays [%d elem]\n", n);
+#endif
+
+    for (int iElem = 0 ; iElem < n ; iElem++) {
+        meshToCartesian(meshContainer, self->cells[iElem]->i, self->cells[iElem]->j, self->cells[iElem]->k,\
+                                       &x_prime             , &y_prime             , &z_prime);
+        (*chainID)[iElem] = uID;
+        (*x)[iElem] = x_prime;
+        (*y)[iElem] = y_prime;
+        (*z)[iElem] = z_prime;
+        sprintf(resSeqBuffer, "%d", iElem + 1 );
+        (*resID)[iElem] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
+        strcpy((*resID)[iElem], resSeqBuffer);
+        (*resName)[iElem] = malloc((strlen(baseResName) + 1) * sizeof(char));
+        strcpy((*resName)[iElem], baseResName);
+        (*name)[iElem] = malloc((strlen(baseName) + 1) * sizeof(char));
+        strcpy((*name)[iElem], baseName);
+#ifdef DEBUG
+        fprintf(stderr, "%f %f %f \'%s\' \'%s\' \'%c\' \'%s\'\n",\
+            (*x)[iElem], (*y)[iElem], (*z)[iElem],\
+            (*resName)[iElem], (*resID)[iElem], \
+            (*chainID)[iElem], (*name)[iElem] );
+#endif
+    }
 }

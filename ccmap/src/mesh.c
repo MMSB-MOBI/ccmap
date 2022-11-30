@@ -313,13 +313,17 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
     printf("Maximal Coordinates %g %g %g\n", maxCoor.x, maxCoor.y, maxCoor.z);
 #endif
 
+   /*
     int iDim = (maxCoor.x - minCoor.x);
     iDim = (iDim + step - 1) / step + 1;
     int jDim = (maxCoor.y - minCoor.y);
     jDim = (jDim + step - 1) / step + 1;
     int kDim = (maxCoor.z - minCoor.z);
     kDim = (kDim + step - 1) / step + 1;
-
+    */
+    int iDim = (maxCoor.x - minCoor.x) / step  + 3;
+    int jDim = (maxCoor.y - minCoor.y) / step  + 3;
+    int kDim = (maxCoor.z - minCoor.z) / step  + 3;
     mesh_t *i_mesh = createMesh(iDim, jDim, kDim);
     cell_t ***grid = i_mesh->grid;
 
@@ -337,6 +341,16 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
 #endif 
         int i, j, k;
         cartesianToMesh(&iAtomList[c], &i, &j, &k, step, minCoor);
+        if ( (i == 0 || i == iDim - 1)||
+             (j == 0 || j == jDim - 1)||
+             (k == 0 || k == kDim - 1)
+        ) {
+            fprintf(stderr, "Projection error: landing into border cell (%f %f %f) => [%d %d %d]\n",\
+                           iAtomList[i].x, iAtomList[i].y, iAtomList[i].z, i, j, k\
+                    );
+            exit(1);
+        }
+
 #ifdef DEBUG
     printf("(%f, %f, %f) Landing at [%d, %d, %d]\n",\
     iAtomList[c].x, iAtomList[c].y, iAtomList[c].z,\
@@ -393,17 +407,20 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
 #ifdef DEBUG
     printf("%d atoms projected onto %d cells\n", iAtom + jAtom, nFilled);
 #endif
-    meshContainer_t *results = malloc (sizeof(meshContainer_t));
-    results->mesh = i_mesh;
-    results->filledCells = filledCells;
-    results->nFilled = nFilled;
-    results->step = step;
-
+    meshContainer_t *meshContainer = malloc (sizeof(meshContainer_t));
+    meshContainer->mesh = i_mesh;
+    meshContainer->filledCells = filledCells;
+    meshContainer->nFilled = nFilled;
+    meshContainer->step = step;
+    meshContainer->x_min = minCoor.x;
+    meshContainer->y_min = minCoor.y;
+    meshContainer->z_min = minCoor.z;
+    
 #ifdef DEBUG
     fprintf(stderr, "Exiting createMeshContainer\n");
 #endif
 
-    return results;
+    return meshContainer;
 }
 mesh_t *createMesh(int iDim, int jDim, int kDim) {
 #ifdef DEBUG
@@ -519,11 +536,23 @@ void getBoundariesCartesian(atom_t * atomList, int nAtom, atom_t *minCoor, atom_
 }
 
 void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t minCoor) {
-    *i = (int) floor( (atom->x - minCoor.x) / step);
-    *j = (int) floor( (atom->y - minCoor.y) / step);
-    *k = (int) floor( (atom->z - minCoor.z) / step);
+    *i = (int) floor( fabs(atom->x - minCoor.x) / step) + 1; // Adding one to skip 1st outer shell cell
+    *j = (int) floor( fabs(atom->y - minCoor.y) / step) + 1;
+    *k = (int) floor( fabs(atom->z - minCoor.z) / step) + 1;
 }
 
+// Returns the x,y,z coordinates of the center of the i,j,k cell
+void meshToCartesian(meshContainer_t *meshContainer, int i, int j, int k, double *x, double *y, double *z) {
+    
+    *x           = meshContainer->x_min * (i - 1) + meshContainer->step / 2;
+    *y           = meshContainer->y_min * (j - 1) + meshContainer->step / 2;
+    *z           = meshContainer->z_min * (k - 1) + meshContainer->step / 2;
+#ifdef DEBUG
+    fprintf(stderr, "BackProjection [%d %d %d]=>(%f %f %f)\n",\
+            i, j, k, *x, *y, *z);
+#endif
+    return;
+}
 /* -----------------   DEBUGING FN  ----------------- */
 void printContactList(residue_t *residueList) {
     //residueList = iterate over residue list, iterate over its contact -> stringify residue pair;

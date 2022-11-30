@@ -29,6 +29,12 @@ void exploreCell(meshContainer_t *meshContainer, cell_t *currentCell, int nStepF
 bool areSameCells(cell_t *a, cell_t *b);
 path_t *backtrack(meshContainer_t *meshContainer, cell_t *startCell, cell_t *stopCell);
 cell_t *walkBack(cell_t *currCell, cell_t *targetCell, meshContainer_t *meshContainer);
+
+void createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer,\
+                                double **x, double **y, double **z, char **chainID,\
+                                char ***resID, char ***resName, char ***pearl_name, char segID);    
+       
+
 path_t *destroyPath(path_t *path);
 
 #endif

@@ -33,6 +33,9 @@ typedef struct meshContainer {
     struct cell **filledCells;
     int nFilled;
     float step; // Grid step
+    double x_min;
+    double y_min;
+    double z_min;
 } meshContainer_t;
 
 typedef struct mesh {
@@ -69,7 +72,8 @@ ccmapView_t *destroyCcmapView(ccmapView_t *);
 void getBoundariesCartesian_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, atom_t *minCoor, atom_t *maxCoor);
 void getBoundariesCartesian(atom_t * atomList, int nAtom, atom_t *minCoor, atom_t *maxCoor);
 void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t minCoor);
-
+void meshToCartesian(meshContainer_t *meshContainer, int i, int j, int k, double *x, double *y, double *z);
+ 
 //void mesh(atom_t * atomList, int nAtom, double step);
 
 

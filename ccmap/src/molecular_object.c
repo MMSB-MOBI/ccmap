@@ -353,7 +353,11 @@ atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateCo
     return atomList;
 }
 
-void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n) {
+void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID,\
+                                char **resID, char **resName,  char **name, int n) {
+#ifdef DEBUG
+fprintf(stderr, "freeAtomListCreatorBuffers over even-sized buffers of %d items\n", n); 
+#endif
     free(x);
     free(y);
     free(z);
