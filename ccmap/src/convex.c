@@ -24,34 +24,31 @@ int buildSphere(atom_t *atom, cell_t *optCell, meshContainer_t *meshContainer) {
                 int norm = (i - cCell->i) * (i - cCell->i)\
                          + (j - cCell->j) * (j - cCell->j)\
                          + (k - cCell->k) * (k - cCell->k);
-                if(i ==  cCell->i + rad_cu && j== cCell->j && k==cCell->k)
-                    printf("norm is %d (th : %d^2=%d)\n", norm, rad_cu, rad_cu_pow);
-
+                
                 if (norm > rad_cu_pow)
                     continue;
 //#ifdef DEBUG
-    fprintf(stderr, "Adding voxel at %d %d %d [center is %d, %d, %d, cr=%d]\n",\
-            i, j, k, cCell->i, cCell->j,cCell->k, rad_cu);
-//#endif
-                
+    fprintf(stderr, "Adding %s voxel at relatives %d %d %d [center is %d, %d, %d, cr=%d]\n",\
+            norm == rad_cu_pow?"surface":"buried", i - cCell->i,\
+            j - cCell->j, k - cCell->k, cCell->i, cCell->j,cCell->k, rad_cu);
+//#endif    
                 nvx++;
-                if (norm == rad_cu_pow && !currCell-> isInterior)
+                if (norm == rad_cu_pow)
                     currCell->isSurface = true;
                 if(norm < rad_cu_pow) {
                     if(currCell->isSurface)
                         nvx--; // voxel was already accounted for
-                    currCell->isInterior = true;
-                    currCell->isSurface  = false;
+                    currCell->isInterior = true;// Still we register as local surface
                 }
             }
         }
     }
-    return nvx; // overestimation as surface voxel downgrade as volume are counted
+    return nvx;// voxel actually constructed
 }
 
 // Custom predicate to allow/reject cell exploration in pathfinder
 bool surfaceExplorerPredicate(cell_t *cell){
-    return cell->memberCount == 0 || cell->isSurface;
+    return (!cell->isInterior) && (cell->memberCount == 0 || cell->isSurface);
 }
 
 bool buildSurfaces(meshContainer_t *meshContainer) {
