@@ -12,11 +12,20 @@ static int bestLen = DEFAULT_BWFS;
 
 */
 
-path_t *searchForPath(meshContainer_t *meshContainer, atom_t *atomStart, atom_t *atomStop) {
+path_t *searchForPath(meshContainer_t *meshContainer,\
+    char *type, atom_t *atomStart, atom_t *atomStop) {
     //static unsigned int bestLen = 999999; 
     cell_t *cell_start = atomStart->inCell; 
     cell_t *cell_stop = atomStop->inCell;
+    bool (*cellPredicate)(cell_t*) = &pointExplorerPredicate;
 
+    if(strcmp(type, "surf") ){ 
+        cellPredicate = &surfaceExplorerPredicate;
+        printf("Building surfaces w/ mesh unit= %g ...\n", \
+            meshContainer->step);
+        buildSurfaces(meshContainer);
+        printf("Total of %d voxels constructed\n", meshContainer->nVoxels);
+    }
 #ifdef DEBUG
     fprintf(stderr, "Inital best length %d\n", bestLen);
 #endif
@@ -27,7 +36,8 @@ path_t *searchForPath(meshContainer_t *meshContainer, atom_t *atomStart, atom_t 
     printf("Trying to reachcell (%d,%d, %d) (b=%d)\n", cell_stop->i, cell_stop->j, cell_stop->k,\
     cell_start->memberCount);
   
-    exploreCell(meshContainer, cell_start, 0, cell_start, cell_stop);
+    exploreCell(meshContainer, cellPredicate,\
+                cell_start, 0, cell_start, cell_stop);
     
     if (bestLen >= DEFAULT_BWFS) 
         return NULL;
@@ -90,7 +100,8 @@ bool areSameCells(cell_t *a, cell_t *b) {
     return (a->i == b->i) && (a->j == b->j) && (a->k == b->k);
 }
 
-void exploreCell(meshContainer_t *meshContainer, cell_t *currentCell, int nStepFromStart, cell_t *startCell, cell_t *endCell) {
+void exploreCell(meshContainer_t *meshContainer, bool (*cellPredicate)(cell_t*),\
+    cell_t *currentCell, int nStepFromStart, cell_t *startCell, cell_t *endCell) {
     offsets_t moves[26];
 #ifdef DEBUG
     fprintf(stderr, "%d %d %d %d\n", currentCell->i, currentCell->j, currentCell->k, currentCell->bwfs);
@@ -109,7 +120,7 @@ void exploreCell(meshContainer_t *meshContainer, cell_t *currentCell, int nStepF
     if (nStepFromStart > 0 && areSameCells(currentCell, startCell) )
         return;
     // Cell is blocked
-    if (nStepFromStart > 0 && currentCell->memberCount > 0)
+    if (nStepFromStart > 0 && cellPredicate(currentCell) )
         return; 
     // Exhausted search path
     if (nStepFromStart > 0 && nStepFromStart >= currentCell->bwfs)
@@ -133,17 +144,15 @@ void exploreCell(meshContainer_t *meshContainer, cell_t *currentCell, int nStepF
         int i = moves[iCell].i;
         int j = moves[iCell].j;        
         int k = moves[iCell].k;
-        exploreCell(meshContainer, &meshContainer->mesh->grid[i][j][k],\
+        exploreCell(meshContainer, cellPredicate,\
+                    &meshContainer->mesh->grid[i][j][k],\
                     nStepFromStart + 1, startCell, endCell);
     }
 
 }
 
-float c_dist(cell_t *a, cell_t *b) {
-    return sqrt(  ( a->i - b->i ) * ( a->i - b->i ) \
-                + ( a->j - b->j ) * ( a->j - b->j ) \
-                + ( a->k - b->k ) * ( a->k - b->k ) \
-            );
+bool pointExplorerPredicate(cell_t *cell){
+    return cell->memberCount == 0;
 }
 
 // sort neigbours by their mesh distance from target destination

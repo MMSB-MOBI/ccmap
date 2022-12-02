@@ -1,5 +1,6 @@
 #include "mesh.h"
 
+#define MAX_VDW_RADIUS //required to estime voxel_shell as (MAX_VDW_RADIUS + PROBE_RADIUS) / step
 // TO DO: implementation of atomic integer encoding
 ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded, bool bASA) {
     
@@ -303,14 +304,27 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
     atom_t minCoor;
     atom_t maxCoor;
     bool dualMode = jAtomList != NULL ? true : false;
-    if (dualMode)
+    double maxASA_radius = 0;
+    for(int i = 0; i < iAtom ; i++)
+        maxASA_radius = iAtomList[iAtom]._radiusASA ?\
+            iAtomList[iAtom]._radiusASA > maxASA_radius:maxASA_radius;
+    if (dualMode) {
         getBoundariesCartesian_DUAL(iAtomList, iAtom, jAtomList, jAtom, &minCoor, &maxCoor);
-    else
+        for(int j = 0; j < jAtom ; j++)
+            maxASA_radius = jAtomList[jAtom]._radiusASA ?\
+            jAtomList[jAtom]._radiusASA > maxASA_radius:maxASA_radius;
+    } else {
         getBoundariesCartesian(iAtomList, iAtom, &minCoor, &maxCoor);
+    }
+    
+    int voxel_shell_thickness = (int) (maxASA_radius / step + 0.5);
+
 
 #ifdef DEBUG
     printf("Minimal Coordinates %g %g %g\n", minCoor.x, minCoor.y, minCoor.z);
     printf("Maximal Coordinates %g %g %g\n", maxCoor.x, maxCoor.y, maxCoor.z);
+    printf("Maximal ASA radius %g => %d voxel shell thickness\n", \
+        maxASA_radius, voxel_shell_thickness);
 #endif
 
    /*
@@ -321,9 +335,10 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
     int kDim = (maxCoor.z - minCoor.z);
     kDim = (kDim + step - 1) / step + 1;
     */
-    int iDim = (maxCoor.x - minCoor.x) / step  + 3;
-    int jDim = (maxCoor.y - minCoor.y) / step  + 3;
-    int kDim = (maxCoor.z - minCoor.z) / step  + 3;
+    //         span coordinates range  + "zerocase" + 1 both ends path + voxel on both ends
+    int iDim = (maxCoor.x - minCoor.x) / step  + 3 + 2 * voxel_shell_thickness;
+    int jDim = (maxCoor.y - minCoor.y) / step  + 3 + 2 * voxel_shell_thickness;
+    int kDim = (maxCoor.z - minCoor.z) / step  + 3 + 2 * voxel_shell_thickness;
     mesh_t *i_mesh = createMesh(iDim, jDim, kDim);
     cell_t ***grid = i_mesh->grid;
 
@@ -340,7 +355,7 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
     printf("Projecting atom number %d\n", c);
 #endif 
         int i, j, k;
-        cartesianToMesh(&iAtomList[c], &i, &j, &k, step, minCoor);
+        cartesianToMesh(&iAtomList[c], &i, &j, &k, step, minCoor, voxel_shell_thickness);
         if ( (i == 0 || i == iDim - 1)||
              (j == 0 || j == jDim - 1)||
              (k == 0 || k == kDim - 1)
@@ -378,7 +393,7 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
     if (dualMode) {
         for (int c = 0 ; c < jAtom ; c++) {
             int i, j, k;
-            cartesianToMesh(&jAtomList[c], &i, &j, &k, step, minCoor);
+            cartesianToMesh(&jAtomList[c], &i, &j, &k, step, minCoor, voxel_shell_thickness);
             if (grid[i][j][k].memberCount == 0) {
                 /*This cell is non-empty
                 register its adress*/
@@ -415,7 +430,8 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
     meshContainer->x_min = minCoor.x;
     meshContainer->y_min = minCoor.y;
     meshContainer->z_min = minCoor.z;
-    
+    meshContainer->voxel_shell_thickness = voxel_shell_thickness;
+    meshContainer->nVoxels = 0;
 #ifdef DEBUG
     fprintf(stderr, "Exiting createMeshContainer\n");
 #endif
@@ -446,7 +462,6 @@ mesh_t *createMesh(int iDim, int jDim, int kDim) {
                 i_mesh->grid[i][j][k].j = j;
                 i_mesh->grid[i][j][k].k = k;
                 i_mesh->grid[i][j][k].memberCount = 0;
-                i_mesh->grid[i][j][k].neighbourCount = 0;
                 i_mesh->grid[i][j][k].members = NULL;
 
                 i_mesh->grid[i][j][k].iMembers = NULL;
@@ -455,6 +470,8 @@ mesh_t *createMesh(int iDim, int jDim, int kDim) {
                 i_mesh->grid[i][j][k].iMemberCount = 0;
                 i_mesh->grid[i][j][k].jMemberCount = 0;
                 i_mesh->grid[i][j][k].bwfs = iDim * jDim * kDim; // Pathfinder longest possible road 
+                i_mesh->grid[i][j][k].isInterior = false;
+                i_mesh->grid[i][j][k].isSurface  = false;
             }
         }
     }
@@ -535,10 +552,10 @@ void getBoundariesCartesian(atom_t * atomList, int nAtom, atom_t *minCoor, atom_
 
 }
 
-void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t minCoor) {
-    *i = (int) floor( fabs(atom->x - minCoor.x) / step) + 1; // Adding one to skip 1st outer shell cell
-    *j = (int) floor( fabs(atom->y - minCoor.y) / step) + 1;
-    *k = (int) floor( fabs(atom->z - minCoor.z) / step) + 1;
+void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t minCoor, int vxsthickness) {
+    *i = (int) floor( fabs(atom->x - minCoor.x) / step) + 1 + vxsthickness; // Adding one to skip 1st outer shell cell
+    *j = (int) floor( fabs(atom->y - minCoor.y) / step) + 1 + vxsthickness;
+    *k = (int) floor( fabs(atom->z - minCoor.z) / step) + 1 + vxsthickness;
 }
 
 // Returns the x,y,z coordinates of the center of the i,j,k cell
@@ -677,3 +694,21 @@ void atomListInContact(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAto
     results = destroyMeshContainer(results);
 }
 
+cell_t *getCellFromAtom(meshContainer_t *meshContainer, atom_t *atom) {
+    atom_t minCoor;
+    minCoor.x = meshContainer->x_min;
+    minCoor.y = meshContainer->y_min;
+    minCoor.z = meshContainer->z_min;
+    int i,j,k;
+    cartesianToMesh(atom, &i, &j, &k, meshContainer->step, minCoor, meshContainer->voxel_shell_thickness);
+    cell_t *cell = &meshContainer->mesh->grid[i][j][k];
+    
+    return cell;
+}
+
+float c_dist(cell_t *a, cell_t *b) {
+    return sqrt(  ( a->i - b->i ) * ( a->i - b->i ) \
+                + ( a->j - b->j ) * ( a->j - b->j ) \
+                + ( a->k - b->k ) * ( a->k - b->k ) \
+            );
+}

@@ -462,59 +462,32 @@ atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
     return atomList;
 }
 #endif
-/*    atom_t *atomList = malloc(nAtoms * sizeof(atom_t));
-    for (int n = 0 ; n < nAtoms ; n++) {
-        atomList[n].index = n;
-        atomList[n].nextAtomList = NULL;
-        atomList[n].belongsTo = NULL;
-        atomList[n].inCell = NULL;
-        atomList[n].nextResidueAtom = NULL;
 
-        atomList[n].resID = malloc( (strlen(resID[n]) + 1) * sizeof(char));
-        strcpy(atomList[n].resID, resID[n]);
-
-        atomList[n].resName = malloc( (strlen(resName[n]) + 1) * sizeof(char));
-        strcpy(atomList[n].resName, resName[n]);
-
-        atomList[n].name = malloc( (strlen(name[n]) + 1) * sizeof(char));
-        strcpy(atomList[n].name, name[n]);
-
-        atomList[n].x = x[n];
-        atomList[n].y = y[n];
-        atomList[n].z = z[n];
-        atomList[n].chainID = chainID[n];
-
-        if (n > 0)
-            atomList[n - 1].nextAtomList = &atomList[n];
-
-        atomList[n]._radiusASA = aMap != NULL ? getRadius(aMap, atomList[n].name, atomList[n].resName)\
-                                           : VDW_DEFAULT; 
-        atomList[n]._radiusASA += probeRadius;
+atom_t *createBareboneAtom(int n, double x, double y, double z, char chainID, char *resID, \
+                           char *resName, char *name) {
+        atom_t *atom = malloc(sizeof(atom_t));
+        atom->index = n;
         
-        #ifdef DEBUG
-            sprintf(DBG_buffer, "Assiging to atom object[%g, %g, %g] %c, %s, %s %s %g\n",\
-                atomList[n].x, atomList[n].y, atomList[n].z, atomList[n].chainID, atomList[n].resID,\
-                atomList[n].resName, atomList[n].name, atomList[n]._radiusASA);
-            printOnContextStderr(DBG_buffer);
-        #endif
-        
-        if (aMap != NULL) {           
-            atomList[n].f_grid = computeFiboGrid(atomList[n].x, atomList[n].y, atomList[n].z, atomList[n]._radiusASA);
-            #ifdef DEBUG
-            printOnContextStderr("f_grid build succesfull\n");
-            #endif
-        } else {
-            atomList[n].f_grid = NULL;
-        }
+        atom->resID = malloc( (strlen(resID) + 1) * sizeof(char));
+        strcpy(atom->resID, resID);
 
+        atom->resName = malloc( (strlen(resName) + 1) * sizeof(char));
+        strcpy(atom->resName, resName);
 
+        atom->name = malloc( (strlen(name) + 1) * sizeof(char));
+        strcpy(atom->name, name);
 
-    }
+        atom->nextAtomList = NULL;
+        atom->belongsTo = NULL;
+        atom->inCell = NULL;
+        atom->nextResidueAtom = NULL;
+        atom->x = x;
+        atom->y = y;
+        atom->z = z;
+        atom->chainID     = chainID;
     
-    */
-
-//}
-
+    return atom;
+}
 // MEMORY ALLOCATION OF atom LIST
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius) { // Resume here
     #ifdef DEBUG

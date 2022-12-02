@@ -23,7 +23,7 @@ path: src/path_main.c
 	gcc -o bin/$@ $<  src/mesh_default.c src/molecular_object.c src/pdb_coordinates.c\
 					  src/my_string.c src/fibonacci.c src/atom_mapper.c src/miscellaneous.c\
 					  src/mesh.c src/decoygen.c src/cell_crawler.c src/encode.c src/sasa.c\
-					  src/pathfinder.c $(GCC_FLAGS)
+					  src/pathfinder.c src/convex.c $(GCC_FLAGS)
 
 
 clean: 

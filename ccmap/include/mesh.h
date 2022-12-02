@@ -36,6 +36,8 @@ typedef struct meshContainer {
     double x_min;
     double y_min;
     double z_min;
+    int voxel_shell_thickness; //
+    int nVoxels;
 } meshContainer_t;
 
 typedef struct mesh {
@@ -71,11 +73,12 @@ ccmapView_t *destroyCcmapView(ccmapView_t *);
 // Utilities
 void getBoundariesCartesian_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, atom_t *minCoor, atom_t *maxCoor);
 void getBoundariesCartesian(atom_t * atomList, int nAtom, atom_t *minCoor, atom_t *maxCoor);
-void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t minCoor);
+void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t minCoor, int vxsthickness);
 void meshToCartesian(meshContainer_t *meshContainer, int i, int j, int k, double *x, double *y, double *z);
- 
+// kinda public version of meshToCartesian
+cell_t *getCellFromAtom(meshContainer_t *meshContainer, atom_t *atom);
 //void mesh(atom_t * atomList, int nAtom, double step);
-
+float c_dist(cell_t *a, cell_t *b);
 
 //Debug Fn
 void printContactList(residue_t *residueList);

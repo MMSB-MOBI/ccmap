@@ -15,6 +15,8 @@
 void displayHelp(){
     fprintf(stderr, "path_main -x <ATOM_SELECTOR> -y <ATOM_SELECTOR> -i <PDB_FILE_PATH>\n");
     fprintf(stderr, "options:\n\t -c <LINKER CHAIN_ID>\n\t-s <GRID_STEP>\n");
+    fprintf(stderr, "\t-o <OUTPUT_FILE [default:\"structure_path.pdb\"]>\n");
+    fprintf(stderr, "\t-t <SEARCH_TYPE [allowed:\"point\" or \"surf\", default:\"point\"]>\n");
 }
 
 void main_error(char *msg){
@@ -62,7 +64,7 @@ void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *
             &pearl_x, &pearl_y, &pearl_z, &pearl_chainID, &pearl_resID, &pearl_resName, &pearl_name,\
             segID);    
         appendArraysToPdbContainer(pdbContainer, best_walk->len, \
-            pearl_x, pearl_x, pearl_z, pearl_chainID, pearl_resID, pearl_resName,  pearl_name);
+            pearl_x, pearl_y, pearl_z, pearl_chainID, pearl_resID, pearl_resName,  pearl_name);
     
 #ifdef DEBUG
         char *data = pdbContainerToString(pdbContainer);
@@ -72,6 +74,61 @@ void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *
         freeAtomListCreatorBuffers(pearl_x, pearl_y, pearl_z,\
             pearl_chainID, pearl_resID, pearl_resName,  pearl_name, best_walk->len);
         
+}
+
+// Debuging utility mapping and backmapping of arbirtray i,j,k coordinates
+void inspect(meshContainer_t *meshContainer, int i, int j, int k) {
+
+    printf("Getting center coordinates of cell %d %d %d\n", i, j, k);
+    double x, y,z;
+    meshToCartesian(meshContainer, i, j, k, &x, &y, &z);
+    printf("\t=> %f %f %f\n", x, y, z);
+    atom_t *dummy = createBareboneAtom(1, x, y, z, 'A', "   1", "DUM", "  C");
+    printf("Projecting again %f %f %f\n", x, y, z);
+    cell_t *pjCell = getCellFromAtom(meshContainer, dummy);
+
+    printf("\t=>Lands on %d %d %d\n", pjCell->i, pjCell->j, pjCell->k);
+}
+
+void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer) {
+    cell_t *currCell = NULL;
+    int n =  meshContainer->nVoxels;
+    // Allocate space for array buffers
+    double *x_vox      = malloc(n * sizeof(double));
+    double *y_vox      = malloc(n * sizeof(double));
+    double *z_vox      = malloc(n * sizeof(double));
+    char *chainID_vox  = malloc(n * sizeof(char));
+    char **resID_vox   = malloc(n * sizeof(char*));
+    char **resName_vox = malloc(n * sizeof(char*));
+    char **name_voxs   = malloc(n * sizeof(char*));
+    char baseResName[] = "VOX" ;
+    char baseResName[] = "SOX" ;
+    char baseName[]    = "CA ";
+// Iterate over mesh elements create a VOX atom per voxel'd cell
+    for(int i = 0; i < meshContainer->mesh->iMax ; i++)
+        for(int i = j; j < meshContainer->mesh->jMax ; j++)
+            for(int k = 0; k < meshContainer->mesh->kMax ; k++) {
+                currCell = meshContainer->mesh->grid[i][j][k];
+                if(!currCell->isInterior && !currCell->isSurface)
+                    continue;
+
+            }
+            /*
+            
+         
+        createRecordArraysFromPath(best_walk, meshContainer,\
+            &pearl_x, &pearl_y, &pearl_z, &pearl_chainID, &pearl_resID, &pearl_resName, &pearl_name,\
+            segID);    
+        appendArraysToPdbContainer(pdbContainer, best_walk->len, \
+            pearl_x, pearl_y, pearl_z, pearl_chainID, pearl_resID, pearl_resName,  pearl_name);
+    
+#ifdef DEBUG
+        char *data = pdbContainerToString(pdbContainer);
+        printf("%s\n", data);
+        free(data);
+#endif
+        freeAtomListCreatorBuffers(pearl_x, pearl_y, pearl_z,\
+            pearl_chainID, pearl_resID, pearl_resName,  pearl_name, best_walk->len);*/
 }
 
 int main (int argc, char *argv[]) {
@@ -92,8 +149,11 @@ int main (int argc, char *argv[]) {
     char *optCellDim = NULL;
     stringList_t *x_selectorElem, *y_selectorElem = NULL;
     char bufferLog[81];
+    char defSearchType[] = "point";
+    char *searchType = NULL;
     char defaultOutFile[] = "structure_path.pdb";
-    const char    *short_opt = "hi:x:y:o:s:c:";
+    const char    *short_opt = "hi:x:y:o:s:c:t:";
+    char ERROR_LOG[1024];
     struct option   long_opt[] =
     {
         {"help",              no_argument, NULL, 'h'},
@@ -104,6 +164,7 @@ int main (int argc, char *argv[]) {
         {"out",         required_argument, NULL, 'o'},
         {"sz" ,         required_argument, NULL, 's'},
         {"seg",         required_argument, NULL, 'c'},
+        {"type",        required_argument, NULL, 't'},
         {NULL,            0,               NULL,  0 }
     };
 
@@ -131,7 +192,9 @@ int main (int argc, char *argv[]) {
             case 'y':
                 y_selector = strdup(optarg);
                 break;
-
+            case 't':
+                searchType = strdup(optarg);
+                break;
             case 'h':
                 displayHelp();
                 return(0);
@@ -148,7 +211,13 @@ int main (int argc, char *argv[]) {
     
     if(oFile == NULL)
         oFile = defaultOutFile;
-
+    if(searchType == NULL)
+        searchType = defSearchType;
+    if(!strcmp(searchType, "point")||
+       !strcmp(searchType, "surf")) {
+        sprintf(ERROR_LOG, "Wrong search type \"%s\"\n", searchType);
+        main_error(ERROR_LOG);
+    }
     cellDim = optCellDim != NULL ? atof(optCellDim) : cellDim;
     if( x_selector == NULL ||
         y_selector == NULL )
@@ -187,13 +256,27 @@ int main (int argc, char *argv[]) {
         sprintf(bufferLog, "atom selector expression \"%s\" doesnt match any atom record\n", y_selector);
         main_error(bufferLog);
     }
-
+    char bufAtom[104];
+    stringifyAtom(xAtom, bufAtom);
+    printf("Start atom:\t%s\n", bufAtom);
+    stringifyAtom(yAtom, bufAtom);
+    printf("End atom:\t%s\n", bufAtom);
+    
     meshContainer_t *meshContainer = createMeshContainer(atomList, nAtoms, NULL, 0, cellDim);
-
+    
     printf("mesh [%dx%dx%d]created w/ %d filled cells\n",\
          meshContainer->mesh->iMax, meshContainer->mesh->jMax,\
          meshContainer->mesh->kMax, meshContainer->nFilled);
-    path_t *best_walk = searchForPath(meshContainer, xAtom, yAtom);
+    /* Seems OK trying with cell path*/
+    // Testing reciprocity
+    // Get center of cell
+    inspect(meshContainer, 4, 12, 8); // Start cell
+    inspect(meshContainer, 5, 12, 8); // Shoud be cell +1
+    //exit(1);
+    
+    //
+    path_t *best_walk = searchForPath(meshContainer, searchType,\
+        xAtom, yAtom);
     if (best_walk == NULL) {
         printf("No pathway found connecting specified pair of atoms\n");
     } else {
@@ -229,5 +312,3 @@ int main (int argc, char *argv[]) {
     destroyAtomList(atomList, nAtoms);
     destroyMeshContainer(meshContainer);
 }
-
-

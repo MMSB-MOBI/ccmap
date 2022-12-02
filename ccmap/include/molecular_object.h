@@ -97,6 +97,9 @@ atom_t *destroyAtom(atom_t *atom);
 
 unsigned int atomPairListLen(atomPair_t *);
 unsigned int atomListLen(atom_t *);
+// Following one should v its prtotype expanded and spreaded in code
+atom_t *createBareboneAtom(int n, double x, double y, double z, char chainID, char *resID, \
+                           char *resName, char *name);
 atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius);
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius);
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);

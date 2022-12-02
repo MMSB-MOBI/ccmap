@@ -21,7 +21,8 @@ typedef struct cell {
     int k;
     int n;
     struct neighbours *cell;
-    int neighbourCount;
     int bwfs;
+    bool isInterior;
+    bool isSurface;
 } cell_t;
 #endif
