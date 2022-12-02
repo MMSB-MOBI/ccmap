@@ -106,9 +106,9 @@ void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshConta
     char **resID_vox   = malloc(n * sizeof(char*));
     char **resName_vox = malloc(n * sizeof(char*));
     char **name_vox   = malloc(n * sizeof(char*));
-    char baseResNameV[] = "VOX" ;
-    char baseResNameS[] = "SOX" ;
-    char baseName[]    = "CA ";
+    char baseResNameV[4] = "VOX" ;
+    char baseResNameS[4] = "SOX" ;
+    char baseName[4]    = "CA ";
     char resSeqBuffer[81];
     int i_v = 0;
 // Iterate over mesh elements create a VOX atom per voxel'd cell
@@ -129,6 +129,7 @@ void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshConta
                     currCell->isSurface ? baseResNameS : baseResNameV);
                 name_vox[i_v] = malloc((strlen(baseName) + 1) * sizeof(char));
                 strcpy(name_vox[i_v], baseName);
+                i_v++;
     }}}
     
             

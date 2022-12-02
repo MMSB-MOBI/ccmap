@@ -57,7 +57,8 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
 path_t *backtrack(meshContainer_t *meshContainer, cell_t *startCell, cell_t *stopCell ) {
     path_t *best_path = malloc(sizeof (path_t));
     best_path->len = stopCell->bwfs - 1;
-    best_path->cells = malloc( best_path->len * sizeof(cell_t*) );
+     
+    best_path->cells = malloc( best_path->len >0?best_path->len:0 * sizeof(cell_t*) );
     best_path->start = startCell;
     best_path->stop  = stopCell;
 
@@ -239,7 +240,7 @@ int cmpOffsetfunc (const void * a, const void * b) {
 void createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, double **x, double **y, double **z,\
                                 char **chainID, char ***resID, char ***resName, char ***name,\
                                 char uID) {
-    int n = self->len;
+    int n = self->len > 0 ? self->len  : 0;
     *x = malloc(n * sizeof(double));
     *y = malloc(n * sizeof(double));
     *z = malloc(n * sizeof(double));

@@ -5,14 +5,14 @@ int buildSphere(atom_t *atom, cell_t *optCell, meshContainer_t *meshContainer) {
     // Compute radius of current atom in cell units
     int rad_cu = atom->_radiusASA / meshContainer->step + 0.5; // should be rounded up
     // Get corresponding cell and compute diameter boundaries index along the 3 axis
-    int rac_cu_pow = rad_cu * rad_cu;
+    int rad_cu_pow = rad_cu * rad_cu;
     cell_t *cCell = optCell == NULL ?\
         getCellFromAtom(meshContainer, atom):\
         optCell;
 //#ifdef DEBUG
     char bufferLog[81];
     stringifyAtom(atom, bufferLog);
-    fprintf(stderr, "Building voxels sphere for:%s\n", bufferLog);
+    fprintf(stderr, "Building voxels sphere(rad=%d) for:%s\n", rad_cu, bufferLog);
 //#endif
     // filled up cells
     int nvx = 0;
@@ -21,13 +21,23 @@ int buildSphere(atom_t *atom, cell_t *optCell, meshContainer_t *meshContainer) {
         for (int j = cCell->j - rad_cu ; j <= cCell->j + rad_cu; j++) {
             for (int k = cCell->k - rad_cu ; k <= cCell->k + rad_cu; k++) {   
                 currCell = &meshContainer->mesh->grid[i][j][k];
-                int norm = i * i + j * j + k * k;
-                if (norm > rac_cu_pow)
+                int norm = (i - cCell->i) * (i - cCell->i)\
+                         + (j - cCell->j) * (j - cCell->j)\
+                         + (k - cCell->k) * (k - cCell->k);
+                if(i ==  cCell->i + rad_cu && j== cCell->j && k==cCell->k)
+                    printf("norm is %d (th : %d^2=%d)\n", norm, rad_cu, rad_cu_pow);
+
+                if (norm > rad_cu_pow)
                     continue;
+//#ifdef DEBUG
+    fprintf(stderr, "Adding voxel at %d %d %d [center is %d, %d, %d, cr=%d]\n",\
+            i, j, k, cCell->i, cCell->j,cCell->k, rad_cu);
+//#endif
+                
                 nvx++;
-                if (norm == rac_cu_pow && !currCell-> isInterior)
+                if (norm == rad_cu_pow && !currCell-> isInterior)
                     currCell->isSurface = true;
-                if(norm < rac_cu_pow) {
+                if(norm < rad_cu_pow) {
                     if(currCell->isSurface)
                         nvx--; // voxel was already accounted for
                     currCell->isInterior = true;
