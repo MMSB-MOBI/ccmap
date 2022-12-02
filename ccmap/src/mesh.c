@@ -304,10 +304,10 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
     atom_t minCoor;
     atom_t maxCoor;
     bool dualMode = jAtomList != NULL ? true : false;
-    double maxASA_radius = 0;
+    float maxASA_radius = 0;
     for(int i = 0; i < iAtom ; i++)
-        maxASA_radius = iAtomList[iAtom]._radiusASA ?\
-            iAtomList[iAtom]._radiusASA > maxASA_radius:maxASA_radius;
+        maxASA_radius = iAtomList[i]._radiusASA  > maxASA_radius?\
+            iAtomList[i]._radiusASA : maxASA_radius;
     if (dualMode) {
         getBoundariesCartesian_DUAL(iAtomList, iAtom, jAtomList, jAtom, &minCoor, &maxCoor);
         for(int j = 0; j < jAtom ; j++)

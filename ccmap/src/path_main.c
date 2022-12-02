@@ -90,9 +90,14 @@ void inspect(meshContainer_t *meshContainer, int i, int j, int k) {
     printf("\t=>Lands on %d %d %d\n", pjCell->i, pjCell->j, pjCell->k);
 }
 
-void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer) {
+void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer, char vID) {
+#ifdef DEBUG
+    fprintf(stderr, "appending %d voxels to pdb container\n", meshContainer->nVoxels);
+#endif
+
     cell_t *currCell = NULL;
     int n =  meshContainer->nVoxels;
+   
     // Allocate space for array buffers
     double *x_vox      = malloc(n * sizeof(double));
     double *y_vox      = malloc(n * sizeof(double));
@@ -100,35 +105,44 @@ void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshConta
     char *chainID_vox  = malloc(n * sizeof(char));
     char **resID_vox   = malloc(n * sizeof(char*));
     char **resName_vox = malloc(n * sizeof(char*));
-    char **name_voxs   = malloc(n * sizeof(char*));
-    char baseResName[] = "VOX" ;
-    char baseResName[] = "SOX" ;
+    char **name_vox   = malloc(n * sizeof(char*));
+    char baseResNameV[] = "VOX" ;
+    char baseResNameS[] = "SOX" ;
     char baseName[]    = "CA ";
+    char resSeqBuffer[81];
+    int i_v = 0;
 // Iterate over mesh elements create a VOX atom per voxel'd cell
-    for(int i = 0; i < meshContainer->mesh->iMax ; i++)
-        for(int i = j; j < meshContainer->mesh->jMax ; j++)
+    for(int i = 0; i < meshContainer->mesh->iMax ; i++) {
+        for(int j = 0; j < meshContainer->mesh->jMax ; j++){ 
             for(int k = 0; k < meshContainer->mesh->kMax ; k++) {
-                currCell = meshContainer->mesh->grid[i][j][k];
+                currCell = &meshContainer->mesh->grid[i][j][k];
                 if(!currCell->isInterior && !currCell->isSurface)
                     continue;
-
-            }
-            /*
+                meshToCartesian(meshContainer, currCell->i, currCell->j, currCell->k,\
+                                               &x_vox[i_v], &y_vox[i_v], &z_vox[i_v]);
+                chainID_vox[i_v] = vID;
+                sprintf(resSeqBuffer, "%d", i_v + 1 );
+                resID_vox[i_v] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
+                strcpy(resID_vox[i_v], resSeqBuffer);
+                resName_vox[i_v] = malloc(4 * sizeof(char));
+                strcpy(resName_vox[i_v], \
+                    currCell->isSurface ? baseResNameS : baseResNameV);
+                name_vox[i_v] = malloc((strlen(baseName) + 1) * sizeof(char));
+                strcpy(name_vox[i_v], baseName);
+    }}}
+    
             
-         
-        createRecordArraysFromPath(best_walk, meshContainer,\
-            &pearl_x, &pearl_y, &pearl_z, &pearl_chainID, &pearl_resID, &pearl_resName, &pearl_name,\
-            segID);    
-        appendArraysToPdbContainer(pdbContainer, best_walk->len, \
-            pearl_x, pearl_y, pearl_z, pearl_chainID, pearl_resID, pearl_resName,  pearl_name);
+    appendArraysToPdbContainer(pdbContainer, n, \
+        x_vox, y_vox, z_vox, chainID_vox, resID_vox, resName_vox,  name_vox);
     
 #ifdef DEBUG
+        fprintf(stderr, "Voxels appended to following pdb record");
         char *data = pdbContainerToString(pdbContainer);
         printf("%s\n", data);
         free(data);
 #endif
-        freeAtomListCreatorBuffers(pearl_x, pearl_y, pearl_z,\
-            pearl_chainID, pearl_resID, pearl_resName,  pearl_name, best_walk->len);*/
+        freeAtomListCreatorBuffers(x_vox, y_vox, z_vox,\
+            chainID_vox, resID_vox, resName_vox, name_vox, n);
 }
 
 int main (int argc, char *argv[]) {
@@ -152,8 +166,10 @@ int main (int argc, char *argv[]) {
     char defSearchType[] = "point";
     char *searchType = NULL;
     char defaultOutFile[] = "structure_path.pdb";
-    const char    *short_opt = "hi:x:y:o:s:c:t:";
+    const char    *short_opt = "hi:x:y:o:s:c:t:d";
     char ERROR_LOG[1024];
+    bool dry = false;
+
     struct option   long_opt[] =
     {
         {"help",              no_argument, NULL, 'h'},
@@ -165,6 +181,7 @@ int main (int argc, char *argv[]) {
         {"sz" ,         required_argument, NULL, 's'},
         {"seg",         required_argument, NULL, 'c'},
         {"type",        required_argument, NULL, 't'},
+        {"dry",               no_argument, NULL, 'd'},
         {NULL,            0,               NULL,  0 }
     };
 
@@ -195,6 +212,9 @@ int main (int argc, char *argv[]) {
             case 't':
                 searchType = strdup(optarg);
                 break;
+            case 'd':
+                dry = true;
+                break;
             case 'h':
                 displayHelp();
                 return(0);
@@ -213,7 +233,7 @@ int main (int argc, char *argv[]) {
         oFile = defaultOutFile;
     if(searchType == NULL)
         searchType = defSearchType;
-    if(!strcmp(searchType, "point")||
+    if(!strcmp(searchType, "point") &&
        !strcmp(searchType, "surf")) {
         sprintf(ERROR_LOG, "Wrong search type \"%s\"\n", searchType);
         main_error(ERROR_LOG);
@@ -267,16 +287,22 @@ int main (int argc, char *argv[]) {
     printf("mesh [%dx%dx%d]created w/ %d filled cells\n",\
          meshContainer->mesh->iMax, meshContainer->mesh->jMax,\
          meshContainer->mesh->kMax, meshContainer->nFilled);
-    /* Seems OK trying with cell path*/
-    // Testing reciprocity
-    // Get center of cell
+    
+    /*
     inspect(meshContainer, 4, 12, 8); // Start cell
     inspect(meshContainer, 5, 12, 8); // Shoud be cell +1
-    //exit(1);
+    */
     
+   /*if(dry) {
+        fprintf(stderr, "DRY RUN:Only building mesh\n");
+        exit(1);
+    }*/
     //
     path_t *best_walk = searchForPath(meshContainer, searchType,\
         xAtom, yAtom);
+    if (strcmp(searchType, "surf") == 0)
+        appendVoxelToPdbContainer(pdbCoordinateContainer, meshContainer, 'X');
+    
     if (best_walk == NULL) {
         printf("No pathway found connecting specified pair of atoms\n");
     } else {

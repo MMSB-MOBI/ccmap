@@ -441,7 +441,7 @@ bool appendArraysToPdbContainer(pdbCoordinateContainer_t *pdbContainer, int nbNe
     double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name) {
     
 #ifdef DEBUG
-    fprintf(stderr, "append %d new elem from arrays to a %d long pdbContainer\n", nbNew,\
+    fprintf(stderr, " -- append %d new elem from arrays to a %d long pdbContainer --\n", nbNew,\
      pdbContainer->atomCount);
 #endif
     

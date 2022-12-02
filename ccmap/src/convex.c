@@ -44,7 +44,7 @@ bool surfaceExplorerPredicate(cell_t *cell){
     return cell->memberCount == 0 || cell->isSurface;
 }
 
-void buildSurfaces(meshContainer_t *meshContainer) {
+bool buildSurfaces(meshContainer_t *meshContainer) {
     int totalVoxel = 0;
     cell_t *currCell = NULL;
     // iterate over each non empty cell
@@ -55,7 +55,7 @@ void buildSurfaces(meshContainer_t *meshContainer) {
             "Fatal:buildSurface cell %d %d %d does not hold one single atom (%d)\n",\
             currCell->i, currCell->j, currCell->k, currCell->memberCount\
             );
-            return -1;
+            return false;
         }
         // members field is a straight pointer --> Head of a chained list        
         totalVoxel += buildSphere(currCell->members, currCell,\
@@ -65,4 +65,5 @@ void buildSurfaces(meshContainer_t *meshContainer) {
     // build sphere
     // summing filled cells
     meshContainer->nVoxels = totalVoxel;
+    return true;
 }

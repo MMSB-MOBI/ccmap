@@ -14,16 +14,21 @@ static int bestLen = DEFAULT_BWFS;
 
 path_t *searchForPath(meshContainer_t *meshContainer,\
     char *type, atom_t *atomStart, atom_t *atomStop) {
+
+#ifdef DEBUG
+    fprintf(stderr, "-- Starting search for path -- \"%s\"\n", type);
+#endif
     //static unsigned int bestLen = 999999; 
     cell_t *cell_start = atomStart->inCell; 
     cell_t *cell_stop = atomStop->inCell;
     bool (*cellPredicate)(cell_t*) = &pointExplorerPredicate;
 
-    if(strcmp(type, "surf") ){ 
+    if(strcmp(type, "surf") == 0 ){ 
         cellPredicate = &surfaceExplorerPredicate;
         printf("Building surfaces w/ mesh unit= %g ...\n", \
             meshContainer->step);
-        buildSurfaces(meshContainer);
+        if (!buildSurfaces(meshContainer))
+            exit(1);
         printf("Total of %d voxels constructed\n", meshContainer->nVoxels);
     }
 #ifdef DEBUG

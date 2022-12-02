@@ -330,7 +330,7 @@ unsigned int atomListLen(atom_t *atomList) {
     }
     return n;
 }
-
+// Here we add 
 atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius) {
     #ifdef DEBUG
     fprintf(stderr, "Entering CreateAtomListFromPdbContainer bASA: %s probe radius:%g\n", aMap != NULL ?"true":"false",probeRadius);
@@ -525,11 +525,10 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
 
         if (n > 0)
             atomList[n - 1].nextAtomList = &atomList[n];
-
+        
         atomList[n]._radiusASA = aMap != NULL ? getRadius(aMap, atomList[n].name, atomList[n].resName)\
                                            : VDW_DEFAULT; 
         atomList[n]._radiusASA += probeRadius;
-        
         #ifdef DEBUG
             sprintf(DBG_buffer, "Assiging to atom object[%g, %g, %g] %c, %s, %s %s %g\n",\
                 atomList[n].x, atomList[n].y, atomList[n].z, atomList[n].chainID, atomList[n].resID,\
