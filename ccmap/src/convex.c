@@ -1,50 +1,4 @@
 #include "convex.h"
-// Overflow of grid is possible ^^
-// We need max radius + one cell for path 
-int buildSphere(atom_t *atom, cell_t *optCell, meshContainer_t *meshContainer) {
-    // Compute radius of current atom in cell units
-    int rad_cu = atom->_radiusASA / meshContainer->step + 0.5; // should be rounded up
-    // Get corresponding cell and compute diameter boundaries index along the 3 axis
-    int rad_cu_pow = rad_cu * rad_cu;
-    cell_t *cCell = optCell == NULL ?\
-        getCellFromAtom(meshContainer, atom):\
-        optCell;
-//#ifdef DEBUG
-    char bufferLog[81];
-    stringifyAtom(atom, bufferLog);
-    fprintf(stderr, "Building voxels sphere(rad=%d) for:%s\n", rad_cu, bufferLog);
-//#endif
-    // filled up cells
-    int nvx = 0;
-    cell_t *currCell = NULL;
-    for (int i = cCell->i - rad_cu ; i <= cCell->i + rad_cu ; i++) {
-        for (int j = cCell->j - rad_cu ; j <= cCell->j + rad_cu; j++) {
-            for (int k = cCell->k - rad_cu ; k <= cCell->k + rad_cu; k++) {   
-                currCell = &meshContainer->mesh->grid[i][j][k];
-                int norm = (i - cCell->i) * (i - cCell->i)\
-                         + (j - cCell->j) * (j - cCell->j)\
-                         + (k - cCell->k) * (k - cCell->k);
-                
-                if (norm > rad_cu_pow)
-                    continue;
-//#ifdef DEBUG
-    fprintf(stderr, "Adding %s voxel at relatives %d %d %d [center is %d, %d, %d, cr=%d]\n",\
-            norm == rad_cu_pow?"surface":"buried", i - cCell->i,\
-            j - cCell->j, k - cCell->k, cCell->i, cCell->j,cCell->k, rad_cu);
-//#endif    
-                nvx++;
-                if (norm == rad_cu_pow)
-                    currCell->isSurface = true;
-                if(norm < rad_cu_pow) {
-                    if(currCell->isSurface)
-                        nvx--; // voxel was already accounted for
-                    currCell->isInterior = true;// Still we register as local surface
-                }
-            }
-        }
-    }
-    return nvx;// voxel actually constructed
-}
 
 // Custom predicate to allow/reject cell exploration in pathfinder
 bool surfaceExplorerPredicate(cell_t *cell){
@@ -73,4 +27,81 @@ bool buildSurfaces(meshContainer_t *meshContainer) {
     // summing filled cells
     meshContainer->nVoxels = totalVoxel;
     return true;
+}
+
+int buildSphere(atom_t *atom, cell_t *optCell, meshContainer_t *meshContainer) {
+    // Compute radius of current atom in cell units
+    int rad_cu = atom->_radiusASA / meshContainer->step + 0.5; // should be rounded up
+    // Get corresponding cell and compute diameter boundaries index along the 3 axis
+    int rad_cu_pow = rad_cu * rad_cu;
+    cell_t *cCell = optCell == NULL ?\
+        getCellFromAtom(meshContainer, atom):\
+        optCell;
+//#ifdef DEBUG
+    char bufferLog[81];
+    stringifyAtom(atom, bufferLog);
+    fprintf(stderr, "Building voxels sphere(rad=%d around %d %d %d)\n\t=>aka:%s\n",\
+        rad_cu, cCell->i, cCell->j, cCell->k, bufferLog);
+    
+//#endif
+    // filled up cells
+    int nvx = 0;
+    cell_t *currCell = NULL;
+    for (int i = cCell->i - rad_cu ; i <= cCell->i + rad_cu ; i++) {
+        for (int j = cCell->j - rad_cu ; j <= cCell->j + rad_cu; j++) {
+            for (int k = cCell->k - rad_cu ; k <= cCell->k + rad_cu; k++) {   
+                currCell = &meshContainer->mesh->grid[i][j][k];
+                nvx += voxelEvaluate(currCell, cCell, (double)rad_cu_pow);
+    }}}
+    return nvx;// voxel actually constructed
+}
+
+// We stick to cell space
+// compute distance between 8 corners of curr_cell and center of center cell
+int voxelEvaluate(cell_t *currCell, cell_t *centerCell, double norm) {
+    double i0 = ((double)centerCell->i) + 0.5;
+    double j0 = ((double)centerCell->j) + 0.5;
+    double k0 = ((double)centerCell->k) + 0.5;
+    int insideCorners = 0;
+    double currNorm;
+    // Loop over current cell corners
+    for (int iOff = 0 ; iOff <=1 ; iOff++) {
+        for (int jOff = 0 ; jOff <=1 ; jOff++) {
+            for (int kOff = 0 ; kOff <=1 ; kOff++) {
+                double iC = (double) (currCell->i + iOff);
+                double jC = (double) (currCell->j + jOff);
+                double kC = (double) (currCell->k + kOff);
+
+                currNorm = (i0 - iC) * (i0 - iC)\
+                         + (j0 - jC) * (j0 - jC)\
+                         + (k0 - kC) * (k0 - kC);
+                if (currNorm <= norm)
+                    insideCorners++;
+            }
+        }
+    }
+#ifdef DEBUG
+    fprintf(stderr, "Voxel (%d %d %d) buried corners count %d\n",\
+            currCell->i, currCell->j, currCell->k, insideCorners   
+        );
+#endif
+   
+    if (insideCorners == 0) // Outside current sphere
+        return 0;
+    if (insideCorners == 8) { //it is a buried voxel
+        if (currCell->isInterior) // already registred as filed
+            return 0;
+        currCell->isInterior = true;
+        if (currCell->isSurface) // was a surface of another sphere, dont increment total volume voxel count
+            return 0;
+        return 1;// Declare new volume voxel
+    }
+    // it is a surface voxel
+    if (currCell->isSurface) // was a surface of another sphere, dont increment total volume voxel count
+        return 0;
+    currCell->isSurface = true;
+    if (currCell->isInterior) // was a buried voxel of another sphere, dont increment total volume voxel count
+        return 0;
+        
+    return 1; // Declare new volume voxel
 }

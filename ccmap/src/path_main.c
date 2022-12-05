@@ -289,6 +289,8 @@ int main (int argc, char *argv[]) {
          meshContainer->mesh->iMax, meshContainer->mesh->jMax,\
          meshContainer->mesh->kMax, meshContainer->nFilled);
     
+    inspect(meshContainer, 9, 9, 9); // Start cell
+    
     /*
     inspect(meshContainer, 4, 12, 8); // Start cell
     inspect(meshContainer, 5, 12, 8); // Shoud be cell +1
