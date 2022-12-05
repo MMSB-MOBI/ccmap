@@ -329,7 +329,8 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
     fprintf(stderr, "Create Necklace atomic parameter arrays over %d cells\n", maxNewAtomCount);
 #endif
 
-    fprintf(stderr, "Create Necklace atomic parameter arrays over %d cells\n", maxNewAtomCount);
+    fprintf(stderr, "Create Necklace atomic parameter arrays over %d cells w/ %g spacing\n"\
+    , maxNewAtomCount, spacing);
 
     int newAtomCount = 0;
     
@@ -340,9 +341,9 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
                                        &x_prime             , &y_prime             , &z_prime);
 
         if (iElem > 0)
-            if (euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z) >= spacing)
+            if (euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z) < spacing)
                 continue;
-        
+        printf("Threading based on %g distance\n", euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z));
         (*chainID)[newAtomCount] = uID;
         (*x)[newAtomCount] = x_prime;
         (*y)[newAtomCount] = y_prime;
