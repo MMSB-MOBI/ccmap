@@ -18,11 +18,12 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
 #ifdef DEBUG
     fprintf(stderr, "-- Starting search for path -- \"%s\"\n", type);
 #endif
-    //static unsigned int bestLen = 999999; 
+
+    // Basic point search algorithm    
     cell_t *cell_start = atomStart->inCell; 
     cell_t *cell_stop = atomStop->inCell;
     bool (*cellPredicate)(cell_t*) = &pointExplorerPredicate;
-
+    char atomLog[81];
     if(strcmp(type, "surf") == 0 ){ 
         cellPredicate = &surfaceExplorerPredicate;
         printf("Building surfaces w/ mesh unit= %g ...\n", \
@@ -30,6 +31,33 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
         if (!buildSurfaces(meshContainer))
             exit(1);
         printf("Total of %d voxels constructed\n", meshContainer->nVoxels);
+        
+        // TO DO for start and stop
+        // Get set of cells that are surface 
+        // Identify patches, ie the collection of cells that are connex
+        // Set as many start/stop points as there are patches
+
+        printf("Looking for at starting surface Cell w/ naive algorithm ...\n");
+        setCells_t *start_cells = getSurfaceCells(atomStart, meshContainer);
+        if(start_cells->size == 0) {
+            stringifyAtom(atomStart, atomLog);
+            fprintf(stderr, "Fatal: no solvant accessible START cell detected for %s\n", atomLog);
+            return NULL;
+        }
+        setCells_t *stop_cells = getSurfaceCells(atomStop, meshContainer);
+        if(stop_cells->size == 0) {
+            stringifyAtom(atomStop, atomLog);
+            fprintf(stderr, "Fatal: no solvant accessible STOP cell detected for %s\n", atomLog);
+            return NULL;
+        }
+        for(int i_stop = 0 ; i_stop < stop_cells->size ; i_stop++)
+            stop_cells->cells[i_stop]->isStop = true;
+        printf("Start/Stop surfaces contain %d/%d voxels, picking One each ...\n",\
+            start_cells->size, stop_cells->size);
+        cell_start = start_cells->cells[0];
+        cell_stop  = stop_cells->cells[0];
+        start_cells = destroySetCells(start_cells);
+        stop_cells  = destroySetCells(stop_cells);
     }
 #ifdef DEBUG
     fprintf(stderr, "Inital best length %d\n", bestLen);
@@ -47,25 +75,48 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
     if (bestLen >= DEFAULT_BWFS) 
         return NULL;
 
-#ifdef DEBUG
-    fprintf(stderr, "Best length is %d\n", bestLen);
-#endif
+//#ifdef DEBUG
+    fprintf(stderr, "\t---Best length is %d long---\n", bestLen);
+//#endif
+    
+    path_t *path = backtrack(meshContainer, cell_start, cell_stop, type);
 
-    return backtrack(meshContainer, cell_start, cell_stop );
+    path->patch_len_lo += atomStart->_radiusASA + atomStop->_radiusASA;
+    path->patch_len_up += atomStart->_radiusASA + atomStop->_radiusASA;
+    
+    return path;
 }
 
-path_t *backtrack(meshContainer_t *meshContainer, cell_t *startCell, cell_t *stopCell ) {
+path_t *backtrack(meshContainer_t *meshContainer, cell_t *startCell, cell_t *stopCell, \
+                  char *type) {
     path_t *best_path = malloc(sizeof (path_t));
+
+    //printf("STOP CELL BWFS = %d\n", stopCell->bwfs);
     best_path->len = stopCell->bwfs - 1;
-     
-    best_path->cells = malloc( best_path->len >0?best_path->len:0 * sizeof(cell_t*) );
+
+    int nbBackSteps = (int)(best_path->len >0?best_path->len:0);
+    best_path->cells = malloc( nbBackSteps * sizeof(cell_t*) );
+    fprintf(stderr, "Allocating %d cells path ptr\n", nbBackSteps );
     best_path->start = startCell;
     best_path->stop  = stopCell;
+    
+    bool (*cellPredicate)(cell_t*) = &pointExplorerPredicate;
+    if(strcmp(type, "surf") == 0 )
+        cellPredicate = &surfaceExplorerPredicate;
 
     cell_t *buffer_cell = stopCell;
     for (int i_step = best_path->len - 1 ; i_step >= 0 ; i_step--) {
-       buffer_cell = walkBack(buffer_cell, startCell, meshContainer);
-       best_path->cells[i_step] = buffer_cell;
+    //     fprintf(stderr, "1/Getting next cell for path index %d\n", i_step);
+        buffer_cell = walkBack(buffer_cell, startCell, meshContainer, cellPredicate);
+    //    fprintf(stderr, "2/Writing path index %d\n", i_step);
+    //    dumpCellContent(buffer_cell);
+     //   fprintf(stderr, "%zu ---- at pos %d\n", sizeof(buffer_cell), i_step);   
+        if(! areSameCells(startCell, buffer_cell) ) {
+            best_path->patch_len_lo += meshContainer->step;
+            best_path->patch_len_up += sqrt(2.00) * meshContainer->step;
+        }
+        best_path->cells[i_step] = buffer_cell;
+      //  fprintf(stderr, "#####\n");
     }
     return best_path;
 }
@@ -78,8 +129,9 @@ path_t *destroyPath(path_t *path){
     return NULL;
 }
 
-cell_t *walkBack(cell_t *currCell, cell_t *targetCell, meshContainer_t *meshContainer) {
-
+cell_t *walkBack(cell_t *currCell, cell_t *targetCell, meshContainer_t *meshContainer,\
+                 bool (*cellPredicate)(cell_t*) ) {
+    
 #ifdef DEBUG
     fprintf(stderr, "Walking Back through %d %d %d bwfs= %d\n",\
         currCell->i, currCell->j, currCell->k, currCell->bwfs);
@@ -96,9 +148,20 @@ cell_t *walkBack(cell_t *currCell, cell_t *targetCell, meshContainer_t *meshCont
         int j = moves[iCell].j;        
         int k = moves[iCell].k;
         buff_cell = &meshContainer->mesh->grid[i][j][k];
+        /*
+        fprintf(stderr, "Walking Back Assessing %d %d %d bwfs= %d isInterior/isSurface %s/%s\n",\
+        buff_cell->i, buff_cell->j, buff_cell->k, buff_cell->bwfs,\
+        buff_cell->isInterior?"true":"false", buff_cell->isSurface?"true":"false");
+        */
+        if( !cellPredicate(buff_cell) )
+            continue;
         if (buff_cell->bwfs <  closest_cell->bwfs)
             closest_cell = buff_cell;
     }
+#ifdef DEBUG
+    fprintf(stderr, "Walking Back TO %d %d %d bwfs= %d\n",\
+        closest_cell->i, closest_cell->j, closest_cell->k, closest_cell->bwfs);
+#endif
     return closest_cell;
 }
 
@@ -126,7 +189,7 @@ void exploreCell(meshContainer_t *meshContainer, bool (*cellPredicate)(cell_t*),
     if (nStepFromStart > 0 && areSameCells(currentCell, startCell) )
         return;
     // Cell is blocked
-    if (nStepFromStart > 0 && cellPredicate(currentCell) )
+    if (nStepFromStart > 0 && !cellPredicate(currentCell) )
         return; 
     // Exhausted search path
     if (nStepFromStart > 0 && nStepFromStart >= currentCell->bwfs)
@@ -237,45 +300,125 @@ int cmpOffsetfunc (const void * a, const void * b) {
 }
 // Generate a necklace of dummy atoms along the path
 // Lame code duplication from pdb_coordinates.c: pdbContainerToArrays
-void createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, double **x, double **y, double **z,\
+// We should clean mem on realloc error exit
+int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, double **x, double **y, double **z,\
                                 char **chainID, char ***resID, char ***resName, char ***name,\
-                                char uID) {
-    int n = self->len > 0 ? self->len  : 0;
-    *x = malloc(n * sizeof(double));
-    *y = malloc(n * sizeof(double));
-    *z = malloc(n * sizeof(double));
-    *chainID = malloc(n * sizeof(char));
-    *resID = malloc(n * sizeof(char*));
-    *resName = malloc(n * sizeof(char*));
-    *name = malloc(n * sizeof(char*));
+                                char uID, double spacing) {
+    // Theoritical max number of created particules is the length of the path
+    int maxNewAtomCount = self->len > 0 ? self->len  : 0;
+    
+    *x = malloc(maxNewAtomCount * sizeof(double));
+    *y = malloc(maxNewAtomCount * sizeof(double));
+    *z = malloc(maxNewAtomCount * sizeof(double));
+    *chainID = malloc(maxNewAtomCount * sizeof(char));
+    *resID = malloc(maxNewAtomCount * sizeof(char*));
+    *resName = malloc(maxNewAtomCount * sizeof(char*));
+    *name = malloc(maxNewAtomCount * sizeof(char*));
+
+    double *double_swaper    = NULL;
+    char *char_swaper        = NULL;
+    char **char_array_swaper = NULL;
+
     double x_prime, y_prime, z_prime;
     char resSeqBuffer[81];
     char baseResName[] = "DUM" ;
     char baseName[] = "CA ";
 
+
 #ifdef DEBUG
-    fprintf(stderr, "Create Following Necklace arrays [%d elem]\n", n);
+    fprintf(stderr, "Create Necklace atomic parameter arrays over %d cells\n", maxNewAtomCount);
 #endif
 
-    for (int iElem = 0 ; iElem < n ; iElem++) {
+    fprintf(stderr, "Create Necklace atomic parameter arrays over %d cells\n", maxNewAtomCount);
+
+    int newAtomCount = 0;
+    
+    float last_x, last_y, last_z;
+    // We consider 1st path cell as safe for particule creation   
+    for (int iElem = 0 ; iElem < maxNewAtomCount ; iElem++) {
         meshToCartesian(meshContainer, self->cells[iElem]->i, self->cells[iElem]->j, self->cells[iElem]->k,\
                                        &x_prime             , &y_prime             , &z_prime);
-        (*chainID)[iElem] = uID;
-        (*x)[iElem] = x_prime;
-        (*y)[iElem] = y_prime;
-        (*z)[iElem] = z_prime;
-        sprintf(resSeqBuffer, "%d", iElem + 1 );
-        (*resID)[iElem] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
-        strcpy((*resID)[iElem], resSeqBuffer);
-        (*resName)[iElem] = malloc((strlen(baseResName) + 1) * sizeof(char));
-        strcpy((*resName)[iElem], baseResName);
-        (*name)[iElem] = malloc((strlen(baseName) + 1) * sizeof(char));
-        strcpy((*name)[iElem], baseName);
+
+        if (iElem > 0)
+            if (euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z) >= spacing)
+                continue;
+        
+        (*chainID)[newAtomCount] = uID;
+        (*x)[newAtomCount] = x_prime;
+        (*y)[newAtomCount] = y_prime;
+        (*z)[newAtomCount] = z_prime;
+        sprintf(resSeqBuffer, "%d", newAtomCount + 1 );
+        (*resID)[newAtomCount] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
+        strcpy((*resID)[newAtomCount], resSeqBuffer);
+        (*resName)[newAtomCount] = malloc((strlen(baseResName) + 1) * sizeof(char));
+        strcpy((*resName)[newAtomCount], baseResName);
+        (*name)[newAtomCount] = malloc((strlen(baseName) + 1) * sizeof(char));
+        strcpy((*name)[newAtomCount], baseName);
 #ifdef DEBUG
         fprintf(stderr, "%f %f %f \'%s\' \'%s\' \'%c\' \'%s\'\n",\
-            (*x)[iElem], (*y)[iElem], (*z)[iElem],\
-            (*resName)[iElem], (*resID)[iElem], \
-            (*chainID)[iElem], (*name)[iElem] );
+            (*x)[newAtomCount], (*y)[newAtomCount], (*z)[newAtomCount],\
+            (*resName)[newAtomCount], (*resID)[newAtomCount], \
+            (*chainID)[newAtomCount], (*name)[newAtomCount] );
 #endif
+        last_x = x_prime;
+        last_y = y_prime;
+        last_z = z_prime;
+        newAtomCount++;
     }
+
+    double_swaper = (double *) realloc(*x, sizeof(double) * newAtomCount);
+    if(double_swaper == NULL) {
+        reallocErrorLog(maxNewAtomCount, newAtomCount, "x coordinates");
+        return -1;
+    }
+    *x = double_swaper;
+
+    double_swaper = (double *) realloc(*y, sizeof(double) * newAtomCount);
+    if(double_swaper == NULL) {
+        reallocErrorLog(maxNewAtomCount, newAtomCount, "y coordinates");
+        return -1;
+    }
+    *y = double_swaper;
+
+    double_swaper = (double *) realloc(*z, sizeof(double) * newAtomCount);
+    if(double_swaper == NULL) {
+       reallocErrorLog(maxNewAtomCount, newAtomCount, "z coordinates");
+        return -1;
+    }
+    *z = double_swaper;
+
+    char_swaper = (char *) realloc(*chainID, sizeof(char) * newAtomCount);
+    if(char_swaper == NULL) {
+        reallocErrorLog(maxNewAtomCount, newAtomCount, "segID");
+        return -1;
+    }
+    *chainID = char_swaper;
+
+    char_array_swaper = (char **) realloc(*resID, sizeof(char*) * newAtomCount);
+    if(char_array_swaper == NULL) {
+        reallocErrorLog(maxNewAtomCount, newAtomCount, "resID");
+        return -1;
+    }
+    *resID = char_array_swaper;
+
+    char_array_swaper = (char **) realloc(*resName, sizeof(char*) * newAtomCount);
+    if(char_array_swaper == NULL) {
+        reallocErrorLog(maxNewAtomCount, newAtomCount, "resName");
+        return -1;
+    }
+    *resName = char_array_swaper;
+
+    char_array_swaper = (char **) realloc(*name, sizeof(char*) * newAtomCount);
+    if(char_array_swaper == NULL) {
+        reallocErrorLog(maxNewAtomCount, newAtomCount, "name");
+        return -1;
+    }
+    *name = char_array_swaper;
+
+    return maxNewAtomCount;
+}
+
+void reallocErrorLog(int a, int b, char type[]) {
+    fprintf(stderr, "Could not reallocation memory for atomRecord %s list from %d to%d\n",\
+            type, a, b);
 }

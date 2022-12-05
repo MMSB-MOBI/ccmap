@@ -29,6 +29,34 @@ bool buildSurfaces(meshContainer_t *meshContainer) {
     return true;
 }
 
+setCells_t *getSurfaceCells(atom_t *atom, meshContainer_t *meshContainer) {
+    int rad_cu = atom->_radiusASA / meshContainer->step + 0.5;
+    
+    cell_t *cCell = getCellFromAtom(meshContainer, atom);
+    cell_t *currCell = NULL;
+    setCells_t *setCells = malloc(sizeof(setCells_t));
+    setCells->size = 0;
+    for (int i = cCell->i - rad_cu ; i <= cCell->i + rad_cu ; i++) {
+        for (int j = cCell->j - rad_cu ; j <= cCell->j + rad_cu; j++) {
+            for (int k = cCell->k - rad_cu ; k <= cCell->k + rad_cu; k++) { 
+                currCell = &meshContainer->mesh->grid[i][j][k];
+                if(currCell->isSurface && ! currCell->isInterior)
+                    setCells->size++;
+    }}}
+    setCells->cells = malloc( setCells->size * sizeof(cell_t*) );
+    int i_cell = 0;
+    for (int i = cCell->i - rad_cu ; i <= cCell->i + rad_cu ; i++) {
+        for (int j = cCell->j - rad_cu ; j <= cCell->j + rad_cu; j++) {
+            for (int k = cCell->k - rad_cu ; k <= cCell->k + rad_cu; k++) { 
+                currCell = &meshContainer->mesh->grid[i][j][k];
+                if(currCell->isSurface && ! currCell->isInterior) {
+                    setCells->cells[i_cell] = currCell;
+                    i_cell++; 
+                }
+    }}}
+    return setCells;
+}
+
 int buildSphere(atom_t *atom, cell_t *optCell, meshContainer_t *meshContainer) {
     // Compute radius of current atom in cell units
     int rad_cu = atom->_radiusASA / meshContainer->step + 0.5; // should be rounded up

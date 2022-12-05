@@ -21,8 +21,12 @@ typedef struct cell {
     int k;
     int n;
     struct neighbours *cell;
+    bool isStart;
+    bool isStop;
     int bwfs;
     bool isInterior;
     bool isSurface;
+    int patchID;
 } cell_t;
+
 #endif

@@ -57,14 +57,16 @@ atom_t *getAtomFromList(atom_t *list, int i_max, stringList_t *selector) {
 }
 
 // Reconstruct a thread of CA along polyline w/ decent spacings
-void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer, path_t *best_walk, char segID) {
+void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, \
+                       meshContainer_t *meshContainer, path_t *best_walk, char segID,\
+                       double euclidStep) {
      // Necklace threading
         double *pearl_x, *pearl_y, *pearl_z = NULL;
         char *pearl_chainID = NULL;
         char **pearl_resID, **pearl_resName, **pearl_name = NULL;
         createRecordArraysFromPath(best_walk, meshContainer,\
             &pearl_x, &pearl_y, &pearl_z, &pearl_chainID, &pearl_resID, &pearl_resName, &pearl_name,\
-            segID);    
+            segID, euclidStep);    
         appendArraysToPdbContainer(pdbContainer, best_walk->len, \
             pearl_x, pearl_y, pearl_z, pearl_chainID, pearl_resID, pearl_resName,  pearl_name);
     
@@ -79,18 +81,37 @@ void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *
 }
 
 // Debuging utility mapping and backmapping of arbirtray i,j,k coordinates
-void inspect(meshContainer_t *meshContainer, int i, int j, int k) {
-
-    printf("Getting center coordinates of cell %d %d %d\n", i, j, k);
+void inspect(meshContainer_t *meshContainer, int _i, int _j, int _k, atom_t *iAtom) {
+    char logAtom[1024];
+    int i,j,k;
+    cell_t *pjCell = NULL;
+    if(iAtom == NULL) {
+        printf("\t  --- inspect arbitrary cell start mode---\n");
+        i = _i;
+        j = _j;
+        k = _k;
+    } else {
+        stringifyAtom(iAtom, logAtom);
+        printf("\t --- actual atom start mode ---\nGetting cell coordinates of %s\n", logAtom);
+        pjCell = getCellFromAtom(meshContainer, iAtom);
+        i = pjCell->i;
+        j = pjCell->j;
+        k = pjCell->k;
+    }
+    
+    
+    printf("\tGetting center coordinates of cell %d %d %d\n", i, j, k);
     double x, y,z;
     atom_t *dummy = NULL;
     meshToCartesian(meshContainer, i, j, k, &x, &y, &z);
     printf("\t=> %f %f %f\n", x, y, z);
     dummy = createBareboneAtom(1, x, y, z, 'A', "   1", "DUM", "  C");
-    printf("Projecting again %f %f %f\n", x, y, z);
-    cell_t *pjCell = getCellFromAtom(meshContainer, dummy);
+    stringifyAtom(dummy, logAtom);
+    printf("\tCreating dummy atom object from this meshToCartesian projection:\n\t%s\n", logAtom);
+    printf("\tProjecting back in mesh space\n");
+    pjCell = getCellFromAtom(meshContainer, dummy);
     dummy = destroyAtom(dummy);
-    printf("\t=>Lands on %d %d %d\n", pjCell->i, pjCell->j, pjCell->k);
+    printf("\t=>Lands on %d %d %d\n\n", pjCell->i, pjCell->j, pjCell->k);
 }
 
 void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer, char vID) {
@@ -163,14 +184,16 @@ int main (int argc, char *argv[]) {
     extern int optind, optopt, opterr;
     pdbCoordinateContainer_t *pdbCoordinateContainer = NULL;
     float cellDim = 1.4;
+    float spacing = 3.5;
     char *x_selector, *y_selector = NULL; // "RESNAME:RESNUM:ATOM:CHAIN"
     char *optCellDim = NULL;
+    char *optBeadSpc = NULL;
     stringList_t *x_selectorElem, *y_selectorElem = NULL;
     char bufferLog[81];
     char defSearchType[] = "point";
     char *searchType = NULL;
     char defaultOutFile[] = "structure_path.pdb";
-    const char    *short_opt = "hi:x:y:o:s:c:t:v";
+    const char    *short_opt = "hi:x:y:o:s:u:c:t:v";
     char ERROR_LOG[1024];
     bool dry = false;
     bool vShow = false;
@@ -183,7 +206,8 @@ int main (int argc, char *argv[]) {
         {"from",        required_argument, NULL, 'x'},
         {"to",          required_argument, NULL, 'y'},
         {"out",         required_argument, NULL, 'o'},
-        {"sz" ,         required_argument, NULL, 's'},
+        {"unit" ,         required_argument, NULL, 'u'},
+        {"spacing" ,         required_argument, NULL, 's'},
         {"seg",         required_argument, NULL, 'c'},
         {"type",        required_argument, NULL, 't'},
         {"vshow",             no_argument, NULL, 'v'},
@@ -203,9 +227,12 @@ int main (int argc, char *argv[]) {
             case 'o':
                 oFile = strdup(optarg);
                 break;
-            case 's':
+            case 'u':
                 optCellDim = strdup(optarg);
                 break;
+            case 's':
+                optBeadSpc = strdup(optarg);
+                break;        
             case 'c':
                 necklaceID = optarg[0];
                 break;
@@ -248,6 +275,10 @@ int main (int argc, char *argv[]) {
         main_error(ERROR_LOG);
     }
     cellDim = optCellDim != NULL ? atof(optCellDim) : cellDim;
+    spacing = optBeadSpc != NULL ? atof(optBeadSpc) : spacing;
+    
+            
+        
     if( x_selector == NULL ||
         y_selector == NULL )
         main_error("Please specify atom selectors\n");
@@ -297,13 +328,20 @@ int main (int argc, char *argv[]) {
          meshContainer->mesh->iMax, meshContainer->mesh->jMax,\
          meshContainer->mesh->kMax, meshContainer->nFilled);
     
-    inspect(meshContainer, 9, 9, 9); // Start cell
+#ifdef DEBUG
+    stringifyAtom(xAtom, bufAtom);
+    printf("\nForward/Backward mapping assertion w/ user start atom...\n%s\n", bufAtom);
+    inspect(meshContainer, 9, 9, 9, xAtom); // Start cell
+    printf("\nForward/Backward mapping assertion w/ cell 9/9/9...\n");
+    inspect(meshContainer, 9, 9, 9, NULL);
+    printf("\nForward/Backward mapping assertion w/ cell 35/75/33...\n");
+    inspect(meshContainer, 33, 75, 33, NULL);
     
     /*
     inspect(meshContainer, 4, 12, 8); // Start cell
     inspect(meshContainer, 5, 12, 8); // Shoud be cell +1
     */
-    
+#endif
     if(dry) {
         fprintf(stderr, "DRY RUN:Only building mesh\n");
         destroyStringList(x_selectorElem);
@@ -323,20 +361,29 @@ int main (int argc, char *argv[]) {
     if (best_walk == NULL) {
         printf("No pathway found connecting specified pair of atoms\n");
     } else {
-        printf("###Best pathway\n");
+        printf("###Best pathway -- aprox. polyline lengths lo/up %g / %g\n",\
+            best_walk->patch_len_lo, best_walk->patch_len_up);
         printf("[%d] %d %d %d\n", best_walk->start->bwfs,\
             best_walk->start->i, best_walk->start->j,\
             best_walk->start->k);
-        for(int stp = 0 ; stp < best_walk->len ; stp++)
+        printf("\t---\n");
+        for(int stp = 0 ; stp < best_walk->len ; stp++) {
+            /*
+            printf("\nAccessing zone of step[%d]\n", stp);
+            printf("i>%d\n", best_walk->cells[stp]->i);
+            printf(">%d\n", best_walk->cells[stp]->bwfs);
+            */
             printf("[%d] %d %d %d\n", best_walk->cells[stp]->bwfs,\
                 best_walk->cells[stp]->i, best_walk->cells[stp]->j,\
                 best_walk->cells[stp]->k\
             );
+        }
+        printf("\t---\n");
         printf("[%d] %d %d %d\n", best_walk->stop->bwfs,\
             best_walk->stop->i, best_walk->stop->j,\
             best_walk->stop->k);
 
-        necklaceThreading(pdbCoordinateContainer, meshContainer, best_walk, necklaceID);
+        necklaceThreading(pdbCoordinateContainer, meshContainer, best_walk, necklaceID, spacing);
         best_walk = destroyPath(best_walk);
        
 #ifdef DEBUG

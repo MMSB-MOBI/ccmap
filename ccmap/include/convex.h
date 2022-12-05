@@ -9,4 +9,5 @@ bool buildSurfaces(meshContainer_t *meshContainer);
 int buildSphere(atom_t *atom, cell_t *cell, meshContainer_t *meshContainer);
 bool surfaceExplorerPredicate(cell_t *cell);
 int voxelEvaluate(cell_t *currCell, cell_t *centerCell, double norm);
+setCells_t *getSurfaceCells(atom_t *atom, meshContainer_t *meshContainer);
 #endif

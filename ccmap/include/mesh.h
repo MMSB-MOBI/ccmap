@@ -48,6 +48,10 @@ typedef struct mesh {
     cell_t ***grid;
 } mesh_t;
 
+typedef struct setCells {
+    cell_t **cells;
+    int size;
+} setCells_t;
 
 // ** API computing Fn **
 ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded, bool bASA);
@@ -70,6 +74,7 @@ ccmapResults_t *createCcmapResults(cellCrawler_t *, residueList_t *, residueList
 ccmapResults_t *destroyCcmapResults (ccmapResults_t *results);
 ccmapView_t *createCcmapView(void);
 ccmapView_t *destroyCcmapView(ccmapView_t *);
+setCells_t *destroySetCells(setCells_t*);
 // Utilities
 void getBoundariesCartesian_DUAL(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, atom_t *minCoor, atom_t *maxCoor);
 void getBoundariesCartesian(atom_t * atomList, int nAtom, atom_t *minCoor, atom_t *maxCoor);

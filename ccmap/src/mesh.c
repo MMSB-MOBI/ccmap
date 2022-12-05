@@ -472,6 +472,8 @@ mesh_t *createMesh(int iDim, int jDim, int kDim) {
                 i_mesh->grid[i][j][k].bwfs = iDim * jDim * kDim; // Pathfinder longest possible road 
                 i_mesh->grid[i][j][k].isInterior = false;
                 i_mesh->grid[i][j][k].isSurface  = false;
+                i_mesh->grid[i][j][k].isStart     = false;
+                i_mesh->grid[i][j][k].isStop      = false;
             }
         }
     }
@@ -553,9 +555,16 @@ void getBoundariesCartesian(atom_t * atomList, int nAtom, atom_t *minCoor, atom_
 }
 
 void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t minCoor, int vxsthickness) {
-    *i = (int) floor( fabs(atom->x - minCoor.x) / step) + 1 + vxsthickness; // Adding one to skip 1st outer shell cell
-    *j = (int) floor( fabs(atom->y - minCoor.y) / step) + 1 + vxsthickness;
-    *k = (int) floor( fabs(atom->z - minCoor.z) / step) + 1 + vxsthickness;
+    *i = (int) floor( /*fabs*/(atom->x - minCoor.x) / step) + 1 + vxsthickness; // Adding one to skip 1st outer shell cell
+    *j = (int) floor( /*fabs*/(atom->y - minCoor.y) / step) + 1 + vxsthickness;
+    *k = (int) floor( /*fabs*/(atom->z - minCoor.z) / step) + 1 + vxsthickness;
+
+    /*
+    printf("<%f, %f, %f>\n", atom->x, atom->y, atom->z);
+    printf("*i = (int) floor( (%f - %f) / %f) + 1 + %d = %d\n",\
+        atom->x, minCoor.x, step, vxsthickness, *i);
+    */
+    
 }
 
 // Returns the x,y,z coordinates of the center of the i,j,k cell
@@ -569,6 +578,7 @@ void meshToCartesian(meshContainer_t *meshContainer, int i, int j, int k, double
     fprintf(stderr, "BackProjection [%d %d %d]=>(%f %f %f)\n",\
             i, j, k, *x, *y, *z);
 #endif
+    
     return;
 }
 /* -----------------   DEBUGING FN  ----------------- */
@@ -630,6 +640,9 @@ void dumpCellContent(cell_t *cell) {
         printf("\t%s\n", atomString);
         atom = atom->nextCellAtom;
     }
+    printf("Cells generic info: isInterior/isSurface %s/%s bwfs:%d:\n",\
+    cell->isInterior ? "true":"false", cell->isSurface ? "true":"false",\
+    cell->bwfs);
 }
 
 // Debugging function to list the cell coordinates of a specified residues projected atoms
@@ -711,4 +724,10 @@ float c_dist(cell_t *a, cell_t *b) {
                 + ( a->j - b->j ) * ( a->j - b->j ) \
                 + ( a->k - b->k ) * ( a->k - b->k ) \
             );
+}
+
+setCells_t *destroySetCells(setCells_t *setCells){
+    free(setCells->cells);
+    free(setCells);
+    return NULL;
 }
