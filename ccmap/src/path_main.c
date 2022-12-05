@@ -83,12 +83,13 @@ void inspect(meshContainer_t *meshContainer, int i, int j, int k) {
 
     printf("Getting center coordinates of cell %d %d %d\n", i, j, k);
     double x, y,z;
+    atom_t *dummy = NULL;
     meshToCartesian(meshContainer, i, j, k, &x, &y, &z);
     printf("\t=> %f %f %f\n", x, y, z);
-    atom_t *dummy = createBareboneAtom(1, x, y, z, 'A', "   1", "DUM", "  C");
+    dummy = createBareboneAtom(1, x, y, z, 'A', "   1", "DUM", "  C");
     printf("Projecting again %f %f %f\n", x, y, z);
     cell_t *pjCell = getCellFromAtom(meshContainer, dummy);
-
+    dummy = destroyAtom(dummy);
     printf("\t=>Lands on %d %d %d\n", pjCell->i, pjCell->j, pjCell->k);
 }
 
@@ -171,7 +172,7 @@ int main (int argc, char *argv[]) {
     char defaultOutFile[] = "structure_path.pdb";
     const char    *short_opt = "hi:x:y:o:s:c:t:v";
     char ERROR_LOG[1024];
-   // bool dry = false;
+    bool dry = false;
     bool vShow = false;
 
     struct option   long_opt[] =
@@ -186,7 +187,7 @@ int main (int argc, char *argv[]) {
         {"seg",         required_argument, NULL, 'c'},
         {"type",        required_argument, NULL, 't'},
         {"vshow",             no_argument, NULL, 'v'},
-     //   {"dry",               no_argument, NULL, 'd'},
+        {"dry",               no_argument, NULL, 'd'},
         {NULL,            0,               NULL,  0 }
     };
 
@@ -216,12 +217,10 @@ int main (int argc, char *argv[]) {
                 break;
             case 't':
                 searchType = strdup(optarg);
-                break;
-            /*
+                break;        
             case 'd':
                 dry = true;
-                break;
-            */
+                break;            
             case 'v':
                 vShow = true;
                 break;
@@ -305,10 +304,15 @@ int main (int argc, char *argv[]) {
     inspect(meshContainer, 5, 12, 8); // Shoud be cell +1
     */
     
-   /*if(dry) {
+    if(dry) {
         fprintf(stderr, "DRY RUN:Only building mesh\n");
+        destroyStringList(x_selectorElem);
+        destroyStringList(y_selectorElem);
+        destroyPdbCoordinateContainer(pdbCoordinateContainer);
+        destroyAtomList(atomList, nAtoms);
+        destroyMeshContainer(meshContainer);
         exit(1);
-    }*/
+    }
     //
     path_t *best_walk = searchForPath(meshContainer, searchType,\
         xAtom, yAtom);

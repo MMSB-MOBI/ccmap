@@ -283,7 +283,7 @@ atom_t *destroyAtomList(atom_t *atomList, int nAtom) {
 #endif
 
     for (int n = 0 ; n < nAtom ; n++)
-        destroyAtom(&atomList[n]);
+        clearAtomFields(&atomList[n]);
     free(atomList); // Destroy the array
 
 #ifdef DEBUG
@@ -291,12 +291,16 @@ atom_t *destroyAtomList(atom_t *atomList, int nAtom) {
 #endif
     return NULL;
 }
-
-atom_t *destroyAtom(atom_t *atom){
+atom_t *destroyAtom(atom_t *atom) {
+    clearAtomFields(atom);
+    free(atom);
+    return NULL;
+}
+void clearAtomFields(atom_t *atom){
 #ifdef DEBUG
     char atomString[81];
     stringifyAtom(atom, atomString);
-    fprintf(stderr, "Destroying atom %s\n", atomString);
+    fprintf(stderr, "Clearing atom %s\n", atomString);
 #endif
 
     free(atom->resID);
@@ -310,7 +314,6 @@ atom_t *destroyAtom(atom_t *atom){
 #ifdef DEBUG
     fprintf(stderr, "Ok\n");
 #endif
-return NULL;
 }
 unsigned int atomPairListLen(atomPair_t *atomPairList){
     unsigned int n = 0;
@@ -465,7 +468,7 @@ atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
 
 atom_t *createBareboneAtom(int n, double x, double y, double z, char chainID, char *resID, \
                            char *resName, char *name) {
-        atom_t *atom = malloc(sizeof(atom_t));
+        atom_t *atom = malloc( 1 * sizeof(atom_t));
         atom->index = n;
         
         atom->resID = malloc( (strlen(resID) + 1) * sizeof(char));
@@ -485,6 +488,8 @@ atom_t *createBareboneAtom(int n, double x, double y, double z, char chainID, ch
         atom->y = y;
         atom->z = z;
         atom->chainID     = chainID;
+        atom->f_grid = NULL;
+        atom->ext_chainID = NULL;
     
     return atom;
 }

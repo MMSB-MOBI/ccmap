@@ -37,13 +37,13 @@ int buildSphere(atom_t *atom, cell_t *optCell, meshContainer_t *meshContainer) {
     cell_t *cCell = optCell == NULL ?\
         getCellFromAtom(meshContainer, atom):\
         optCell;
-//#ifdef DEBUG
+#ifdef DEBUG
     char bufferLog[81];
     stringifyAtom(atom, bufferLog);
     fprintf(stderr, "Building voxels sphere(rad=%d around %d %d %d)\n\t=>aka:%s\n",\
         rad_cu, cCell->i, cCell->j, cCell->k, bufferLog);
     
-//#endif
+#endif
     // filled up cells
     int nvx = 0;
     cell_t *currCell = NULL;

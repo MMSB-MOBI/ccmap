@@ -93,6 +93,7 @@ residueList_t *destroyResidueList(residueList_t *residueList);
 residue_t *destroyResidue(residue_t *residue);
 atom_t *destroyAtomList(atom_t *atomList, int nAtom);
 atom_t *destroyAtom(atom_t *atom);
+void clearAtomFields(atom_t *atom);
 
 
 unsigned int atomPairListLen(atomPair_t *);
