@@ -561,10 +561,10 @@ void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t mi
 // Returns the x,y,z coordinates of the center of the i,j,k cell
 void meshToCartesian(meshContainer_t *meshContainer, int i, int j, int k, double *x, double *y, double *z) {
     double uc = meshContainer->step;
-
-    *x           = meshContainer->x_min + uc * (i - 1) + uc / 2;
-    *y           = meshContainer->y_min + uc * (j - 1) + uc / 2;
-    *z           = meshContainer->z_min + uc * (k - 1) + uc / 2;
+    int vxsthickness = meshContainer->voxel_shell_thickness;
+    *x           = meshContainer->x_min + uc * (i - 1 - vxsthickness) + uc / 2;
+    *y           = meshContainer->y_min + uc * (j - 1 - vxsthickness) + uc / 2;
+    *z           = meshContainer->z_min + uc * (k - 1 - vxsthickness) + uc / 2;
 #ifdef DEBUG
     fprintf(stderr, "BackProjection [%d %d %d]=>(%f %f %f)\n",\
             i, j, k, *x, *y, *z);

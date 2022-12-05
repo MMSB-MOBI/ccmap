@@ -17,6 +17,7 @@ void displayHelp(){
     fprintf(stderr, "options:\n\t -c <LINKER CHAIN_ID>\n\t-s <GRID_STEP>\n");
     fprintf(stderr, "\t-o <OUTPUT_FILE [default:\"structure_path.pdb\"]>\n");
     fprintf(stderr, "\t-t <SEARCH_TYPE [allowed:\"point\" or \"surf\", default:\"point\"]>\n");
+    fprintf(stderr, "\t--vshow (show voxels coordinates in output)\n");
 }
 
 void main_error(char *msg){
@@ -55,6 +56,7 @@ atom_t *getAtomFromList(atom_t *list, int i_max, stringList_t *selector) {
     return NULL;
 }
 
+// Reconstruct a thread of CA along polyline w/ decent spacings
 void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer, path_t *best_walk, char segID) {
      // Necklace threading
         double *pearl_x, *pearl_y, *pearl_z = NULL;
@@ -167,9 +169,10 @@ int main (int argc, char *argv[]) {
     char defSearchType[] = "point";
     char *searchType = NULL;
     char defaultOutFile[] = "structure_path.pdb";
-    const char    *short_opt = "hi:x:y:o:s:c:t:d";
+    const char    *short_opt = "hi:x:y:o:s:c:t:v";
     char ERROR_LOG[1024];
-    bool dry = false;
+   // bool dry = false;
+    bool vShow = false;
 
     struct option   long_opt[] =
     {
@@ -182,7 +185,8 @@ int main (int argc, char *argv[]) {
         {"sz" ,         required_argument, NULL, 's'},
         {"seg",         required_argument, NULL, 'c'},
         {"type",        required_argument, NULL, 't'},
-        {"dry",               no_argument, NULL, 'd'},
+        {"vshow",             no_argument, NULL, 'v'},
+     //   {"dry",               no_argument, NULL, 'd'},
         {NULL,            0,               NULL,  0 }
     };
 
@@ -213,8 +217,13 @@ int main (int argc, char *argv[]) {
             case 't':
                 searchType = strdup(optarg);
                 break;
+            /*
             case 'd':
                 dry = true;
+                break;
+            */
+            case 'v':
+                vShow = true;
                 break;
             case 'h':
                 displayHelp();
@@ -303,9 +312,10 @@ int main (int argc, char *argv[]) {
     //
     path_t *best_walk = searchForPath(meshContainer, searchType,\
         xAtom, yAtom);
-    if (strcmp(searchType, "surf") == 0)
+    if (strcmp(searchType, "surf") == 0 && vShow ) {
+        fprintf(stderr, "Trying to append voxel to pdb coordinates");
         appendVoxelToPdbContainer(pdbCoordinateContainer, meshContainer, 'X');
-    
+    } 
     if (best_walk == NULL) {
         printf("No pathway found connecting specified pair of atoms\n");
     } else {
