@@ -726,6 +726,16 @@ float c_dist(cell_t *a, cell_t *b) {
             );
 }
 
+int manh_dist(cell_t *a, cell_t *b) {
+    return abs(a->i - b->i) + abs(a->j - b->j) + abs( a->k - b->k);
+}
+
+// Minimal number of moves from a to reach b
+// Move in diagonal until the last we are on the same row / column then move in straight line
+int mv_dist(cell_t *a, cell_t *b) {
+    return 0; // TODO ??
+}
+
 setCells_t *destroySetCells(setCells_t *setCells){
     free(setCells->cells);
     free(setCells);

@@ -440,10 +440,10 @@ int legacy_readFile(char *fname, double **x, double **y, double **z, char **chai
 bool appendArraysToPdbContainer(pdbCoordinateContainer_t *pdbContainer, int nbNew,\
     double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name) {
     
-#ifdef DEBUG
+//#ifdef DEBUG
     fprintf(stderr, " -- append %d new elem from arrays to a %d long pdbContainer --\n", nbNew,\
      pdbContainer->atomCount);
-#endif
+//#endif
     
     atomRecord_t *atomRecordTmp = (atomRecord_t *) realloc(pdbContainer->atomRecordArray,\
         sizeof(atomRecord_t) * (pdbContainer->atomCount + nbNew) );

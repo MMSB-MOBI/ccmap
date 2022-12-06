@@ -13,8 +13,6 @@ typedef struct path {
     int len;
     cell_t *start;
     cell_t *stop;
-    double patch_len_up;
-    double patch_len_lo;
 } path_t;
 
 typedef struct offsets {
@@ -27,6 +25,7 @@ typedef struct offsets {
 path_t *searchForPath(meshContainer_t *meshContainer,  char *type,\
                       atom_t *start, atom_t *stop);
 short int sortNeighboursByMeshDistance(cell_t *currentCell, cell_t *goal, mesh_t *mesh, offsets_t moves[]);
+short int sortNeighboursByMeshDistanceFace2Face(cell_t *currentCell, cell_t *goal, mesh_t *mesh, offsets_t moves[]);
 int cmpOffsetfunc (const void * a, const void * b);
 float c_dist(cell_t *a, cell_t *b);
 void exploreCell(meshContainer_t *meshContainer, bool (*cellPredicate)(cell_t*),\

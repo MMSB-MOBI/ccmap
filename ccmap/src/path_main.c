@@ -60,23 +60,23 @@ atom_t *getAtomFromList(atom_t *list, int i_max, stringList_t *selector) {
 void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, \
                        meshContainer_t *meshContainer, path_t *best_walk, char segID,\
                        double euclidStep) {
-     // Necklace threading
+                        
         double *pearl_x, *pearl_y, *pearl_z = NULL;
         char *pearl_chainID = NULL;
         char **pearl_resID, **pearl_resName, **pearl_name = NULL;
-        createRecordArraysFromPath(best_walk, meshContainer,\
+        int newCA = createRecordArraysFromPath(best_walk, meshContainer,\
             &pearl_x, &pearl_y, &pearl_z, &pearl_chainID, &pearl_resID, &pearl_resName, &pearl_name,\
             segID, euclidStep);    
-        appendArraysToPdbContainer(pdbContainer, best_walk->len, \
+        appendArraysToPdbContainer(pdbContainer, newCA, \
             pearl_x, pearl_y, pearl_z, pearl_chainID, pearl_resID, pearl_resName,  pearl_name);
-    
+        
 #ifdef DEBUG
         char *data = pdbContainerToString(pdbContainer);
         printf("%s\n", data);
         free(data);
 #endif
         freeAtomListCreatorBuffers(pearl_x, pearl_y, pearl_z,\
-            pearl_chainID, pearl_resID, pearl_resName,  pearl_name, best_walk->len);
+            pearl_chainID, pearl_resID, pearl_resName,  pearl_name, newCA);
         
 }
 
@@ -361,8 +361,10 @@ int main (int argc, char *argv[]) {
     if (best_walk == NULL) {
         printf("No pathway found connecting specified pair of atoms\n");
     } else {
-        printf("###Best pathway -- aprox. polyline lengths lo/up %g / %g\n",\
-            best_walk->patch_len_lo, best_walk->patch_len_up);
+        printf("###Best pathway -- aprox. polyline lengths %g\n",\
+            xAtom->_radiusASA + yAtom->_radiusASA + cellDim * (best_walk->len +1)
+        );
+           
         printf("[%d] %d %d %d\n", best_walk->start->bwfs,\
             best_walk->start->i, best_walk->start->j,\
             best_walk->start->k);
@@ -385,7 +387,7 @@ int main (int argc, char *argv[]) {
 
         necklaceThreading(pdbCoordinateContainer, meshContainer, best_walk, necklaceID, spacing);
         best_walk = destroyPath(best_walk);
-       
+        
 #ifdef DEBUG
         char *pdbAsCharList = pdbContainerToString(pdbCoordinateContainer);
         fprintf(stderr, "Attempting to write following pdb string content to %s\n", oFile);

@@ -81,9 +81,6 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
     
     path_t *path = backtrack(meshContainer, cell_start, cell_stop, type);
 
-    path->patch_len_lo += atomStart->_radiusASA + atomStop->_radiusASA;
-    path->patch_len_up += atomStart->_radiusASA + atomStop->_radiusASA;
-    
     return path;
 }
 
@@ -106,17 +103,8 @@ path_t *backtrack(meshContainer_t *meshContainer, cell_t *startCell, cell_t *sto
 
     cell_t *buffer_cell = stopCell;
     for (int i_step = best_path->len - 1 ; i_step >= 0 ; i_step--) {
-    //     fprintf(stderr, "1/Getting next cell for path index %d\n", i_step);
-        buffer_cell = walkBack(buffer_cell, startCell, meshContainer, cellPredicate);
-    //    fprintf(stderr, "2/Writing path index %d\n", i_step);
-    //    dumpCellContent(buffer_cell);
-     //   fprintf(stderr, "%zu ---- at pos %d\n", sizeof(buffer_cell), i_step);   
-        if(! areSameCells(startCell, buffer_cell) ) {
-            best_path->patch_len_lo += meshContainer->step;
-            best_path->patch_len_up += sqrt(2.00) * meshContainer->step;
-        }
+        buffer_cell = walkBack(buffer_cell, startCell, meshContainer, cellPredicate);    
         best_path->cells[i_step] = buffer_cell;
-      //  fprintf(stderr, "#####\n");
     }
     return best_path;
 }
@@ -138,9 +126,11 @@ cell_t *walkBack(cell_t *currCell, cell_t *targetCell, meshContainer_t *meshCont
 #endif
 
     offsets_t moves[26];
-    short int neighbourCount = sortNeighboursByMeshDistance(currCell, \
+    short int neighbourCount = sortNeighboursByMeshDistanceFace2Face(currCell, \
                                 targetCell, meshContainer->mesh, moves);
-    
+/*    short int neighbourCount = sortNeighboursByMeshDistance(currCell, \
+                                targetCell, meshContainer->mesh, moves);
+*/  
     cell_t *closest_cell =  currCell; // seems ok as a dummy initializer
     cell_t *buff_cell    =  NULL;
     for (int iCell = 0 ; iCell < neighbourCount ; iCell++) {
@@ -172,11 +162,21 @@ bool areSameCells(cell_t *a, cell_t *b) {
 void exploreCell(meshContainer_t *meshContainer, bool (*cellPredicate)(cell_t*),\
     cell_t *currentCell, int nStepFromStart, cell_t *startCell, cell_t *endCell) {
     offsets_t moves[26];
+    //20 56 46
+    //61 98 77
+    // TT : 20 56 49
+    int ii = -1;
+    int jj = -1;
+    int kk = -1;
+    //fprintf(stderr, "Hello [%d %d %d](bwfs=%d)\n", currentCell->i, currentCell->j, currentCell->k, currentCell->bwfs);
+    if(currentCell->i == ii && currentCell->j == jj && currentCell->k == kk) 
+        printf("Hello [%d %d %d](bwfs=%d)\n", currentCell->i, currentCell->j, currentCell->k, currentCell->bwfs);
 #ifdef DEBUG
     fprintf(stderr, "%d %d %d %d\n", currentCell->i, currentCell->j, currentCell->k, currentCell->bwfs);
 #endif
     //printf("%d %d %d %d\n", currentCell->i, currentCell->j, currentCell->k, currentCell->bwfs);
     // Touchdown
+
     if (areSameCells(currentCell, endCell)) {
 #ifdef DEBUG
         fprintf(stderr, "Found destination at depth %d\n", nStepFromStart);
@@ -186,30 +186,63 @@ void exploreCell(meshContainer_t *meshContainer, bool (*cellPredicate)(cell_t*),
         return;
     }
     // Back to square 1
-    if (nStepFromStart > 0 && areSameCells(currentCell, startCell) )
+    if (nStepFromStart > 0 && areSameCells(currentCell, startCell) ) {
+        if(currentCell->i == ii && currentCell->j == jj && currentCell->k == kk)
+            fprintf(stderr, "Back tp sq 1\n");
         return;
+    }
     // Cell is blocked
-    if (nStepFromStart > 0 && !cellPredicate(currentCell) )
+    if (nStepFromStart > 0 && !cellPredicate(currentCell) ) {
+        if(currentCell->i == ii && currentCell->j == jj && currentCell->k == kk)
+            fprintf(stderr, "Cell is blocked\n");
         return; 
+    }
     // Exhausted search path
-    if (nStepFromStart > 0 && nStepFromStart >= currentCell->bwfs)
+    if (nStepFromStart > 0 && nStepFromStart >= currentCell->bwfs) {
+        if(currentCell->i == ii && currentCell->j == jj && currentCell->k == kk)
+            fprintf(stderr, "Cell is too far\n");
         return;
+    }
 
     if (nStepFromStart > 0)
-        currentCell->bwfs = nStepFromStart;
-    
+        if(nStepFromStart < currentCell->bwfs) {
+            if(currentCell->i == ii && currentCell->j == jj && currentCell->k == kk)
+                fprintf(stderr, "Updating bwfs %d %d %d from %d to %d\n",\
+                currentCell->i, currentCell->j, currentCell->k,  currentCell->bwfs, nStepFromStart);
+            currentCell->bwfs = nStepFromStart;
+        }
     // About to exhaust search path
-    if (c_dist(currentCell,  endCell) + currentCell->bwfs > bestLen) {
+    if (manh_dist(currentCell,  endCell) + currentCell->bwfs > bestLen) {
+        if(currentCell->i == ii && currentCell->j == jj && currentCell->k == kk) {
+            fprintf(stderr, "!! Leaving cell %d [cd(%d %d %d, %d %d %d)] + %d > %d\n", manh_dist(currentCell,  endCell),\
+             currentCell->i, currentCell->j, currentCell->k, \
+             endCell->i, endCell->j, endCell->k,\
+             currentCell->bwfs, bestLen);
+        }
 #ifdef DEBUG     
-        fprintf(stderr, "%d %d %d to far (%f)\n", \
+        fprintf(stderr, "%d %d %d to far (%d)\n", \
         currentCell->i, currentCell->j, currentCell->k,\
-        c_dist(currentCell,  endCell) + currentCell->bwfs);
+        manh_dist(currentCell,  endCell) + currentCell->bwfs);
 #endif
         return;
     }
+        
     // Keep on searching
-    short int neighbourCount = sortNeighboursByMeshDistance(currentCell, endCell, meshContainer->mesh, moves);
+    short int neighbourCount = sortNeighboursByMeshDistanceFace2Face(currentCell, \
+                                    endCell, meshContainer->mesh, moves);
+    //short int neighbourCount = sortNeighboursByMeshDistance(currentCell, endCell, meshContainer->mesh, moves);
+    
+    if(currentCell->i == ii && currentCell->j == jj && currentCell->k == kk)
+        printf(">>[%d %d %d](bwfs=%d) cell feature %d neighbours\n", \
+            currentCell->i, currentCell->j, currentCell->k, currentCell->bwfs, neighbourCount);
     for (int iCell = 0 ; iCell < neighbourCount ; iCell++) {
+        //61 98 77
+        if(currentCell->i == ii && currentCell->j == jj && currentCell->k == kk) {
+            printf("[%d %d %d](bwfs=%d) About to move to %d %d %d\n", \
+            currentCell->i, currentCell->j, currentCell->k, currentCell->bwfs,\
+            moves[iCell].i, moves[iCell].j, moves[iCell].k);
+        }
+
         int i = moves[iCell].i;
         int j = moves[iCell].j;        
         int k = moves[iCell].k;
@@ -227,6 +260,8 @@ bool pointExplorerPredicate(cell_t *cell){
 // sort neigbours by their mesh distance from target destination
 // We represent neighbours by their increment
 // (+1, +1 , +1) ... (-1, -1, -1)
+
+// Here we only allow face to face transitions to avoid artifacts
 short int sortNeighboursByMeshDistance(cell_t *currentCell, cell_t *goal, mesh_t *mesh, offsets_t moves[]){
 #ifdef DEBUG
     fprintf(stderr, "\n\t\tSorting neighbourhood\n");
@@ -287,6 +322,73 @@ short int sortNeighboursByMeshDistance(cell_t *currentCell, cell_t *goal, mesh_t
     return n;
 }
 
+short int sortNeighboursByMeshDistanceFace2Face(cell_t *currentCell, cell_t *goal, mesh_t *mesh, offsets_t moves[]){
+#ifdef DEBUG
+    fprintf(stderr, "\n\t\tSorting neighbourhood face2ace\n");
+#endif
+    int n = 0;
+    int new_i, new_j, new_k = 0;
+    int i,j,k = 0;
+    for (int _i = 0; _i < 3 ; _i++) {
+        for (int _j = 0; _j < 3 ; _j++) {
+            for (int _k = 0; _k < 3 ; _k++) {
+                i = offsets[_i];
+                j = offsets[_j];
+                k = offsets[_k];
+                // face2face transitions
+                if ( ! ( (i == 0 && j == 0) ||\
+                         (i == 0 && k == 0) ||\
+                         (j == 0 && k == 0) \
+                    ) )
+                    continue;
+
+                if (i == 0 && j == 0 && k== 0)
+                    continue;
+                new_i = currentCell->i + i;
+                new_j = currentCell->j + j;
+                new_k = currentCell->k + k;
+                
+                //fprintf(stderr, "yo %d\n", n);
+                if(new_i < 0 || new_j < 0 || new_k < 0)
+                    continue;
+                if(new_i >= mesh->iMax || new_j >= mesh->jMax || new_k >= mesh->kMax)
+                    continue;
+                    //fprintf(stderr, "??? %d, %d, %d\n", new_i, new_j, new_k);
+                /*
+                if (mesh->grid[new_i][new_j][new_k].memberCount > 0)
+                    continue;
+                */
+#ifdef DEBUG
+                fprintf(stderr, "Registering %d %d %d at pos %d\n", new_i, new_j, new_k, n);
+#endif
+                moves[n].i = new_i;
+                moves[n].j = new_j;
+                moves[n].k = new_k;
+                moves[n].abs_dist = sqrt( ( new_i - goal->i ) * ( new_i - goal->i ) \
+                                        + ( new_j - goal->j ) * ( new_j - goal->j ) \
+                                        + ( new_k - goal->k ) * ( new_k - goal->k ) \
+                                        );
+                n++;
+            }
+        }
+    }
+#ifdef DEBUG
+    fprintf(stderr, "Total possibile moves in current cell(%d %d %d) is %d\n",\
+                currentCell->i,  currentCell->j,  currentCell->k, n);
+    for (int x = 0 ; x < n ; x++)
+        fprintf(stderr, "[%d] %d %d %d = %f\n", x, moves[x].i, moves[x].j, moves[x].k, moves[x].abs_dist);
+    fprintf(stderr, "QSORT\n");
+#endif
+    qsort(moves, n, sizeof(offsets_t), cmpOffsetfunc);
+#ifdef DEBUG
+    for (int x = 0 ; x < n ; x++)
+        fprintf(stderr, "[%d] %d %d %d = %f\n", x, moves[x].i, moves[x].j, moves[x].k, moves[x].abs_dist);
+    fprintf(stderr, "#Sorting ends\n");
+#endif
+    return n;
+}
+
+
 // check order
 int cmpOffsetfunc (const void * a, const void * b) {
     offsets_t *oA = (offsets_t *)a;
@@ -339,11 +441,11 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
     for (int iElem = 0 ; iElem < maxNewAtomCount ; iElem++) {
         meshToCartesian(meshContainer, self->cells[iElem]->i, self->cells[iElem]->j, self->cells[iElem]->k,\
                                        &x_prime             , &y_prime             , &z_prime);
-
         if (iElem > 0)
             if (euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z) < spacing)
                 continue;
-        printf("Threading based on %g distance\n", euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z));
+        if (iElem > 0)
+            printf("Threading based on %g distance\n", euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z));
         (*chainID)[newAtomCount] = uID;
         (*x)[newAtomCount] = x_prime;
         (*y)[newAtomCount] = y_prime;
@@ -416,7 +518,9 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
     }
     *name = char_array_swaper;
 
-    return maxNewAtomCount;
+    fprintf(stderr, "Threading of %d atoms completed\n", newAtomCount);
+    
+    return newAtomCount;
 }
 
 void reallocErrorLog(int a, int b, char type[]) {
