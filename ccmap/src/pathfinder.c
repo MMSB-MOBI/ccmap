@@ -13,7 +13,7 @@ static int bestLen = DEFAULT_BWFS;
 */
 
 path_t *searchForPath(meshContainer_t *meshContainer,\
-    char *type, atom_t *atomStart, atom_t *atomStop) {
+    char *type, atom_t *atomStart, atom_t *atomStop, bool force) {
 
 #ifdef DEBUG
     fprintf(stderr, "-- Starting search for path -- \"%s\"\n", type);
@@ -28,16 +28,16 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
         cellPredicate = &surfaceExplorerPredicate;
         printf("Building surfaces w/ mesh unit= %g ...\n", \
             meshContainer->step);
-        if (!buildSurfaces(meshContainer))
+        if (!buildSurfaces(meshContainer, force))
             exit(1);
-        printf("Total of %d voxels constructed\n", meshContainer->nVoxels);
+        printf("\tTotal of %d voxels constructed\n", meshContainer->nVoxels);
         
         // TO DO for start and stop
         // Get set of cells that are surface 
         // Identify patches, ie the collection of cells that are connex
         // Set as many start/stop points as there are patches
 
-        printf("Looking for at starting surface Cell w/ naive algorithm ...\n");
+        printf("Searching for start/stop cells at start/stop atoms surfaces...\n");
         setCells_t *start_cells = getSurfaceCells(atomStart, meshContainer);
         if(start_cells->size == 0) {
             stringifyAtom(atomStart, atomLog);
@@ -52,7 +52,7 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
         }
         for(int i_stop = 0 ; i_stop < stop_cells->size ; i_stop++)
             stop_cells->cells[i_stop]->isStop = true;
-        printf("Start/Stop surfaces contain %d/%d voxels, picking One each ...\n",\
+        printf("\tstart/stop surfaces contain %d/%d voxels, one naive cell picking on each...\n",\
             start_cells->size, stop_cells->size);
         cell_start = start_cells->cells[0];
         cell_stop  = stop_cells->cells[0];
@@ -76,7 +76,7 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
         return NULL;
 
 //#ifdef DEBUG
-    fprintf(stderr, "\t---Best length is %d long---\n", bestLen);
+    fprintf(stderr, "\t---Best walk is made of %d moves---\n", bestLen);
 //#endif
     
     path_t *path = backtrack(meshContainer, cell_start, cell_stop, type);
@@ -93,7 +93,7 @@ path_t *backtrack(meshContainer_t *meshContainer, cell_t *startCell, cell_t *sto
 
     int nbBackSteps = (int)(best_path->len >0?best_path->len:0);
     best_path->cells = malloc( nbBackSteps * sizeof(cell_t*) );
-    fprintf(stderr, "Allocating %d cells path ptr\n", nbBackSteps );
+    //fprintf(stderr, "Allocating %d cells path ptr\n", nbBackSteps );
     best_path->start = startCell;
     best_path->stop  = stopCell;
     
@@ -428,11 +428,9 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
 
 
 #ifdef DEBUG
-    fprintf(stderr, "Create Necklace atomic parameter arrays over %d cells\n", maxNewAtomCount);
-#endif
-
-    fprintf(stderr, "Create Necklace atomic parameter arrays over %d cells w/ %g spacing\n"\
+        fprintf(stderr, "Create Necklace atomic parameter arrays over %d cells w/ %g spacing\n"\
     , maxNewAtomCount, spacing);
+#endif
 
     int newAtomCount = 0;
     
@@ -444,8 +442,10 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
         if (iElem > 0)
             if (euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z) < spacing)
                 continue;
+#ifdef DEBUG        
         if (iElem > 0)
             printf("Threading based on %g distance\n", euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z));
+#endif
         (*chainID)[newAtomCount] = uID;
         (*x)[newAtomCount] = x_prime;
         (*y)[newAtomCount] = y_prime;
@@ -517,8 +517,9 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
         return -1;
     }
     *name = char_array_swaper;
-
-    fprintf(stderr, "Threading of %d atoms completed\n", newAtomCount);
+    printf("Trailing space equals %gA\n", euclideanDistance3( last_x,  last_y, last_z,\
+                                                            x_prime, y_prime, z_prime));
+    printf("Threading of %d atoms w/ %gA spacing completed\n", newAtomCount, spacing);
     
     return newAtomCount;
 }

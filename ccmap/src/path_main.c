@@ -13,10 +13,16 @@
 #include "miscellaneous.h"
 
 void displayHelp(){
-    fprintf(stderr, "path_main -x <ATOM_SELECTOR> -y <ATOM_SELECTOR> -i <PDB_FILE_PATH>\n");
-    fprintf(stderr, "options:\n\t -c <LINKER CHAIN_ID>\n\t-s <GRID_STEP>\n");
+    fprintf(stderr, "pathfinder -x <ATOM_SELECTOR> -y <ATOM_SELECTOR> -i <PDB_FILE_PATH>\n");
+    fprintf(stderr, "options:\n");
     fprintf(stderr, "\t-o <OUTPUT_FILE [default:\"structure_path.pdb\"]>\n");
-    fprintf(stderr, "\t-t <SEARCH_TYPE [allowed:\"point\" or \"surf\", default:\"point\"]>\n");
+    fprintf(stderr, "\t-t <SEARCH_TYPE [allowed:\"point\" or \"surf\", default:\"surf\"]>\n");
+    fprintf(stderr, "\t--force (Does not early exit on atom duplicates)\n");
+    fprintf(stderr, "\t-c <DUMMY_SEGID> single char identifier for path atoms in pdb coordinates, default:\'P\'\n");
+    fprintf(stderr, "\t-u <MESH_SIZE> (length of cubic unit cell edges, in A., default:0.2)\n");
+    fprintf(stderr, "\t-s <DUM_SPACING> (minimal euclidean distance between path atoms, in A., default:3.5)\n");
+    fprintf(stderr, "\t--pshow (show cells path in output)\n");
+    fprintf(stderr, "\t--dry (Only compute the mesh)\n");
     fprintf(stderr, "\t--vshow (show voxels coordinates in output)\n");
 }
 
@@ -177,27 +183,28 @@ int main (int argc, char *argv[]) {
     #endif
 
     int c;
-    char necklaceID = 'A';
+    char necklaceID = 'P';
     char *iFile = NULL;
     char *oFile = NULL;
     extern char *optarg;
     extern int optind, optopt, opterr;
     pdbCoordinateContainer_t *pdbCoordinateContainer = NULL;
-    float cellDim = 1.4;
+    float cellDim = 0.2;
     float spacing = 3.5;
     char *x_selector, *y_selector = NULL; // "RESNAME:RESNUM:ATOM:CHAIN"
     char *optCellDim = NULL;
     char *optBeadSpc = NULL;
     stringList_t *x_selectorElem, *y_selectorElem = NULL;
     char bufferLog[81];
-    char defSearchType[] = "point";
+    char defSearchType[] = "surf";
     char *searchType = NULL;
     char defaultOutFile[] = "structure_path.pdb";
-    const char    *short_opt = "hi:x:y:o:s:u:c:t:v";
+    const char    *short_opt = "hi:x:y:o:s:u:c:t:vpf";
     char ERROR_LOG[1024];
     bool dry = false;
     bool vShow = false;
-
+    bool pShow = false;
+    bool noAtomCheck = false;
     struct option   long_opt[] =
     {
         {"help",              no_argument, NULL, 'h'},
@@ -211,7 +218,9 @@ int main (int argc, char *argv[]) {
         {"seg",         required_argument, NULL, 'c'},
         {"type",        required_argument, NULL, 't'},
         {"vshow",             no_argument, NULL, 'v'},
+        {"pshow",             no_argument, NULL, 'p'},
         {"dry",               no_argument, NULL, 'd'},
+        {"force",             no_argument, NULL, 'f'},
         {NULL,            0,               NULL,  0 }
     };
 
@@ -251,6 +260,12 @@ int main (int argc, char *argv[]) {
             case 'v':
                 vShow = true;
                 break;
+            case 'p':
+                pShow = true;
+                break;  
+            case 'f':
+                noAtomCheck = true;
+                break;                          
             case 'h':
                 displayHelp();
                 return(0);
@@ -316,15 +331,16 @@ int main (int argc, char *argv[]) {
         sprintf(bufferLog, "atom selector expression \"%s\" doesnt match any atom record\n", y_selector);
         main_error(bufferLog);
     }
+    printf("User atom selection:\n");
     char bufAtom[104];
     stringifyAtom(xAtom, bufAtom);
-    printf("Start atom:\t%s\n", bufAtom);
+    printf("\tStart atom:\t\"%s\"\n", bufAtom);
     stringifyAtom(yAtom, bufAtom);
-    printf("End atom:\t%s\n", bufAtom);
+    printf("\tEnd atom :\t\"%s\"\n", bufAtom);
     
     meshContainer_t *meshContainer = createMeshContainer(atomList, nAtoms, NULL, 0, cellDim);
     
-    printf("mesh [%dx%dx%d]created w/ %d filled cells\n",\
+    printf("Mesh [%dx%dx%d] created: %d cells contain atoms\n",\
          meshContainer->mesh->iMax, meshContainer->mesh->jMax,\
          meshContainer->mesh->kMax, meshContainer->nFilled);
     
@@ -353,7 +369,7 @@ int main (int argc, char *argv[]) {
     }
     //
     path_t *best_walk = searchForPath(meshContainer, searchType,\
-        xAtom, yAtom);
+        xAtom, yAtom, noAtomCheck);
     if (strcmp(searchType, "surf") == 0 && vShow ) {
         fprintf(stderr, "Trying to append voxel to pdb coordinates");
         appendVoxelToPdbContainer(pdbCoordinateContainer, meshContainer, 'X');
@@ -361,30 +377,24 @@ int main (int argc, char *argv[]) {
     if (best_walk == NULL) {
         printf("No pathway found connecting specified pair of atoms\n");
     } else {
-        printf("###Best pathway -- aprox. polyline lengths %g\n",\
+        printf("Best pathway -- aprox. polyline lengths %g A\n",\
             xAtom->_radiusASA + yAtom->_radiusASA + cellDim * (best_walk->len +1)
         );
-           
-        printf("[%d] %d %d %d\n", best_walk->start->bwfs,\
-            best_walk->start->i, best_walk->start->j,\
-            best_walk->start->k);
-        printf("\t---\n");
-        for(int stp = 0 ; stp < best_walk->len ; stp++) {
-            /*
-            printf("\nAccessing zone of step[%d]\n", stp);
-            printf("i>%d\n", best_walk->cells[stp]->i);
-            printf(">%d\n", best_walk->cells[stp]->bwfs);
-            */
-            printf("[%d] %d %d %d\n", best_walk->cells[stp]->bwfs,\
+        if (pShow) {
+            printf("[%d] %d %d %d\n", best_walk->start->bwfs,\
+                best_walk->start->i, best_walk->start->j,\
+                best_walk->start->k);
+            printf("\t---\n");
+            for(int stp = 0 ; stp < best_walk->len ; stp++)
+                printf("[%d] %d %d %d\n", best_walk->cells[stp]->bwfs,\
                 best_walk->cells[stp]->i, best_walk->cells[stp]->j,\
                 best_walk->cells[stp]->k\
-            );
+                );
+            printf("\t---\n");
+            printf("[%d] %d %d %d\n", best_walk->stop->bwfs,\
+                best_walk->stop->i, best_walk->stop->j,\
+                best_walk->stop->k);
         }
-        printf("\t---\n");
-        printf("[%d] %d %d %d\n", best_walk->stop->bwfs,\
-            best_walk->stop->i, best_walk->stop->j,\
-            best_walk->stop->k);
-
         necklaceThreading(pdbCoordinateContainer, meshContainer, best_walk, necklaceID, spacing);
         best_walk = destroyPath(best_walk);
         

@@ -23,7 +23,7 @@ typedef struct offsets {
 } offsets_t;
 
 path_t *searchForPath(meshContainer_t *meshContainer,  char *type,\
-                      atom_t *start, atom_t *stop);
+                      atom_t *start, atom_t *stop, bool force);
 short int sortNeighboursByMeshDistance(cell_t *currentCell, cell_t *goal, mesh_t *mesh, offsets_t moves[]);
 short int sortNeighboursByMeshDistanceFace2Face(cell_t *currentCell, cell_t *goal, mesh_t *mesh, offsets_t moves[]);
 int cmpOffsetfunc (const void * a, const void * b);

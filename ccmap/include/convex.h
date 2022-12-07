@@ -5,7 +5,7 @@
 #include "molecular_object.h"
 #include "mesh.h"
 
-bool buildSurfaces(meshContainer_t *meshContainer);
+bool buildSurfaces(meshContainer_t *meshContainer, bool force);
 int buildSphere(atom_t *atom, cell_t *cell, meshContainer_t *meshContainer);
 bool surfaceExplorerPredicate(cell_t *cell);
 int voxelEvaluate(cell_t *currCell, cell_t *centerCell, double norm);

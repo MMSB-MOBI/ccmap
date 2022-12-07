@@ -5,26 +5,36 @@ bool surfaceExplorerPredicate(cell_t *cell){
     return (!cell->isInterior) && (cell->memberCount == 0 || cell->isSurface);
 }
 
-bool buildSurfaces(meshContainer_t *meshContainer) {
+bool buildSurfaces(meshContainer_t *meshContainer, bool force) {
     int totalVoxel = 0;
     cell_t *currCell = NULL;
+    char buffer[81];
+    struct atom *buffAtom = NULL;
     // iterate over each non empty cell
     for(int i_cell = 0 ; i_cell < meshContainer->nFilled ; i_cell++) {
         currCell = meshContainer->filledCells[i_cell];
         if (currCell->memberCount > 1) {
+            
+            buffAtom = currCell->members;
+            char *errType = force ? "Warning" : "Fatal";
             fprintf(stderr, \
-            "Fatal:buildSurface cell %d %d %d does not hold one single atom (%d)\n",\
-            currCell->i, currCell->j, currCell->k, currCell->memberCount\
+            "%s:buildSurface cell %d %d %d does not hold one single atom (%d)\n",\
+            errType, currCell->i, currCell->j, currCell->k, currCell->memberCount\
             );
-            return false;
+           
+            for(int i = 0 ; i < currCell->memberCount ; i++) {
+                stringifyAtom(buffAtom, buffer);
+                fprintf(stderr, "[member %d] %s\n", i + 1, buffer);
+                buffAtom = buffAtom->nextCellAtom;
+            }
+            if(!force)
+                return false;  
         }
         // members field is a straight pointer --> Head of a chained list        
         totalVoxel += buildSphere(currCell->members, currCell,\
                             meshContainer);
     }
-    // assert only one atom at most
-    // build sphere
-    // summing filled cells
+
     meshContainer->nVoxels = totalVoxel;
     return true;
 }
