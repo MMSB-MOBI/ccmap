@@ -26,7 +26,7 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
     char atomLog[81];
     if(strcmp(type, "surf") == 0 ){ 
         cellPredicate = &surfaceExplorerPredicate;
-        printf("Building surfaces w/ mesh unit= %g ...\n", \
+        printf("Building surfaces w/ mesh unit of %g A. ...\n", \
             meshContainer->step);
         if (!buildSurfaces(meshContainer, force))
             exit(1);
@@ -76,7 +76,7 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
         return NULL;
 
 //#ifdef DEBUG
-    fprintf(stderr, "\t---Best walk is made of %d moves---\n", bestLen);
+    printf("\t---Best walk is made of %d moves---\n", bestLen);
 //#endif
     
     path_t *path = backtrack(meshContainer, cell_start, cell_stop, type);

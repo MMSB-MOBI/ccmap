@@ -4,7 +4,7 @@
 GCC_FLAGS = -std=c99 -Wall -I./include -lm -pedantic 
 DEBUG=-g -D DEBUG -O0
 VALGRIND_ONLY=-g -O0;
-all: ccmap string path
+all: ccmap string pathfinder
 
 debug: GCC_FLAGS += $(DEBUG)
 debug : pathfinder

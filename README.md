@@ -198,3 +198,21 @@ C executable can be generated with the provided makefile. The low-level function
 * One computation per executable call
 * No multithreading.
 
+# Finding the optimal molecular path connecting two atoms
+Using a thiner mesh size, it is possible to obtain the shortest path connecting two atoms.
+The atoms to connect must be solvent accessible and path search will operate over the surface and solvant accessible cells. The solvent excluded volume is computed for each atom as the sum of of its Van Der Waals radius and the radius of water molecule.
+## install
+```sh
+ git clone -b fibonacci git@github.com:MMSB-MOBI/ccmap.git
+ cd ccmap/ccmap
+ make pathfinder
+```
+## Usage
+
+`./bin/pathfinder -x 'ILE:A:1:CA' -y 'LYS:A:13:N' -i ../tests/structures/small_peptide_noH_1model.pdb`
+
+## Effect of parameters on search
+The path is guaranteed to be optimal but may take some time to run.
+TO COMPLETE
+### cell size
+### water probe

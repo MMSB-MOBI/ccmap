@@ -13,17 +13,21 @@
 #include "miscellaneous.h"
 
 void displayHelp(){
+    fprintf(stderr, "\t---Find the shortest possible path between two atoms ---\n");
     fprintf(stderr, "pathfinder -x <ATOM_SELECTOR> -y <ATOM_SELECTOR> -i <PDB_FILE_PATH>\n");
-    fprintf(stderr, "options:\n");
+    fprintf(stderr, "\nNote: ATOM_SELECTOR syntax specifies the following column separated pdb fields surrounded by single quotes:\n");
+    fprintf(stderr, "resName:chainID:resNum:name\n\teg: \'LI1:B:301:CA\'\n");
+    fprintf(stderr, "Options:\n");
     fprintf(stderr, "\t-o <OUTPUT_FILE [default:\"structure_path.pdb\"]>\n");
     fprintf(stderr, "\t-t <SEARCH_TYPE [allowed:\"point\" or \"surf\", default:\"surf\"]>\n");
-    fprintf(stderr, "\t--force (Does not early exit on atom duplicates)\n");
-    fprintf(stderr, "\t-c <DUMMY_SEGID> single char identifier for path atoms in pdb coordinates, default:\'P\'\n");
-    fprintf(stderr, "\t-u <MESH_SIZE> (length of cubic unit cell edges, in A., default:0.2)\n");
-    fprintf(stderr, "\t-s <DUM_SPACING> (minimal euclidean distance between path atoms, in A., default:3.5)\n");
+    fprintf(stderr, "\t-c <DUMMY_SEGID [default:\'P\']> single char segID of all path atoms in pdb coordinates\n");
+    fprintf(stderr, "\t-u <MESH_SIZE [default:0.2]> length of cubic unit cell edges, in A.\n");
+    fprintf(stderr, "\t-s <DUM_SPACING [default:3.5]> minimal euclidean distance between path atoms, in A.\n");
+    fprintf(stderr, "\t-w <H20_radius [default:1.4]> water probe radius for solvant exclusion surface, in A.\n");
+    fprintf(stderr, "\t--force (do not early exit on atom duplicates)\n");
     fprintf(stderr, "\t--pshow (show cells path in output)\n");
     fprintf(stderr, "\t--dry (Only compute the mesh)\n");
-    fprintf(stderr, "\t--vshow (show voxels coordinates in output)\n");
+    fprintf(stderr, "\t--vshow (show voxels coordinates in output, may cause pdb numbering overflow!!!)\n");
 }
 
 void main_error(char *msg){
@@ -205,6 +209,9 @@ int main (int argc, char *argv[]) {
     bool vShow = false;
     bool pShow = false;
     bool noAtomCheck = false;
+    char *optH20      = NULL;
+    double radiusH20 = 1.4;
+
     struct option   long_opt[] =
     {
         {"help",              no_argument, NULL, 'h'},
@@ -221,6 +228,8 @@ int main (int argc, char *argv[]) {
         {"pshow",             no_argument, NULL, 'p'},
         {"dry",               no_argument, NULL, 'd'},
         {"force",             no_argument, NULL, 'f'},
+        //radiusH20
+        {"water",             required_argument, NULL, 'w'},
         {NULL,            0,               NULL,  0 }
     };
 
@@ -253,7 +262,10 @@ int main (int argc, char *argv[]) {
                 break;
             case 't':
                 searchType = strdup(optarg);
-                break;        
+                break;     
+            case 'w':
+                optH20     = strdup(optarg);
+                break;
             case 'd':
                 dry = true;
                 break;            
@@ -289,9 +301,9 @@ int main (int argc, char *argv[]) {
         sprintf(ERROR_LOG, "Wrong search type \"%s\"\n", searchType);
         main_error(ERROR_LOG);
     }
-    cellDim = optCellDim != NULL ? atof(optCellDim) : cellDim;
-    spacing = optBeadSpc != NULL ? atof(optBeadSpc) : spacing;
-    
+    cellDim = optCellDim != NULL ? atof(optCellDim) :  cellDim;
+    spacing = optBeadSpc != NULL ? atof(optBeadSpc) :  spacing;
+    radiusH20 = optH20   != NULL ? atof(optH20)     : radiusH20;
             
         
     if( x_selector == NULL ||
@@ -317,7 +329,7 @@ int main (int argc, char *argv[]) {
     pdbCoordinateContainer = pdbFileToContainer(iFile);
     int nAtoms = 0;
     // NULL -> no Fibogrid yet
-    atom_t *atomList = CreateAtomListFromPdbContainer(pdbCoordinateContainer, &nAtoms, NULL, 1.4);
+    atom_t *atomList = CreateAtomListFromPdbContainer(pdbCoordinateContainer, &nAtoms, NULL, radiusH20);
 
     atom_t *xAtom    =  getAtomFromList(atomList, nAtoms, x_selectorElem);
     atom_t *yAtom    =  getAtomFromList(atomList, nAtoms, y_selectorElem);
