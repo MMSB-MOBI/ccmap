@@ -209,7 +209,7 @@ The atoms to connect must be solvent accessible and path search will operate ove
 ```
 ## Usage
 
-`./bin/pathfinder -x 'ILE:A:1:CA' -y 'LYS:A:13:N' -i ../tests/structures/small_peptide_noH_1model.pdb`
+`./bin/linky -x 'ILE:A:1:CA' -y 'LYS:A:13:N' -i ../tests/structures/small_peptide_noH_1model.pdb`
 
 ## Effect of parameters on search
 The path is guaranteed to be optimal but may take some time to run.

@@ -4,10 +4,10 @@
 GCC_FLAGS = -std=c99 -Wall -I./include -lm -pedantic 
 DEBUG=-g -D DEBUG -O0
 VALGRIND_ONLY=-g -O0;
-all: ccmap string pathfinder
+all: ccmap string linky
 
 debug: GCC_FLAGS += $(DEBUG)
-debug : pathfinder
+debug : linky
 
 valgrind: GCC_FLAGS += $(VALGRIND_ONLY)
 valgrind: pathfinder
@@ -19,7 +19,7 @@ ccmap: src/ccmap.c
 string: src/string_test.c
 	gcc -o bin/$@ $< $(GCC_FLAGS) 
 
-pathfinder: src/path_main.c
+linky: src/path_main.c
 	gcc -o bin/$@ $<  src/mesh_default.c src/molecular_object.c src/pdb_coordinates.c\
 					  src/my_string.c src/fibonacci.c src/atom_mapper.c src/miscellaneous.c\
 					  src/mesh.c src/decoygen.c src/cell_crawler.c src/encode.c src/sasa.c\

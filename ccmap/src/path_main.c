@@ -14,7 +14,7 @@
 
 void displayHelp(){
     fprintf(stderr, "\t---Find the shortest possible path between two atoms ---\n");
-    fprintf(stderr, "pathfinder -x <ATOM_SELECTOR> -y <ATOM_SELECTOR> -i <PDB_FILE_PATH>\n");
+    fprintf(stderr, "linky -x <ATOM_SELECTOR> -y <ATOM_SELECTOR> -i <PDB_FILE_PATH>\n");
     fprintf(stderr, "\nNote: ATOM_SELECTOR syntax specifies the following column separated pdb fields surrounded by single quotes:\n");
     fprintf(stderr, "resName:chainID:resNum:name\n\teg: \'LI1:B:301:CA\'\n");
     fprintf(stderr, "Options:\n");
