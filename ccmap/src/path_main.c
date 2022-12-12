@@ -203,7 +203,7 @@ int main (int argc, char *argv[]) {
     char defSearchType[] = "surf";
     char *searchType = NULL;
     char defaultOutFile[] = "structure_path.pdb";
-    const char    *short_opt = "hi:x:y:o:s:u:c:t:vpf";
+    const char    *short_opt = "hi:x:y:o:s:u:c:t:w:vpf";
     char ERROR_LOG[1024];
     bool dry = false;
     bool vShow = false;
