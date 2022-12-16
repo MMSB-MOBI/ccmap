@@ -10,7 +10,7 @@ debug: GCC_FLAGS += $(DEBUG)
 debug : linky
 
 valgrind: GCC_FLAGS += $(VALGRIND_ONLY)
-valgrind: pathfinder
+valgrind: linky
 
 #src/mesh_default.c deleted
 ccmap: src/ccmap.c

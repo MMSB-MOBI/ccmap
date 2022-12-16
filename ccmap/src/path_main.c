@@ -69,15 +69,19 @@ atom_t *getAtomFromList(atom_t *list, int i_max, stringList_t *selector) {
 // Reconstruct a thread of CA along polyline w/ decent spacings
 void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, \
                        meshContainer_t *meshContainer, path_t *best_walk, char segID,\
-                       double euclidStep) {
+                       double euclidStep, int *newCA, double *trailDist) {
                         
         double *pearl_x, *pearl_y, *pearl_z = NULL;
         char *pearl_chainID = NULL;
         char **pearl_resID, **pearl_resName, **pearl_name = NULL;
-        int newCA = createRecordArraysFromPath(best_walk, meshContainer,\
+        int status = createRecordArraysFromPath(best_walk, meshContainer,\
             &pearl_x, &pearl_y, &pearl_z, &pearl_chainID, &pearl_resID, &pearl_resName, &pearl_name,\
-            segID, euclidStep);    
-        appendArraysToPdbContainer(pdbContainer, newCA, \
+            segID, euclidStep, newCA, trailDist);
+            if(status == -1) {
+                fprintf(stderr, "Recaord Array Fatal Error\n");
+                exit(-1); 
+            }
+        appendArraysToPdbContainer(pdbContainer, *newCA, \
             pearl_x, pearl_y, pearl_z, pearl_chainID, pearl_resID, pearl_resName,  pearl_name);
         
 #ifdef DEBUG
@@ -86,8 +90,7 @@ void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, \
         free(data);
 #endif
         freeAtomListCreatorBuffers(pearl_x, pearl_y, pearl_z,\
-            pearl_chainID, pearl_resID, pearl_resName,  pearl_name, newCA);
-        
+            pearl_chainID, pearl_resID, pearl_resName,  pearl_name, *newCA);
 }
 
 // Debuging utility mapping and backmapping of arbirtray i,j,k coordinates
@@ -330,7 +333,7 @@ int main (int argc, char *argv[]) {
     int nAtoms = 0;
     // NULL -> no Fibogrid yet
     atom_t *atomList = CreateAtomListFromPdbContainer(pdbCoordinateContainer, &nAtoms, NULL, radiusH20);
-
+    printf("Applying H20 probe radius of %g A. to atomic solvant volume exclusion\n", radiusH20);
     atom_t *xAtom    =  getAtomFromList(atomList, nAtoms, x_selectorElem);
     atom_t *yAtom    =  getAtomFromList(atomList, nAtoms, y_selectorElem);
     
@@ -407,7 +410,11 @@ int main (int argc, char *argv[]) {
                 best_walk->stop->i, best_walk->stop->j,\
                 best_walk->stop->k);
         }
-        necklaceThreading(pdbCoordinateContainer, meshContainer, best_walk, necklaceID, spacing);
+      
+        int nPathBeads;
+        double trailingDist; 
+        necklaceThreading(pdbCoordinateContainer, meshContainer, best_walk, necklaceID, spacing, &nPathBeads, &trailingDist);
+        printf("Approximate linker length %g A.\n", spacing *(nPathBeads-1) + trailingDist + xAtom->_radiusASA + yAtom->_radiusASA);
         best_walk = destroyPath(best_walk);
         
 #ifdef DEBUG

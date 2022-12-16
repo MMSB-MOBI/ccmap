@@ -2,11 +2,12 @@
 #ifndef PATHFINDER_H
 #define PATHFINDER_H
 #include "molecular_object.h"
+#include "miscellaneous.h"
 #include "convex.h"
 #include <math.h>
 #include <mesh.h>
 
-#define DEFAULT_BWFS 999999
+#define DEFAULT_BWFS INFINITY
 
 typedef struct path {
     cell_t **cells;
@@ -38,7 +39,8 @@ void reallocErrorLog(int a, int b, char type[]);
 
 int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer,\
                                 double **x, double **y, double **z, char **chainID,\
-                                char ***resID, char ***resName, char ***pearl_name, char segID, double spacing);    
+                                char ***resID, char ***resName, char ***pearl_name, char segID, double spacing,\
+                                int *newCA, double *trailDist);    
        
 
 path_t *destroyPath(path_t *path);

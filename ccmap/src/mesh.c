@@ -741,3 +741,26 @@ setCells_t *destroySetCells(setCells_t *setCells){
     free(setCells);
     return NULL;
 }
+
+/*
+return the member ot the set, the closest to provided cell
+mode = 1 euclidean cell dist
+mode = 2 manh      dist 
+*/
+cell_t *selectFromSetCellByProx(setCells_t *set, cell_t *target, int mode) {
+    assert(set->size > 0);
+    cell_t *best = set->cells[0];
+    float best_c_dist = c_dist(set->cells[0], target);
+    float curr_c_dist;
+    if(mode == 1) {
+        for(int i = 1 ; i < set->size ; i++) {
+            curr_c_dist = c_dist(set->cells[i], target);
+            if (curr_c_dist < best_c_dist) {
+               best = set->cells[i];
+               best_c_dist = curr_c_dist;        
+            }
+        }
+    }            
+    return best;
+}
+

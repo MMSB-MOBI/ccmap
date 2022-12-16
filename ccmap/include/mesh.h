@@ -85,6 +85,7 @@ cell_t *getCellFromAtom(meshContainer_t *meshContainer, atom_t *atom);
 //void mesh(atom_t * atomList, int nAtom, double step);
 float c_dist(cell_t *a, cell_t *b);
 int manh_dist(cell_t *a, cell_t *b);
+cell_t *selectFromSetCellByProx(setCells_t *set, cell_t *target, int mode);
 
 //Debug Fn
 void printContactList(residue_t *residueList);

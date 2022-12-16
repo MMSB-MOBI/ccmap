@@ -18,7 +18,7 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
 #ifdef DEBUG
     fprintf(stderr, "-- Starting search for path -- \"%s\"\n", type);
 #endif
-
+    cell_t *cell_buff = NULL;
     // Basic point search algorithm    
     cell_t *cell_start = atomStart->inCell; 
     cell_t *cell_stop = atomStop->inCell;
@@ -50,12 +50,24 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
             fprintf(stderr, "Fatal: no solvant accessible STOP cell detected for %s\n", atomLog);
             return NULL;
         }
-        for(int i_stop = 0 ; i_stop < stop_cells->size ; i_stop++)
-            stop_cells->cells[i_stop]->isStop = true;
-        printf("\tstart/stop surfaces contain %d/%d voxels, one naive cell picking on each...\n",\
+        
+        /*printf("\tstart/stop surfaces contain %d/%d voxels, one naive cell picking on each...\n",\
             start_cells->size, stop_cells->size);
-        cell_start = start_cells->cells[0];
-        cell_stop  = stop_cells->cells[0];
+             cell_start = start_cells->cells[0];
+            cell_stop  = stop_cells->cells[0];
+        */
+       // All local surface voxel should be +/- equidistant from their volume center
+       // Let's try to select go/stop cell by prox with the other volume center
+        printf("\tstart/stop surfaces contain %d/%d voxels, picking closest to the other volume center cell ...\n",\
+            start_cells->size, stop_cells->size);
+        cell_buff = selectFromSetCellByProx(start_cells, cell_stop, 1);
+        cell_stop = selectFromSetCellByProx(stop_cells, cell_start, 1);
+        cell_start = cell_buff;        
+        // We try with a single stop cell
+        // cell_stop->isStop = true;
+        //for(int i_stop = 0 ; i_stop < stop_cells->size ; i_stop++)
+        //    stop_cells->cells[i_stop]->isStop = true;
+        
         start_cells = destroySetCells(start_cells);
         stop_cells  = destroySetCells(stop_cells);
     }
@@ -81,8 +93,25 @@ path_t *searchForPath(meshContainer_t *meshContainer,\
     
     path_t *path = backtrack(meshContainer, cell_start, cell_stop, type);
 
+    // Distance from 1st path cell to start atom
+    //cell_buff = path->cells[0]; 
+    cell_buff = path->start; // start is the first path cell
+    double x,y,z;
+   // char atomLog[81];
+    stringifyAtom(atomStart, atomLog);
+    meshToCartesian(meshContainer, cell_buff->i,\
+        cell_buff->j, cell_buff->k, &x, &y, &z);
+    
+    printf("Theoritical distance from 1st vox_path to start atom\n\tvoxel [%d %d %d] %g,%g,%g\n\tatom: %s\n\td=%g A.\n",\
+        cell_buff->i, cell_buff->j, cell_buff->k,
+        x, y, z, atomLog, euclideanDistance3(atomStart->x, atomStart->y, atomStart->z,\
+        x, y, z));
+    printf("Start/Stop atoms exclusion radius: %g / %g A.\n", atomStart->_radiusASA, atomStop->_radiusASA);
+    // Distance from last path cell to stop atom
+
     return path;
 }
+
 
 path_t *backtrack(meshContainer_t *meshContainer, cell_t *startCell, cell_t *stopCell, \
                   char *type) {
@@ -405,7 +434,7 @@ int cmpOffsetfunc (const void * a, const void * b) {
 // We should clean mem on realloc error exit
 int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, double **x, double **y, double **z,\
                                 char **chainID, char ***resID, char ***resName, char ***name,\
-                                char uID, double spacing) {
+                                char uID, double spacing, int *newCA, double *trailDist) {
     // Theoritical max number of created particules is the length of the path
     int maxNewAtomCount = self->len > 0 ? self->len  : 0;
     
@@ -432,7 +461,7 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
     , maxNewAtomCount, spacing);
 #endif
 
-    int newAtomCount = 0;
+    *newCA = 0;
     
     float last_x, last_y, last_z;
     // We consider 1st path cell as safe for particule creation   
@@ -446,17 +475,17 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
         if (iElem > 0)
             printf("Threading based on %g distance\n", euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z));
 #endif
-        (*chainID)[newAtomCount] = uID;
-        (*x)[newAtomCount] = x_prime;
-        (*y)[newAtomCount] = y_prime;
-        (*z)[newAtomCount] = z_prime;
-        sprintf(resSeqBuffer, "%d", newAtomCount + 1 );
-        (*resID)[newAtomCount] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
-        strcpy((*resID)[newAtomCount], resSeqBuffer);
-        (*resName)[newAtomCount] = malloc((strlen(baseResName) + 1) * sizeof(char));
-        strcpy((*resName)[newAtomCount], baseResName);
-        (*name)[newAtomCount] = malloc((strlen(baseName) + 1) * sizeof(char));
-        strcpy((*name)[newAtomCount], baseName);
+        (*chainID)[*newCA] = uID;
+        (*x)[*newCA] = x_prime;
+        (*y)[*newCA] = y_prime;
+        (*z)[*newCA] = z_prime;
+        sprintf(resSeqBuffer, "%d", *newCA + 1 );
+        (*resID)[*newCA] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
+        strcpy((*resID)[*newCA], resSeqBuffer);
+        (*resName)[*newCA] = malloc((strlen(baseResName) + 1) * sizeof(char));
+        strcpy((*resName)[*newCA], baseResName);
+        (*name)[*newCA] = malloc((strlen(baseName) + 1) * sizeof(char));
+        strcpy((*name)[*newCA], baseName);
 #ifdef DEBUG
         fprintf(stderr, "%f %f %f \'%s\' \'%s\' \'%c\' \'%s\'\n",\
             (*x)[newAtomCount], (*y)[newAtomCount], (*z)[newAtomCount],\
@@ -466,10 +495,11 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
         last_x = x_prime;
         last_y = y_prime;
         last_z = z_prime;
-        newAtomCount++;
+        *newCA = *newCA +1;
     }
 
-    double_swaper = (double *) realloc(*x, sizeof(double) * newAtomCount);
+    int newAtomCount = *newCA;
+    double_swaper = (double *) realloc(*x, sizeof(double) * newAtomCount );
     if(double_swaper == NULL) {
         reallocErrorLog(maxNewAtomCount, newAtomCount, "x coordinates");
         return -1;
@@ -517,11 +547,13 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
         return -1;
     }
     *name = char_array_swaper;
-    printf("Trailing space equals %gA\n", euclideanDistance3( last_x,  last_y, last_z,\
-                                                            x_prime, y_prime, z_prime));
-    printf("Threading of %d atoms w/ %gA spacing completed\n", newAtomCount, spacing);
+    *trailDist = euclideanDistance3( last_x,  last_y, last_z,\
+                    x_prime, y_prime, z_prime);
+    printf("Trailing space equals %gA\n", *trailDist);
+    printf("Threading of %d atoms w/ %gA spacing completed\n", *newCA, spacing);
     
-    return newAtomCount;
+   
+    return *newCA;
 }
 
 void reallocErrorLog(int a, int b, char type[]) {
