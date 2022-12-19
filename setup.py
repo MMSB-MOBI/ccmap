@@ -16,7 +16,8 @@ core = Extension('ccmap',
                          'ccmap/src/mesh.c', 'ccmap/src/transform_mesh.c', \
                          'ccmap/src/mesh_default.c', 'ccmap/src/fibonacci.c',\
                          'ccmap/src/miscellaneous.c', 'ccmap/src/sasa.c',\
-                         'ccmap/src/atom_mapper.c', 'ccmap/src/python_utils.c'\
+                         'ccmap/src/atom_mapper.c', 'ccmap/src/python_utils.c',\
+                            'ccmap/src/my_string.c'\
                             ],
               extra_compile_args=extra_compile_args
 		)

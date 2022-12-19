@@ -79,7 +79,10 @@ atom_map_t *readAtomMapperFromFile(char *filePath, float probeRadius) {
 atom_map_t *destroyAtomMapper(atom_map_t *aMap){
     int i, j;
 
-    for (i = 0 ; i < MAX_RESIDUE_TYPES ; i++) {
+    for (i = 0 ; i < MAX_RESIDUE_TYPES; i++) {
+        if (i >= aMap->length)
+            continue;
+        
         free(aMap->map[i].atom_payload_list);
         for(j = 0 ; j < aMap->map[i].names_length ; j++)
             free(aMap->map[i].names[j]);
@@ -91,7 +94,7 @@ atom_map_t *destroyAtomMapper(atom_map_t *aMap){
 }
 
 atom_map_t *createAtomMapper() {
-
+  
     atom_map_t *aMap = malloc(sizeof(atom_map_t));
     aMap->length      = 0;
     aMap->probeRadius = DEFAULT_RADIUS;
@@ -121,7 +124,7 @@ void addMapGroup(atom_map_t *aMap, char **atom_names, char *residue_names, float
     fprintf(stderr, "addMapGroup for following %s [%d nb_elem]:\n", residue_names, nb_elem);
     int c = 0;
     for (c = 0 ; c < nb_elem ; c++ )
-        fprintf(stderr, "%s\t%f\n", atom_names[c], radii[c]);
+        fprintf(stderr, "%s\t%f\n", atom_names[c], radii[c]);  
     */
 
     atom_payload_map_t *newGroup = &(aMap->map[aMap->length]);

@@ -1,3 +1,5 @@
+#ifndef CCMAP_UTIL_H_INCLUDED
+#define CCMAP_UTIL_H_INCLUDED
 #include <Python.h>
 #include <stdlib.h>
 #include "mesh.h"
@@ -32,3 +34,5 @@ void setBooleanFromParsing(PyObject *, bool *);
 
 atom_map_t *dictRadiiToAtomMapper(PyObject *atomRadiiPyDict);
 //void PyObject_ToChar(PyObject *source, char *target);
+
+#endif

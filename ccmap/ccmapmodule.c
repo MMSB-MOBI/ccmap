@@ -14,6 +14,8 @@
 #include "ccmapmodule_utils.h"
 #include "ccmapmodule_allocation.h"
 #include "python_utils.h"
+#include "my_string.h"
+
 //
 
 
@@ -82,6 +84,61 @@ destroyCcmapView(ccmapView);
 
 return rValue;
 }
+
+// We expect coor positions to be an array of conformations
+// TO DO
+static PyObject *np_read_multicoor(PyObject* self, PyObject* args, PyObject* kwargs) {
+static char *kwlist[] = {"", "", "", "", "", "rtype", "probe", NULL};
+
+PyArrayObject *positions, *names, *resnames, *resids, *segids = NULL;
+float probeRadius = 1.4;
+PyObject *atomRadiiDict  = NULL;
+if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
+                            "O!O!O!O!O!|$O!f", kwlist,\
+                           &PyArray_Type, &positions,
+                           &PyArray_Type, &names,
+                           &PyArray_Type, &resnames,
+                           &PyArray_Type, &resids,
+                           &PyArray_Type, &segids,
+                           &PyDict_Type, &atomRadiiDict,
+                            &probeRadius)) {
+    PyErr_SetString(PyExc_TypeError, "Wrong parameters for numpy coordinates reading tests");
+    return NULL;
+}
+PySys_WriteStderr("Running np_read_coor\n");
+
+atom_map_t *aMap = NULL;
+if (atomRadiiDict != NULL)
+    aMap = dictRadiiToAtomMapper(atomRadiiDict);
+
+atom_t *atomList = readFromNumpyArrays(positions, names, resnames, resids, segids, aMap, 1.4);
+int nbAtoms = (int) PyArray_SIZE(names);
+PySys_WriteStderr("==>%d\n", nbAtoms);
+
+ccmapView_t *ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + VDW_MAX) * 2, false, aMap != NULL);
+
+if(aMap != NULL)
+    aMap = destroyAtomMapper(aMap);
+
+if(atomList != NULL)
+   atomList = destroyAtomList(atomList, nbAtoms);
+
+
+
+#ifdef DEBUG
+string_t *sasaJson = jsonifySasaResults(ccmapView->sasaResults);
+printf("%s\n", sasaJson->value);
+destroyString(sasaJson);
+#endif
+
+PyObject *rValue = ccmapViewToSasaPyDict(ccmapView);
+
+destroyCcmapView(ccmapView);
+
+return rValue;
+}
+
+
 
 //https://scipy-lectures.org/advanced/interfacing_with_c/interfacing_with_c.html
 static PyObject *dummy_np(PyObject* self, PyObject* args, PyObject* kwargs) {

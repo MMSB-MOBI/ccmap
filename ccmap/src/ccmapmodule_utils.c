@@ -151,21 +151,25 @@ atom_map_t *dictRadiiToAtomMapper(PyObject *pyRadiiDictObject) {
     float *atom_radii_buffer;
     create_buffers(&atom_name_buffer, &atom_radii_buffer);
     atom_map_t *atom_map = createAtomMapper();
-    
+   // fprintf(stderr, "Original pyRadiiDictObject:%zd\n", Py_REFCNT(pyRadiiDictObject) );
+            
     // Atom data as list or tuple
     PyObject *(*get_item) (PyObject *, Py_ssize_t) = NULL;
     while (PyDict_Next(pyRadiiDictObject, &pos, &key, &value)) {
+        //fprintf(stderr, "key:%zd\n", Py_REFCNT(key) );
         Py_INCREF(key);
         PyObject_ToChar(key, resname);
         Py_DECREF(key);
-        
+        //fprintf(stderr, "key:%zd\n", Py_REFCNT(key) );
         nb_atom = PyList_Size(value);
         #ifdef DEBUG
         PySys_WriteStderr("Current Key is %s [%d atoms]\n", resname, nb_atom);
         #endif
         for (i_atom = 0 ; i_atom < nb_atom ; i_atom++) {
             pItem_atom_name_radius_tuple = PyList_GetItem(value, i_atom);
+           // fprintf(stderr, "atom_name_radius_tuple:%zd\n", Py_REFCNT(pItem_atom_name_radius_tuple) );
             Py_INCREF(pItem_atom_name_radius_tuple);
+          //  fprintf(stderr, "atom_name_radius_tuple:%zd\n", Py_REFCNT(pItem_atom_name_radius_tuple) );
             if(get_item == NULL)
                 get_item = PyTuple_Check(pItem_atom_name_radius_tuple) ? \
                             PyTuple_GetItem :\
@@ -183,11 +187,18 @@ atom_map_t *dictRadiiToAtomMapper(PyObject *pyRadiiDictObject) {
             Py_DECREF(pyObj_atom_radius);       
 
             Py_DECREF(pItem_atom_name_radius_tuple);
+            
+          /*
+           fprintf(stderr,\
+            "atom loop members:\n\tpyObj_atom_name:%zd\n\pyObj_atom_radius:%zd\n\pItem_atom_name_radius_tuple:%zd\n",\
+            Py_REFCNT(pyObj_atom_name),  Py_REFCNT(pyObj_atom_radius),  Py_REFCNT(pyObj_atom_radius) );
+            */
         }
         addMapGroup(atom_map, atom_name_buffer, resname, atom_radii_buffer, nb_atom);
        
     }
-    Py_DECREF(pyRadiiDictObject); // not sure
+    //Py_DECREF(pyRadiiDictObject); // Do not do that !!
+    //fprintf(stderr, "==>pyRadiiDictObject:%zd\n", Py_REFCNT(pyRadiiDictObject) );
     destroy_buffers(atom_name_buffer, atom_radii_buffer);
     return atom_map;
 }
