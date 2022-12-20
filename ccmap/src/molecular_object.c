@@ -139,7 +139,7 @@ bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo) {
         atomListTo->y = atomListFrom->y;
         atomListTo->z = atomListFrom->z;
         if(atomListFrom->f_grid != NULL) 
-           atomListTo->f_grid = computeFiboGrid(atomListTo->x, atomListTo->y, atomListTo->z, atomListTo->_radiusASA);
+            updateFiboGrid(atomListTo->f_grid, atomListTo->x, atomListTo->y, atomListTo->z);
         
         atomListFrom = atomListFrom->nextAtomList;
         atomListTo   = atomListTo->nextAtomList;
@@ -147,6 +147,26 @@ bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo) {
     
     return atomListTo == NULL && atomListFrom == NULL;
 }
+
+/*
+Update atomList coordinates, recomputing fiboSphere
+*/
+void updateCoordinates(atom_t *atomList, coordinates_t *coordinates) {
+    
+    int curr_index = 0;
+    atom_t *currAtom = atomList;
+    while (currAtom != NULL) {
+        currAtom->x = coordinates[curr_index].x;
+        currAtom->y = coordinates[curr_index].y;
+        currAtom->z = coordinates[curr_index].z;
+        if(currAtom->f_grid != NULL) 
+            updateFiboGrid(currAtom->f_grid, currAtom->x, currAtom->y, currAtom->z);
+        
+        currAtom = currAtom->nextAtomList;
+        curr_index++;
+    }
+}
+
 
 residue_t *createResidue(atom_t *atom, int n) {
     #ifdef DEBUG
@@ -375,8 +395,106 @@ fprintf(stderr, "freeAtomListCreatorBuffers over even-sized buffers of %d items\
     free(name);
 }
 
+// A simple nbFrame x nbAtoms 2_uple storing individual ASA and frac foreach residues along the frame
+sasaFrame_t *createSasaFrame(atom_t *atomList, int nbFrame) {
+    sasaFrame_t *sasaFrame = malloc(sizeof(sasaFrame_t));
+    sasaFrame->nbFrame = nbFrame;
+    sasaFrame->residueList = createResidueList(atomList);
+    sasaFrame->nbRes = sasaFrame->residueList->length; // or -1 :p
+    
+    sasaFrame->sasa2upleArray = malloc(sasaFrame->nbFrame * sizeof(sasa2uple_t *));
+    for (int i = 0 ; i < sasaFrame->nbFrame ; i++ )
+        sasaFrame->sasa2upleArray[i] = malloc( sasaFrame->nbRes * sizeof(sasa2uple_t) );
+
+    return sasaFrame;
+}
+
+sasaFrame_t *destroySasaFrame(sasaFrame_t *sasaFrame) {
+    for (int i = 0 ; i < sasaFrame->nbFrame ; i++ )
+            free(sasaFrame->sasa2upleArray[i]);
+    free(sasaFrame->sasa2upleArray);
+    destroyResidueList(sasaFrame->residueList);
+    free(sasaFrame);
+    return NULL;
+}   
+
+
 //https://numpy.org/doc/stable/user/c-info.how-to-extend.html#example
 #ifdef AS_PYTHON_EXTENSION
+
+/* Read multi coordinates atom specs */
+atom_t *readFromNumpyArraysFrame(coorFrame_t *coorFrame, PyObject *positionFrame,\
+                                PyArrayObject *_names, PyArrayObject *_resnames,\
+                                PyArrayObject *_resids, PyArrayObject *_segids,\
+                                atom_map_t *aMap, float probeRadius) {
+    
+    // We copy all coordinates frame
+    *coorFrame = createFrameFromPyArrayList(positionFrame);
+    // We read-in 1st coordinates again to create the atom_t list
+    PyObject *firstPositions = PyList_GetItem(positions, 0);
+    Py_INCREF(firstPositions);  
+    atom_t *atomList = readFromNumpyArrays(firstPositions, names, resnames, resids, segids, aMap, probeRadius);
+    Py_DECREF(firstPositions);
+    return atomList;
+}
+
+/*
+Copy a list of numpy "positions" arrays into a native C structure
+*/
+
+coorFrame_t *destroyCoorFrame(coorFrame_t *coorFrame, int optIndex) {
+    int nbFrame2Del = optIndex == -1 ? coorFrame->nbFrame : optIndex;
+    for (int i = 0; i < nbFrame2Del ; i++)
+        free(coorFrame->coordinates);
+    free(coorFrame);
+    return NULL;
+}
+
+coorFrame_t *createFrameFromPyArrayList(PyObject *positionArrayList) {
+    
+    PyArrayObject *positionsBuffer = NULL;
+    PyObject *x, *y, *z;
+   
+    coorFrame_t *coorFrame = malloc(sizeof(coorFrame_t));
+    coorFrame->nbFrame     = (int)PyList_Size(positionArrayList);
+    coorFrame->nbAtom      = -1;
+    coorFrame->coordinates = malloc( coorFrame->nbFrame * sizeof(coordinates_t *) );
+
+    int cLen = 0;
+    for (int iFrame = 0 ; iFrame < coorFrame->nbFrame ; iFrame++) {
+        positionsBuffer = (PyArrayObject *)PyList_GetItem(positionArrayList, iFrame);
+        Py_INCREF(positionsBuffer);
+    
+        cLen = (int)PyArray_SIZE(positionsBuffer);
+        if(coorFrame->nbAtom == -1)
+            coorFrame->nbAtom = cLen;
+        if(coorFrame->nbAtom != cLen) {
+            coorFrame = destroyCoorFrame(coorFrame, iFrame - 1 );
+            PySys_WriteStderr("Fatal: Missmatch in coordinates array sizes\n");
+            break;
+        }
+
+        coorFrame->coordinates[iFrame] = malloc( coorFrame->nbAtom * sizeof(coordinates_t) );
+
+        for (int iAtom = 0 ; iAtom < coorFrame->nbAtom ; iAtom++) {
+            x = PyArray_GETITEM(positionsBuffer, PyArray_GETPTR2(positionsBuffer, iAtom, 0) );
+            y = PyArray_GETITEM(positionsBuffer, PyArray_GETPTR2(positionsBuffer, iAtom, 1) );
+            z = PyArray_GETITEM(positionsBuffer, PyArray_GETPTR2(positionsBuffer, iAtom, 2) );
+
+            coorFrame->coordinates[iFrame][iAtom].x = (float)PyFloat_AS_DOUBLE(x);
+            coorFrame->coordinates[iFrame][iAtom].y = (float)PyFloat_AS_DOUBLE(y);
+            coorFrame->coordinates[iFrame][iAtom].z = (float)PyFloat_AS_DOUBLE(z);
+        
+            Py_DECREF(x);
+            Py_DECREF(y);
+            Py_DECREF(z);
+        }
+        Py_DECREF(positionsBuffer);
+    }
+
+    return coorFrame;
+}
+
 atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
                             PyArrayObject *_resnames,  PyArrayObject *_resids, PyArrayObject *_segids,\
                             atom_map_t *aMap, float probeRadius){

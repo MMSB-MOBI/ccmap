@@ -93,6 +93,39 @@ fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius) {
     return fibo_grid;
 }
 
+
+void updateFiboGrid(fibo_grid_t *fibo_grid, float x, float y, float z) {
+    #ifdef DEBUG
+    fprintf(stderr, "Starting update atomicFiboGrid [%g, %g, %g] r=%f\n", x, y, z, radius);
+    #endif
+  
+    
+    int phi_prime = 0;
+    float theta, phi;
+    fibo_grid->center.x = x;
+    fibo_grid->center.y = y;
+    fibo_grid->center.z = z;
+    // fibo_grid->radius; Already set
+    float radius = fibo_grid->radius;
+
+    for (int i_spot = 0 ; i_spot < FIBO_K14 ; i_spot++) {
+        phi_prime = phi_prime + FIBO_K13 <= FIBO_K14 ? \
+                    phi_prime + FIBO_K13 :\
+                    phi_prime + FIBO_K13 - FIBO_K14;
+
+		theta = acos(1.0-2.0 * i_spot / FIBO_K14);
+		phi   = 2.0 * M_PI * phi_prime / FIBO_K14;
+		fibo_grid->spots[i_spot].x = x + radius * sin(theta)*cos(phi);
+        fibo_grid->spots[i_spot].y = y + radius * sin(theta)*sin(phi);
+        fibo_grid->spots[i_spot].z = z + radius * cos(theta);
+        fibo_grid->spots[i_spot].buried = false;
+    }
+
+    return fibo_grid;
+}
+
+
+
 fibo_grid_t *createFiboGrid(int n) {
     fibo_grid_t *fibo_grid = malloc( sizeof(fibo_grid_t) );
     fibo_grid->spots = malloc( sizeof(spot_t) * n );

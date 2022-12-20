@@ -25,6 +25,7 @@ typedef struct {
 atom_payload_map_t;
 
 typedef struct {
+    float maxRadius;
     uint16_t length;
     atom_payload_map_t *map;
     float probeRadius;

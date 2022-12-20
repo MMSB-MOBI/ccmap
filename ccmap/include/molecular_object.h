@@ -73,6 +73,31 @@ typedef struct atomPair {
     struct atomPair *next;
 } atomPair_t;
 
+typedef struct coordinates {
+    float x;
+    float y;
+    float z;
+   // atom_t *atom;
+} coordinates_t;
+
+typedef struct coorFrame {
+    struct coordinates **coordinates;
+    int nbFrame;
+    int nbAtom;
+} coorFrame_t;
+
+typedef struct sasa2uple {
+    double SASA;
+    double frac;
+} sasa2uple_t;
+
+typedef struct sasaFrame {
+    struct sasa2uple **sasa2upleArray;
+    int nbFrame;
+    int nbRes;
+    residueList_t *residueList;
+} sasaFrame_t;
+
 
 // Display molecular objects content
 void printResidueList(FILE *stream, residueList_t *residueList);
@@ -101,14 +126,25 @@ unsigned int atomListLen(atom_t *);
 // Following one should v its prtotype expanded and spreaded in code
 atom_t *createBareboneAtom(int n, double x, double y, double z, char chainID, char *resID, \
                            char *resName, char *name);
+void updateCoordinates(atom_t *atomList, coordinates_t *coordinates);
 atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius);
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius);
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
 
+sasaFrame_t *createSasaFrame(atom_t *atomList, int nbFrame);
+sasaFrame_t *destroySasaFrame(sasaFrame_t *sasaFrame);
+
 atom_t *legacy_readCoordinates(char *fname, int *_nAtom);
 #ifdef AS_PYTHON_EXTENSION
     atom_t *readFromNumpyArrays(PyArrayObject *positions, PyArrayObject *names,\
-                                PyArrayObject *resnames,  PyArrayObject *resids, PyArrayObject *segids, atom_map_t *aMap, float probeRadius);
+                                PyArrayObject *resnames,  PyArrayObject *resids,\
+                                PyArrayObject *segids, atom_map_t *aMap, float probeRadius);
+    coorFrame_t *createFrameFromPyArrayList(PyObject *positionArrayList);
+    atom_t *readFromNumpyArraysFrame(coorFrame_t *coorFrame, PyObject *positionFrame,\
+                                PyArrayObject *_names, PyArrayObject *_resnames,\
+                                PyArrayObject *_resids, PyArrayObject *_segids,\
+                                atom_map_t *aMap, float probeRadius);
+
 #endif
 
 #endif

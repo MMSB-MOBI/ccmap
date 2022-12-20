@@ -68,6 +68,8 @@ atom_map_t *readAtomMapperFromFile(char *filePath, float probeRadius) {
         //fprintf(stderr, ">>%s<<\n", cur_name);
         radii_buffer[cur_count] = cur_radius;
         cur_count++;
+        if(cur_radius > atom_map->maxRadius)
+            atom_map->maxRadius = cur_radius;
     }
     addMapGroup(atom_map, atom_name_buffer, prev_resname, radii_buffer, cur_count); 
 
@@ -95,7 +97,8 @@ atom_map_t *destroyAtomMapper(atom_map_t *aMap){
 
 atom_map_t *createAtomMapper() {
   
-    atom_map_t *aMap = malloc(sizeof(atom_map_t));
+    atom_map_t *aMap  = malloc(sizeof(atom_map_t));
+    aMap->maxRadius   = 0;
     aMap->length      = 0;
     aMap->probeRadius = DEFAULT_RADIUS;
     aMap->map         = malloc(MAX_RESIDUE_TYPES * sizeof(atom_payload_map_t));

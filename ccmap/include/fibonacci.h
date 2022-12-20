@@ -35,5 +35,6 @@ void printFiboGrid(fibo_grid_t *fibo_grid);
 string_t *jsonifyFiboGrid(fibo_grid_t *fibo_grid);
 void FiboSpherePairProcess(fibo_grid_t *iFiboGrid, fibo_grid_t *jFiboGrid);
 void computeFiboSphereASA(fibo_grid_t *iFiboGrid, float *totalSurface, float *buriedSurface);
+void updateFiboGrid(fibo_grid_t *fibo_grid, float x, float y, float z);
 
 #endif

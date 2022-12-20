@@ -58,11 +58,12 @@ atom_map_t *aMap = NULL;
 if (atomRadiiDict != NULL)
     aMap = dictRadiiToAtomMapper(atomRadiiDict);
 
-atom_t *atomList = readFromNumpyArrays(positions, names, resnames, resids, segids, aMap, 1.4);
+atom_t *atomList = readFromNumpyArrays(positions, names, resnames, resids, segids, aMap, probeRadius);
 int nbAtoms = (int) PyArray_SIZE(names);
 PySys_WriteStderr("==>%d\n", nbAtoms);
 
-ccmapView_t *ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + VDW_MAX) * 2, false, aMap != NULL);
+//ccmapView_t *ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + VDW_MAX) * 2, false, aMap != NULL);
+ccmapView_t *ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + aMap->maxRadius) * 2, false, aMap != NULL);
 
 if(aMap != NULL)
     aMap = destroyAtomMapper(aMap);
@@ -90,40 +91,52 @@ return rValue;
 static PyObject *np_read_multicoor(PyObject* self, PyObject* args, PyObject* kwargs) {
 static char *kwlist[] = {"", "", "", "", "", "rtype", "probe", NULL};
 
-PyArrayObject *positions, *names, *resnames, *resids, *segids = NULL;
+PyArrayObject *names, *resnames, *resids, *segids = NULL;
 float probeRadius = 1.4;
-PyObject *atomRadiiDict  = NULL;
+PyObject *atomRadiiDict, *positionFrame = NULL;
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
                             "O!O!O!O!O!|$O!f", kwlist,\
-                           &PyArray_Type, &positions,
+                           &PyList_Type,  &positionFrame,
                            &PyArray_Type, &names,
                            &PyArray_Type, &resnames,
                            &PyArray_Type, &resids,
                            &PyArray_Type, &segids,
-                           &PyDict_Type, &atomRadiiDict,
+                           &PyDict_Type,  &atomRadiiDict,
                             &probeRadius)) {
-    PyErr_SetString(PyExc_TypeError, "Wrong parameters for numpy coordinates reading tests");
+    PyErr_SetString(PyExc_TypeError, "Wrong parameters for multi_coor tests");
     return NULL;
 }
-PySys_WriteStderr("Running np_read_coor\n");
+PySys_WriteStderr("Running np_read_multicoor probe radius is %f\n", probeRadius);
 
 atom_map_t *aMap = NULL;
 if (atomRadiiDict != NULL)
     aMap = dictRadiiToAtomMapper(atomRadiiDict);
 
-atom_t *atomList = readFromNumpyArrays(positions, names, resnames, resids, segids, aMap, 1.4);
+coorFrame_t coorFrame;
+atom_t *atomList = readFromNumpyArraysFrame(&coorFrame, positionFrame, names, resnames, resids, segids, aMap, probeRadius);
 int nbAtoms = (int) PyArray_SIZE(names);
-PySys_WriteStderr("==>%d\n", nbAtoms);
 
-ccmapView_t *ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + VDW_MAX) * 2, false, aMap != NULL);
+sasaFrame_t *sasaFrame = NULL;
 
+Py_BEGIN_ALLOW_THREADS
+ccmapView_t *ccmapView = NULL;
+sasaFrame = createSasaFrame(atomList, coorFrame.nbFrame);
+for( int iFrame = 0 ; iFrame < coorFrame.nbFrame ; iFrame++ ) {
+    updateCoordinates(atomList, &coorFrame.coordinates[iFrame]);// Overhead 1st loop
+    //ccmapView_t *ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + VDW_MAX) * 2, false, aMap != NULL);
+    ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + aMap->maxRadius) * 2, false, aMap != NULL);
+    //append results to simple triplets of values
+    cmapViewAppendToSasaFrame(ccmapView, sasaFrame, iFrame);
+    // We need to reset Fibosphere status ?
+    destroyCcmapView(ccmapView);
+}
 if(aMap != NULL)
     aMap = destroyAtomMapper(aMap);
 
 if(atomList != NULL)
    atomList = destroyAtomList(atomList, nbAtoms);
-
-
+destroyCoorFrame(&coorFrame, -1);
+Py_END_ALLOW_THREADS
 
 #ifdef DEBUG
 string_t *sasaJson = jsonifySasaResults(ccmapView->sasaResults);
@@ -131,14 +144,9 @@ printf("%s\n", sasaJson->value);
 destroyString(sasaJson);
 #endif
 
-PyObject *rValue = ccmapViewToSasaPyDict(ccmapView);
-
-destroyCcmapView(ccmapView);
-
+PyObject *rValue = buildPyValueSasaFrame(sasaFrame);
 return rValue;
 }
-
-
 
 //https://scipy-lectures.org/advanced/interfacing_with_c/interfacing_with_c.html
 static PyObject *dummy_np(PyObject* self, PyObject* args, PyObject* kwargs) {
@@ -212,7 +220,8 @@ PySys_WriteStderr("Running sasa with 1 coordinates sets probeRadius=%f bEncode:%
 #endif
 
 
-ccmapView_t *ccmapView = atomicContactMap(atomList, iLen, NULL, 0, (probeRadius + VDW_MAX) * 2, bEncode, aMap != NULL);
+//ccmapView_t *ccmapView = atomicContactMap(atomList, iLen, NULL, 0, (probeRadius + VDW_MAX) * 2, bEncode, aMap != NULL);
+ccmapView_t *ccmapView = atomicContactMap(atomList, iLen, NULL, 0, (probeRadius + aMap->maxRadius) * 2, bEncode, aMap != NULL);
 destroyAtomList(atomList, iLen);
 aMap   = destroyAtomMapper(aMap);
 
@@ -810,6 +819,10 @@ static PyMethodDef ccmapMethods[] = {
     },    
     {"np_read_coor",
     (PyCFunction/*PyCFunctionWithKeywords*/)np_read_coor, METH_VARARGS | METH_KEYWORDS,
+        "Reading numpy atom coordinates\n"\
+    },
+    {"np_read_multicoor",
+    (PyCFunction/*PyCFunctionWithKeywords*/)np_read_multicoor, METH_VARARGS | METH_KEYWORDS,
         "Reading numpy atom coordinates\n"\
     },
     {

@@ -11,6 +11,7 @@ bool PyArray_Equal(PyObject *arrayI, PyObject *arrayJ) ;
 PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode);
 PyObject *ccmapViewsToPyObject(ccmapView_t **, int, bool);
 PyObject *ccmapViewToSasaPyDict(ccmapView_t *ccmapView);
+void cmapViewAppendToSasaFrame(ccmapView, sasaFrame, iFrame);
 
 int PyObject_AsDouble(PyObject *py_obj, double *x);
 int PyList_IntoDoubleArray(PyObject *py_list, double *x, int size);
@@ -31,7 +32,7 @@ void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, c
 atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, float probeRadius, atom_map_t *aMap);
 void setBooleanFromParsing(PyObject *, bool *);
 
-
+PyObject *buildPyValueSasaFrame(sasaFrame_t *sasaFrame);
 atom_map_t *dictRadiiToAtomMapper(PyObject *atomRadiiPyDict);
 //void PyObject_ToChar(PyObject *source, char *target);
 

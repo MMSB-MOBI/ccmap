@@ -4,6 +4,50 @@
 #include "python_utils.h"
 // --------------------- Utility Functions ---------------------  XREF SANITY ?
 
+// COUNT REF NOT CHECKED
+PyObject *buildPyValueSasaFrame(sasaFrame_t *sasaFrame){
+    int len = sasaFrame->nbRes;
+    PyObject *resnameList   = PyList_New(len);
+    PyObject *resIDList     = PyList_New(len);
+    PyObject *chainIDList   = PyList_New(len);
+    
+    int i = 0;
+    residue_t *currResidue = sasaFrame->residueList->root;
+    while(currResidue != NULL) {
+        PyList_SetItem(resnameList,\
+            i, Py_BuildValue("s", currResidue->resName));
+        PyList_SetItem(resIDList,\
+            i, Py_BuildValue("s", currResidue->resID));
+        if (currResidue->ext_chainID != NULL)
+            PyList_SetItem(chainIDList,\
+                i, Py_BuildValue("s", currResidue->ext_chainID));
+        else
+            PyList_SetItem(chainIDList,\
+                i, Py_BuildValue("C", (int)currResidue->chainID));
+    }
+
+    PyObject *sasaTupListFrame = PyList_New((Py_ssize_t) sasaFrame->nbFrame);
+    PyObject *currSasaTupList  = NULL;
+    PyObject *currSasaTup      = NULL;
+    for (int i = 0 ; i < sasaFrame->nbFrame ; i++ ) {
+        currSasaTupList = PyList_New(len); // DONT DECREF, i guess. -> Check its refcnt is one at the end of inner loop
+        for (int j = 0 ; j < sasaFrame->nbRes ; j++ ) {
+            currSasaTup = Py_BuildValue("(f,f)",\
+                sasaFrame->sasa2upleArray[i][j].SASA,\
+                sasaFrame->sasa2upleArray[i][j].frac);
+            PyList_SetItem(currSasaTupList, j, currSasaTup); 
+        }
+        PyList_SetItem(sasaTupListFrame, i, currSasaTupList);
+    }
+    PyObject *results = PyDict_New();
+    PyDict_SetItemString(results, "resname", resnameList); // Apparently doesnt steal ref of inserted obj, so we dont decref
+    PyDict_SetItemString(results, "resID", resIDList);
+    PyDict_SetItemString(results, "chainID", chainIDList);
+    PyDict_SetItemString(results, "sasa", sasaTupListFrame);
+
+    return results;
+}
+
 // Returns a representaion of ccmapVie as a PyList if bEncode, PyString otherwise
 PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode) {
     
@@ -18,7 +62,17 @@ PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode) {
     }
     return Py_BuildValue("s", ccmapView->asJSON);
 }
-
+// TO DO
+/* pure C storage of current SASA calculations into sasaFrame accumulator */
+void cmapViewAppendToSasaFrame(ccmapView_t *ccmapView, sasaFrame_t *sasaFrame, int iFrame){
+    sasaResults_t *sasaResults = ccmapView->sasaResults;
+    residue_sasa_t curResSasa;
+    for (int i = 0; i < sasaResults->length ; i++) {
+        curResSasa = sasaResults->residueSasaList[i];
+        sasaFrame->sasa2upleArray[iFrame][i].SASA = curResSasa.nominal - curResSasa.buried;
+        sasaFrame->sasa2upleArray[iFrame][i].frac = curResSasa.frac;
+    }
+}
 //https://docs.python.org/3/c-api/arg.html#building-values
 // https://web.mit.edu/people/amliu/vrut/python/ext/buildValue.html
 PyObject *ccmapViewToSasaPyDict(ccmapView_t *ccmapView) {
@@ -182,7 +236,8 @@ atom_map_t *dictRadiiToAtomMapper(PyObject *pyRadiiDictObject) {
             pyObj_atom_radius = get_item(pItem_atom_name_radius_tuple, 1);
             Py_INCREF(pyObj_atom_radius);
             atom_radii_buffer[i_atom] =  (float) PyFloat_AsDouble(pyObj_atom_radius);
-            
+            if(atom_radii_buffer[i_atom] > atom_map->maxRadius)
+                atom_map->maxRadius = atom_radii_buffer[i_atom];
             Py_DECREF(pyObj_atom_name);
             Py_DECREF(pyObj_atom_radius);       
 
