@@ -11,7 +11,7 @@ bool PyArray_Equal(PyObject *arrayI, PyObject *arrayJ) ;
 PyObject *ccmapViewToPyObject(ccmapView_t *ccmapView, bool bEncode);
 PyObject *ccmapViewsToPyObject(ccmapView_t **, int, bool);
 PyObject *ccmapViewToSasaPyDict(ccmapView_t *ccmapView);
-void cmapViewAppendToSasaFrame(ccmapView, sasaFrame, iFrame);
+void cmapViewAppendToSasaFrame(ccmapView_t *ccmapView, sasaFrame_t *sasaFrame, int iFrame);
 
 int PyObject_AsDouble(PyObject *py_obj, double *x);
 int PyList_IntoDoubleArray(PyObject *py_list, double *x, int size);

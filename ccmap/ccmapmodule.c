@@ -112,17 +112,21 @@ atom_map_t *aMap = NULL;
 if (atomRadiiDict != NULL)
     aMap = dictRadiiToAtomMapper(atomRadiiDict);
 
-coorFrame_t coorFrame;
+coorFrame_t *coorFrame;
 atom_t *atomList = readFromNumpyArraysFrame(&coorFrame, positionFrame, names, resnames, resids, segids, aMap, probeRadius);
-int nbAtoms = (int) PyArray_SIZE(names);
+
+npy_intp *shapes = PyArray_SHAPE(names);
+int nbAtoms = shapes[0];
 
 sasaFrame_t *sasaFrame = NULL;
 
-Py_BEGIN_ALLOW_THREADS
+
+//Py_BEGIN_ALLOW_THREADS
 ccmapView_t *ccmapView = NULL;
-sasaFrame = createSasaFrame(atomList, coorFrame.nbFrame);
-for( int iFrame = 0 ; iFrame < coorFrame.nbFrame ; iFrame++ ) {
-    updateCoordinates(atomList, &coorFrame.coordinates[iFrame]);// Overhead 1st loop
+sasaFrame = createSasaFrame(atomList, coorFrame->nbFrame);
+for( int iFrame = 0 ; iFrame < coorFrame->nbFrame ; iFrame++ ) {
+    fprintf(stderr, "Processing frame %d/%d\n", iFrame + 1, coorFrame->nbFrame);
+    updateCoordinates(atomList, coorFrame->coordinates[iFrame]);// Overhead 1st loop
     //ccmapView_t *ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + VDW_MAX) * 2, false, aMap != NULL);
     ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + aMap->maxRadius) * 2, false, aMap != NULL);
     //append results to simple triplets of values
@@ -135,8 +139,8 @@ if(aMap != NULL)
 
 if(atomList != NULL)
    atomList = destroyAtomList(atomList, nbAtoms);
-destroyCoorFrame(&coorFrame, -1);
-Py_END_ALLOW_THREADS
+destroyCoorFrame(coorFrame, -1);
+//Py_END_ALLOW_THREADS
 
 #ifdef DEBUG
 string_t *sasaJson = jsonifySasaResults(ccmapView->sasaResults);
@@ -145,7 +149,9 @@ destroyString(sasaJson);
 #endif
 
 PyObject *rValue = buildPyValueSasaFrame(sasaFrame);
+destroySasaFrame(sasaFrame);
 return rValue;
+//return NULL;
 }
 
 //https://scipy-lectures.org/advanced/interfacing_with_c/interfacing_with_c.html
@@ -823,7 +829,7 @@ static PyMethodDef ccmapMethods[] = {
     },
     {"np_read_multicoor",
     (PyCFunction/*PyCFunctionWithKeywords*/)np_read_multicoor, METH_VARARGS | METH_KEYWORDS,
-        "Reading numpy atom coordinates\n"\
+        "Reading numpy atom coordinates new!\n"\
     },
     {
     "sasa", (PyCFunction/*PyCFunctionWithKeywords*/)free_sasa_compute, METH_VARARGS | METH_KEYWORDS,

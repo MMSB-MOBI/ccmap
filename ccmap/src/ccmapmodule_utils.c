@@ -24,11 +24,13 @@ PyObject *buildPyValueSasaFrame(sasaFrame_t *sasaFrame){
         else
             PyList_SetItem(chainIDList,\
                 i, Py_BuildValue("C", (int)currResidue->chainID));
+        currResidue = currResidue->nextResidueList;
     }
 
     PyObject *sasaTupListFrame = PyList_New((Py_ssize_t) sasaFrame->nbFrame);
     PyObject *currSasaTupList  = NULL;
     PyObject *currSasaTup      = NULL;
+    
     for (int i = 0 ; i < sasaFrame->nbFrame ; i++ ) {
         currSasaTupList = PyList_New(len); // DONT DECREF, i guess. -> Check its refcnt is one at the end of inner loop
         for (int j = 0 ; j < sasaFrame->nbRes ; j++ ) {
@@ -144,12 +146,11 @@ PyObject *ccmapViewsToPyObject(ccmapView_t **ccmapViews, int nViews, bool bEncod
 
 int backMapCoordinates(atom_t *atomListRoot,  PyObject *pyDictObject) {
     PyObject *pItem;
-    Py_ssize_t n;
     atom_t *atomCurrent = atomListRoot;
     PyObject* pyObj_x = PyDict_GetItemString(pyDictObject, "x");
     PyObject* pyObj_y = PyDict_GetItemString(pyDictObject, "y");
     PyObject* pyObj_z = PyDict_GetItemString(pyDictObject, "z");
-    n = PyList_Size(pyObj_x);
+    Py_ssize_t n = PyList_Size(pyObj_x);
 
     int atomIndex = 0;
 

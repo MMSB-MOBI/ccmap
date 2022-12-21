@@ -133,6 +133,7 @@ void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, 
 
 sasaFrame_t *createSasaFrame(atom_t *atomList, int nbFrame);
 sasaFrame_t *destroySasaFrame(sasaFrame_t *sasaFrame);
+coorFrame_t *destroyCoorFrame(coorFrame_t *coorFrame, int optIndex);
 
 atom_t *legacy_readCoordinates(char *fname, int *_nAtom);
 #ifdef AS_PYTHON_EXTENSION
@@ -140,7 +141,7 @@ atom_t *legacy_readCoordinates(char *fname, int *_nAtom);
                                 PyArrayObject *resnames,  PyArrayObject *resids,\
                                 PyArrayObject *segids, atom_map_t *aMap, float probeRadius);
     coorFrame_t *createFrameFromPyArrayList(PyObject *positionArrayList);
-    atom_t *readFromNumpyArraysFrame(coorFrame_t *coorFrame, PyObject *positionFrame,\
+    atom_t *readFromNumpyArraysFrame(coorFrame_t **coorFrame, PyObject *positionFrame,\
                                 PyArrayObject *_names, PyArrayObject *_resnames,\
                                 PyArrayObject *_resids, PyArrayObject *_segids,\
                                 atom_map_t *aMap, float probeRadius);

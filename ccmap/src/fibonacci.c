@@ -120,8 +120,7 @@ void updateFiboGrid(fibo_grid_t *fibo_grid, float x, float y, float z) {
         fibo_grid->spots[i_spot].z = z + radius * cos(theta);
         fibo_grid->spots[i_spot].buried = false;
     }
-
-    return fibo_grid;
+    
 }
 
 

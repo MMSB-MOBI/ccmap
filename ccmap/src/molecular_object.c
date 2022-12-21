@@ -423,17 +423,19 @@ sasaFrame_t *destroySasaFrame(sasaFrame_t *sasaFrame) {
 #ifdef AS_PYTHON_EXTENSION
 
 /* Read multi coordinates atom specs */
-atom_t *readFromNumpyArraysFrame(coorFrame_t *coorFrame, PyObject *positionFrame,\
-                                PyArrayObject *_names, PyArrayObject *_resnames,\
-                                PyArrayObject *_resids, PyArrayObject *_segids,\
+atom_t *readFromNumpyArraysFrame(coorFrame_t **coorFrame, PyObject *positionFrame,\
+                                PyArrayObject *names, PyArrayObject *resnames,\
+                                PyArrayObject *resids, PyArrayObject *segids,\
                                 atom_map_t *aMap, float probeRadius) {
     
     // We copy all coordinates frame
     *coorFrame = createFrameFromPyArrayList(positionFrame);
     // We read-in 1st coordinates again to create the atom_t list
-    PyObject *firstPositions = PyList_GetItem(positions, 0);
-    Py_INCREF(firstPositions);  
-    atom_t *atomList = readFromNumpyArrays(firstPositions, names, resnames, resids, segids, aMap, probeRadius);
+    PyObject *firstPositions = PyList_GetItem(positionFrame, 0);
+   
+    Py_INCREF(firstPositions);
+    assert(PyArray_Check(firstPositions));
+    atom_t *atomList = readFromNumpyArrays((PyArrayObject*)firstPositions, names, resnames, resids, segids, aMap, probeRadius);
     Py_DECREF(firstPositions);
     return atomList;
 }
@@ -444,12 +446,14 @@ Copy a list of numpy "positions" arrays into a native C structure
 
 coorFrame_t *destroyCoorFrame(coorFrame_t *coorFrame, int optIndex) {
     int nbFrame2Del = optIndex == -1 ? coorFrame->nbFrame : optIndex;
-    for (int i = 0; i < nbFrame2Del ; i++)
-        free(coorFrame->coordinates);
+    for (int i = 0; i < nbFrame2Del ; i++) {
+        free(coorFrame->coordinates[i]);
+    }
+    free(coorFrame->coordinates);
     free(coorFrame);
     return NULL;
 }
-
+//https://stackoverflow.com/questions/26384129/calling-c-from-python-passing-list-of-numpy-pointers
 coorFrame_t *createFrameFromPyArrayList(PyObject *positionArrayList) {
     
     PyArrayObject *positionsBuffer = NULL;
@@ -465,7 +469,9 @@ coorFrame_t *createFrameFromPyArrayList(PyObject *positionArrayList) {
         positionsBuffer = (PyArrayObject *)PyList_GetItem(positionArrayList, iFrame);
         Py_INCREF(positionsBuffer);
     
-        cLen = (int)PyArray_SIZE(positionsBuffer);
+        
+        npy_intp *shapes = PyArray_SHAPE(positionsBuffer);
+        cLen = shapes[0];
         if(coorFrame->nbAtom == -1)
             coorFrame->nbAtom = cLen;
         if(coorFrame->nbAtom != cLen) {
@@ -475,20 +481,25 @@ coorFrame_t *createFrameFromPyArrayList(PyObject *positionArrayList) {
         }
 
         coorFrame->coordinates[iFrame] = malloc( coorFrame->nbAtom * sizeof(coordinates_t) );
-
         for (int iAtom = 0 ; iAtom < coorFrame->nbAtom ; iAtom++) {
+            //fprintf(stderr, "[%d/%d] %d / %d\n", iFrame, coorFrame->nbFrame, iAtom, coorFrame->nbAtom);
             x = PyArray_GETITEM(positionsBuffer, PyArray_GETPTR2(positionsBuffer, iAtom, 0) );
             y = PyArray_GETITEM(positionsBuffer, PyArray_GETPTR2(positionsBuffer, iAtom, 1) );
             z = PyArray_GETITEM(positionsBuffer, PyArray_GETPTR2(positionsBuffer, iAtom, 2) );
-
+        /*
+            fprintf(stderr, "\t[%d] %f %f %f\n",iAtom,\
+            (float)PyFloat_AS_DOUBLE(x), (float)PyFloat_AS_DOUBLE(y), (float)PyFloat_AS_DOUBLE(z));
+        */
             coorFrame->coordinates[iFrame][iAtom].x = (float)PyFloat_AS_DOUBLE(x);
             coorFrame->coordinates[iFrame][iAtom].y = (float)PyFloat_AS_DOUBLE(y);
             coorFrame->coordinates[iFrame][iAtom].z = (float)PyFloat_AS_DOUBLE(z);
-        
+            //fprintf(stderr, "\t Decrefin\n");
+            
             Py_DECREF(x);
             Py_DECREF(y);
             Py_DECREF(z);
         }
+        //fprintf(stderr, "iFrame %d Done??\n", iFrame);
         Py_DECREF(positionsBuffer);
     }
 
@@ -499,7 +510,8 @@ atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
                             PyArrayObject *_resnames,  PyArrayObject *_resids, PyArrayObject *_segids,\
                             atom_map_t *aMap, float probeRadius){
 
-    int nAtoms = (int) PyArray_SIZE(_names);
+    npy_intp *shapes = PyArray_SHAPE(_names);
+    int nAtoms = shapes[0];
    
     atom_t *atomList = malloc(nAtoms * sizeof(atom_t));
     PySys_WriteStderr(">>%d<<\n", nAtoms);
