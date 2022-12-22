@@ -25,6 +25,7 @@ PyObject *buildPyValueSasaFrame(sasaFrame_t *sasaFrame){
             PyList_SetItem(chainIDList,\
                 i, Py_BuildValue("C", (int)currResidue->chainID));
         currResidue = currResidue->nextResidueList;
+        i++;
     }
 
     PyObject *sasaTupListFrame = PyList_New((Py_ssize_t) sasaFrame->nbFrame);

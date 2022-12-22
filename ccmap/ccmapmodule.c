@@ -106,7 +106,7 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
     PyErr_SetString(PyExc_TypeError, "Wrong parameters for multi_coor tests");
     return NULL;
 }
-PySys_WriteStderr("Running np_read_multicoor probe radius is %f\n", probeRadius);
+//PySys_WriteStderr("Running np_read_multicoor probe radius is %f\n", probeRadius);
 
 atom_map_t *aMap = NULL;
 if (atomRadiiDict != NULL)
@@ -121,11 +121,11 @@ int nbAtoms = shapes[0];
 sasaFrame_t *sasaFrame = NULL;
 
 
-//Py_BEGIN_ALLOW_THREADS
+Py_BEGIN_ALLOW_THREADS
 ccmapView_t *ccmapView = NULL;
 sasaFrame = createSasaFrame(atomList, coorFrame->nbFrame);
 for( int iFrame = 0 ; iFrame < coorFrame->nbFrame ; iFrame++ ) {
-    fprintf(stderr, "Processing frame %d/%d\n", iFrame + 1, coorFrame->nbFrame);
+    //fprintf(stderr, "Processing frame %d/%d\n", iFrame + 1, coorFrame->nbFrame);
     updateCoordinates(atomList, coorFrame->coordinates[iFrame]);// Overhead 1st loop
     //ccmapView_t *ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + VDW_MAX) * 2, false, aMap != NULL);
     ccmapView = atomicContactMap(atomList, nbAtoms, NULL, 0, (probeRadius + aMap->maxRadius) * 2, false, aMap != NULL);
@@ -140,7 +140,7 @@ if(aMap != NULL)
 if(atomList != NULL)
    atomList = destroyAtomList(atomList, nbAtoms);
 destroyCoorFrame(coorFrame, -1);
-//Py_END_ALLOW_THREADS
+Py_END_ALLOW_THREADS
 
 #ifdef DEBUG
 string_t *sasaJson = jsonifySasaResults(ccmapView->sasaResults);

@@ -218,9 +218,16 @@ residueList_t *createResidueList(atom_t * atomList) {
     prev_atom = curr_atom;
     curr_atom = curr_atom->nextAtomList;
 
+    bool isSameChain;
     while(curr_atom != NULL) {
-        if (strcmp(curr_atom->resID, residue_head->resID) == 0
-            && curr_atom->chainID == residue_head->chainID) {
+        isSameChain = true;
+        if (curr_atom->chainID != residue_head->chainID)
+            isSameChain = false;
+        if(curr_atom->ext_chainID != NULL)
+            if (strcmp(curr_atom->ext_chainID, residue_head->ext_chainID) !=0)
+                isSameChain = false;
+        if (strcmp(curr_atom->resID, residue_head->resID) == 0\
+            && isSameChain) {
             prev_atom->nextResidueAtom = curr_atom;
             residue_head->nAtoms += 1;
         } else {
@@ -514,7 +521,7 @@ atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
     int nAtoms = shapes[0];
    
     atom_t *atomList = malloc(nAtoms * sizeof(atom_t));
-    PySys_WriteStderr(">>%d<<\n", nAtoms);
+   
     PyObject *name, *x, *y, *z, *resid, *resname, *segid = NULL;
     char buffer[81];
    
