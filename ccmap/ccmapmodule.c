@@ -16,17 +16,6 @@
 #include "python_utils.h"
 #include "my_string.h"
 
-//
-
-
-
-// #include "fibonacci.h"
-
-
-//#include "sasa.h"
-
-//https://docs.python.org/3/c-api/intro.html#reference-count-details
-
 
 struct module_state {
     PyObject *error;
@@ -34,7 +23,16 @@ struct module_state {
 
 #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
 
-static PyObject *np_read_coor(PyObject* self, PyObject* args, PyObject* kwargs) {
+
+/*
+            ----- SASA module functions -----
+
+    1°/ MDAnalysis Numpy arrays as input
+    2°/ PDBcoordinates as input
+*/
+
+
+static PyObject *sasa_single_mda_np_arrays(PyObject* self, PyObject* args, PyObject* kwargs) {
 static char *kwlist[] = {"", "", "", "", "", "rtype", "probe", NULL};
 
 PyArrayObject *positions, *names, *resnames, *resids, *segids = NULL;
@@ -86,9 +84,7 @@ destroyCcmapView(ccmapView);
 return rValue;
 }
 
-// We expect coor positions to be an array of conformations
-// TO DO
-static PyObject *np_read_multicoor(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject *sasa_multi_mda_np_arrays(PyObject* self, PyObject* args, PyObject* kwargs) {
 static char *kwlist[] = {"", "", "", "", "", "rtype", "probe", NULL};
 
 PyArrayObject *names, *resnames, *resids, *segids = NULL;
@@ -154,7 +150,7 @@ return rValue;
 //return NULL;
 }
 
-//https://scipy-lectures.org/advanced/interfacing_with_c/interfacing_with_c.html
+//A dummy function to test numpy C-API
 static PyObject *dummy_np(PyObject* self, PyObject* args, PyObject* kwargs) {
 static char *kwlist[] = {"", NULL};
 
@@ -313,6 +309,11 @@ ccmap_compute_list_cleanOnExit(ccmapViewList, \
 return PyListResults;
 }
 
+/*
+
+    Contact map related module functions
+
+*/
 
 /*
     Python API exposed as cmap
@@ -823,13 +824,13 @@ static PyMethodDef ccmapMethods[] = {
     (PyCFunction/*PyCFunctionWithKeywords*/)dummy_np, METH_VARARGS | METH_KEYWORDS,
         "Testing numpy API\n"\
     },    
-    {"np_read_coor",
-    (PyCFunction/*PyCFunctionWithKeywords*/)np_read_coor, METH_VARARGS | METH_KEYWORDS,
-        "Reading numpy atom coordinates\n"\
+    {"sasa_mda",
+    (PyCFunction/*PyCFunctionWithKeywords*/)sasa_single_mda_np_arrays, METH_VARARGS | METH_KEYWORDS,
+        "Computing sasa over a single structure provided as MDAnalysis numpy arrays\n"\
     },
-    {"np_read_multicoor",
-    (PyCFunction/*PyCFunctionWithKeywords*/)np_read_multicoor, METH_VARARGS | METH_KEYWORDS,
-        "Reading numpy atom coordinates new!\n"\
+    {"sasa_multi_mda",
+    (PyCFunction/*PyCFunctionWithKeywords*/)sasa_multi_mda_np_arrays, METH_VARARGS | METH_KEYWORDS,
+        "Computing sasa over a several structure provided as lists of MDAnalysis numpy arrays\n"\
     },
     {
     "sasa", (PyCFunction/*PyCFunctionWithKeywords*/)free_sasa_compute, METH_VARARGS | METH_KEYWORDS,

@@ -217,7 +217,7 @@ atom_map_t *dictRadiiToAtomMapper(PyObject *pyRadiiDictObject) {
         PyObject_ToChar(key, resname);
         Py_DECREF(key);
         //fprintf(stderr, "key:%zd\n", Py_REFCNT(key) );
-        nb_atom = PyList_Size(value);
+        nb_atom = PyList_Size(value);     
         #ifdef DEBUG
         PySys_WriteStderr("Current Key is %s [%d atoms]\n", resname, nb_atom);
         #endif
@@ -297,7 +297,6 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, float probeRadius
     Py_ssize_t n             = PyList_Size(pyObj_x);
     *nAtoms = (int) n;
 
-   
     /*
     All unpackXX calls do memory allocation, which needs subsequent common call to freeBuffer()
     */
@@ -312,15 +311,15 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, float probeRadius
     char *chainID;
     unpackChainID(pyObj_chainID, &chainID);
     Py_DECREF(    pyObj_chainID);
-
+   
     char **resSeq;
     unpackString(pyObj_resSeq, &resSeq);
     Py_DECREF(   pyObj_resSeq);
-
+   
     char **resName;
     unpackString(pyObj_resName, &resName);
     Py_DECREF(   pyObj_resName);
-
+   
     char **atomName;
     unpackString(pyObj_atomName, &atomName);
     Py_DECREF(   pyObj_atomName);

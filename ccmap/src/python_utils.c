@@ -181,24 +181,19 @@ int unpackChainID(PyObject *pListChainID, char **buffer) {
     n = PyList_Size(pListChainID);
    
     *buffer = PyMem_New(char, n);
+    const char *s;
+    Py_ssize_t sLen;
 
-    PyObject* objectsRepresentation;
-    const char* s;
     for (i = 0 ; i < n ; i++) {
         pItem = PyList_GetItem(pListChainID, i);
         Py_INCREF(pItem);
-
-        objectsRepresentation = PyObject_Repr(pItem); //Now a unicode object, new ref
+        if(!PyUnicode_Check(pItem))
+            return NULL;
+        
+        s = PyUnicode_AsUTF8AndSize(pItem, &sLen);
         Py_DECREF(pItem);
         
-        PyObject* pyStr = PyUnicode_AsUTF8String(objectsRepresentation); // NEw ref
-        Py_DECREF(objectsRepresentation);
-        
-        s = PyBytes_AS_STRING(pyStr);
-        Py_DECREF(pyStr);
-
-        (*buffer)[i] = s[1];
-
+        (*buffer)[i] = s[0];
     }
     
     return 1;
@@ -213,29 +208,23 @@ int unpackString(PyObject *pListOfStrings, char ***buffer) {
     n = PyList_Size(pListOfStrings);
     *buffer = PyMem_New(char*, n);
 
-    PyObject* objectsRepresentation;
     const char* s;
-    int sLen;
+    Py_ssize_t sLen;
     for (i = 0; i < n ; i++) {
         pItem = PyList_GetItem(pListOfStrings, i);
         Py_INCREF(pItem);
 
-        objectsRepresentation = PyObject_Repr(pItem); //Now a unicode object
+        if(!PyUnicode_Check(pItem))
+            return NULL;
+        
+        s = PyUnicode_AsUTF8AndSize(pItem, &sLen);
         Py_DECREF(pItem);
-
-        PyObject* pyStr = PyUnicode_AsUTF8String(objectsRepresentation);
-        Py_DECREF(objectsRepresentation);
-
-        s = PyBytes_AS_STRING(pyStr);
-        Py_DECREF(pyStr);
-
-        sLen =  strlen(s); // This corresponds to the actual string surrounded by \' , ie : 'MYTSRING'
-       
-        (*buffer)[i] = PyMem_New(char, sLen - 1);
-        for (int j = 1 ; j < sLen - 1 ; j++) {
-            (*buffer)[i][j - 1] = s[j];
-        }
-        (*buffer)[i][sLen - 2] = '\0';
+     
+        (*buffer)[i] = PyMem_New(char, sLen + 1);
+        for (int j = 0 ; j < sLen; j++) 
+            (*buffer)[i][j] = s[j];
+        
+        (*buffer)[i][sLen] = '\0';
     }
 
     return 1;
@@ -263,6 +252,23 @@ double *unpackCoordinates(PyObject *pListCoor) {
     return buffer;
 }
 
+
+
+/* FKN Unicode new style api 
+    PyListObject *Py_keylist = PyDict_Keys(pyDictObject);
+    Py_ssize_t n_key         = PyList_Size(Py_keylist);
+    PyObject *buf;
+    const char *toto;
+    Py_ssize_t sLen;
+    for(int i = 0 ; i < n_key ; i++) {
+        buf = PyList_GetItem(Py_keylist, i);
+        if(PyUnicode_Check(buf)){
+            fprintf(stderr, "key %d is unicode of length %d\n", i,(int)PyUnicode_GET_LENGTH(buf));
+            toto = PyUnicode_AsUTF8AndSize(buf, &sLen);
+            fprintf(stderr, "key is %s\n", toto);
+        }
+    }
+*/
 void PyObject_ToChar(PyObject *source, char *target) {
     PyObject *pyStr = PyUnicode_AsUTF8String(source);
     const char *s = PyBytes_AS_STRING(pyStr);
