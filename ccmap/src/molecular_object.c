@@ -51,7 +51,7 @@ void printAtomList(atom_t *atomList, FILE *stream) {
     fprintf(stderr, "Starting printAtomList\n");
     #endif
     atom_t *curr_atom = &atomList[0];
-    char atomString[81];
+    char atomString[1024];
     while(curr_atom->nextAtomList != NULL) {
         stringifyAtom(curr_atom, atomString);
         fprintf(stream == NULL ? stdout : stream,\
@@ -71,9 +71,9 @@ char *stringifyAtomList(atom_t *atomList) {
     atom_t *curr_atom = &atomList[0];
     
 
-    char atomString[81];
+    char atomString[1024];
     #ifdef DEBUG
-        char dbgBuffer[81];
+        char dbgBuffer[1024];
         int i = 0;
     #endif
     
@@ -103,7 +103,7 @@ char *stringifyAtomList(atom_t *atomList) {
 }
 
 void stringifyAtom(atom_t *atom, char *atomString) {
-    sprintf(atomString, "%s %s %s %c %f %f %f", atom->name, atom->resName, atom->resID, atom->chainID, atom->x, atom->y, atom->z);    
+    sprintf(atomString, "%s %s %s %c %f %f %f %f %f", atom->name, atom->resName, atom->resID, atom->chainID, atom->x, atom->y, atom->z, atom->_VDWradius, atom->_radiusASA);    
 }
 void stringifyResidue(residue_t *residue, char *residueString) {
     sprintf(residueString, "%s %s %c [i=%d, n=%d]", residue->resName, residue->resID, residue->chainID, residue->index, residue->nAtoms);
@@ -129,17 +129,24 @@ void jsonifyAtomPair(atomPair_t *atomPair, char *jsonString) {
     sprintf(jsonString, "[ %s, %s, %5.3g ]", atomA, atomB, atomPair->dist);
 }
 
-// Replace the x,yz values of the 2nd list by those of the 1st list
-// Compute fibo grid if needed
-// Returns true if lists were of even size  -> FIBO GRID RADIAUS VALUE IS WRONG
+/*
+Replace the x,yz values of the 2nd list by those of the 1st list
+Fibo grid managment needs checking, should be ok 
+*/
 bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo) {
     
     while (atomListFrom != NULL && atomListTo != NULL ) {
+        float dx, dy, dz;
+        dx = atomListFrom->x - atomListTo->x;
+        dy = atomListFrom->y - atomListTo->y;
+        dz = atomListFrom->z - atomListTo->z;
+        
         atomListTo->x = atomListFrom->x;
         atomListTo->y = atomListFrom->y;
         atomListTo->z = atomListFrom->z;
+
         if(atomListFrom->f_grid != NULL) 
-            updateFiboGrid(atomListTo->f_grid, atomListTo->x, atomListTo->y, atomListTo->z);
+            updateFiboGrid(atomListTo->f_grid, dx, dy, dz);
         
         atomListFrom = atomListFrom->nextAtomList;
         atomListTo   = atomListTo->nextAtomList;
@@ -149,18 +156,23 @@ bool applyCoordinates(atom_t *atomListFrom, atom_t *atomListTo) {
 }
 
 /*
-Update atomList coordinates, recomputing fiboSphere
+Update atomList coordinates, translating fiboSphere
 */
 void updateCoordinates(atom_t *atomList, coordinates_t *coordinates) {
     
     int curr_index = 0;
+    float dx, dy, dz;
     atom_t *currAtom = atomList;
     while (currAtom != NULL) {
+        dx = coordinates[curr_index].x - currAtom->x;
+        dy = coordinates[curr_index].y - currAtom->y;
+        dz = coordinates[curr_index].z - currAtom->z;
         currAtom->x = coordinates[curr_index].x;
         currAtom->y = coordinates[curr_index].y;
         currAtom->z = coordinates[curr_index].z;
+
         if(currAtom->f_grid != NULL) 
-            updateFiboGrid(currAtom->f_grid, currAtom->x, currAtom->y, currAtom->z);
+            updateFiboGrid(currAtom->f_grid, dx, dy, dz);
         
         currAtom = currAtom->nextAtomList;
         curr_index++;
@@ -361,7 +373,7 @@ unsigned int atomListLen(atom_t *atomList) {
     return n;
 }
 // Here we add 
-atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius) {
+atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius, bool sasaHiRes) {
     #ifdef DEBUG
     fprintf(stderr, "Entering CreateAtomListFromPdbContainer bASA: %s probe radius:%g\n", aMap != NULL ?"true":"false",probeRadius);
     #endif
@@ -374,7 +386,7 @@ atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateCo
     char **atomName;
     //atom_t *atomList = NULL;
     *nAtom = pdbContainerToArrays(pdbCoordinateContainer, &x, &y, &z, &chainID, &resSeq, &resName, &atomName);
-    atom_t *atomList = readFromArrays(*nAtom, x, y, z, chainID, resSeq, resName, atomName, aMap, probeRadius);
+    atom_t *atomList = readFromArrays(*nAtom, x, y, z, chainID, resSeq, resName, atomName, aMap, probeRadius, sasaHiRes);
     
     freeAtomListCreatorBuffers(x, y, z, chainID, resSeq, resName, atomName, *nAtom);
     #ifdef DEBUG
@@ -433,7 +445,7 @@ sasaFrame_t *destroySasaFrame(sasaFrame_t *sasaFrame) {
 atom_t *readFromNumpyArraysFrame(coorFrame_t **coorFrame, PyObject *positionFrame,\
                                 PyArrayObject *names, PyArrayObject *resnames,\
                                 PyArrayObject *resids, PyArrayObject *segids,\
-                                atom_map_t *aMap, float probeRadius) {
+                                atom_map_t *aMap, float probeRadius, bool sasaHiRes) {
     
     // We copy all coordinates frame
     *coorFrame = createFrameFromPyArrayList(positionFrame);
@@ -442,7 +454,7 @@ atom_t *readFromNumpyArraysFrame(coorFrame_t **coorFrame, PyObject *positionFram
    
     Py_INCREF(firstPositions);
     assert(PyArray_Check(firstPositions));
-    atom_t *atomList = readFromNumpyArrays((PyArrayObject*)firstPositions, names, resnames, resids, segids, aMap, probeRadius);
+    atom_t *atomList = readFromNumpyArrays((PyArrayObject*)firstPositions, names, resnames, resids, segids, aMap, probeRadius, sasaHiRes);
     Py_DECREF(firstPositions);
     return atomList;
 }
@@ -515,7 +527,7 @@ coorFrame_t *createFrameFromPyArrayList(PyObject *positionArrayList) {
 
 atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
                             PyArrayObject *_resnames,  PyArrayObject *_resids, PyArrayObject *_segids,\
-                            atom_map_t *aMap, float probeRadius){
+                            atom_map_t *aMap, float probeRadius, bool sasaHiRes){
 
     npy_intp *shapes = PyArray_SHAPE(_names);
     int nAtoms = shapes[0];
@@ -595,7 +607,7 @@ atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
         atomList[i]._radiusASA += probeRadius;
 
         atomList[i].f_grid = aMap != NULL\
-            ? computeFiboGrid(atomList[i].x, atomList[i].y, atomList[i].z, atomList[i]._radiusASA)\
+            ? computeFiboGrid(atomList[i].x, atomList[i].y, atomList[i].z, atomList[i]._radiusASA, sasaHiRes)\
             : NULL;
         
     }
@@ -631,7 +643,9 @@ atom_t *createBareboneAtom(int n, double x, double y, double z, char chainID, ch
     return atom;
 }
 // MEMORY ALLOCATION OF atom LIST
-atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius) { // Resume here
+atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, \
+                       char **resID, char **resName, char **name, atom_map_t *aMap,\
+                       float probeRadius, bool sasaHiRes) { // Resume here
     #ifdef DEBUG
         char DBG_buffer[200];
         sprintf(DBG_buffer, "readFromArray: Running readFromArrays over %d atoms\n", nAtoms);
@@ -668,18 +682,19 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
         if (n > 0)
             atomList[n - 1].nextAtomList = &atomList[n];
         
-        atomList[n]._radiusASA = aMap != NULL ? getRadius(aMap, atomList[n].name, atomList[n].resName)\
-                                           : VDW_DEFAULT; 
+        atomList[n]._VDWradius = aMap != NULL ? getRadius(aMap, atomList[n].name, atomList[n].resName)\
+                                      : VDW_DEFAULT; 
+        atomList[n]._radiusASA = atomList[n]._VDWradius; 
         atomList[n]._radiusASA += probeRadius;
         #ifdef DEBUG
             sprintf(DBG_buffer, "Assiging to atom object[%g, %g, %g] %c, %s, %s %s %g\n",\
                 atomList[n].x, atomList[n].y, atomList[n].z, atomList[n].chainID, atomList[n].resID,\
-                atomList[n].resName, atomList[n].name, atomList[n]._radiusASA);
+                atomList[n].resName, atomList[n].name, atomList[n]._VDWradius, atomList[n]._radiusASA);
             printOnContextStderr(DBG_buffer);
         #endif
         
         if (aMap != NULL) {           
-            atomList[n].f_grid = computeFiboGrid(atomList[n].x, atomList[n].y, atomList[n].z, atomList[n]._radiusASA);
+            atomList[n].f_grid = computeFiboGrid(atomList[n].x, atomList[n].y, atomList[n].z, atomList[n]._radiusASA, sasaHiRes);
             #ifdef DEBUG
             printOnContextStderr("f_grid build succesfull\n");
             #endif

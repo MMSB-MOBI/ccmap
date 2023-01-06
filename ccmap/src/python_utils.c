@@ -193,7 +193,7 @@ int unpackChainID(PyObject *pListChainID, char **buffer) {
         s = PyUnicode_AsUTF8AndSize(pItem, &sLen);
         Py_DECREF(pItem);
         
-        (*buffer)[i] = s[0];
+        (*buffer)[i] = s[0];       
     }
     
     return 1;

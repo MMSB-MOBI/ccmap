@@ -170,6 +170,7 @@ bool updateResidueContact(cellCrawler_t *cellCrawler, atom_t *iAtom, atom_t *jAt
 
 void pairwiseCellEnumerate(cellCrawler_t *cellCrawler, cell_t *refCell, cell_t *targetCell) {    
     #ifdef DEBUG                        
+    
     fprintf(stderr, "Starting pairwiseCellEnumerate\n");
     fprintf(stderr, "\n*********\nPairwise cell atom enumeration: [%d %d %d] %d elts // [%d %d %d] %d elts\n", \
                                                         refCell->i, refCell->j, refCell->k, refCell->memberCount,\
@@ -198,8 +199,35 @@ void pairwiseCellEnumerate(cellCrawler_t *cellCrawler, cell_t *refCell, cell_t *
                 cellCrawler->atomPairProcess(cellCrawler, iAtom, jAtom);
                 if(cellCrawler->fiboSphereProcess != NULL)
                     cellCrawler->fiboSphereProcess(iAtom->f_grid, jAtom->f_grid);
+                
 
             }
+          //  fprintf(stderr, "oo%soo%so\n", iAtom->name, iAtom->resID);
+           // FIBO_DBG
+           /*
+            int nbc = 0;
+            if(strcmp(iAtom->name, "BB") == 0 && strcmp(iAtom->resID, "26 ")==0) {
+                char atomString[1024];
+                stringifyAtom(iAtom, atomString);
+                fprintf(stderr,"fibo match at %s\n", atomString);
+ 
+                for (int k = 0; k < iAtom->f_grid->n_spots ; k++)
+                    if(iAtom->f_grid->spots[k].buried)
+                        nbc++;
+                fprintf(stderr, "bc: %d / %d\n", nbc, iAtom->f_grid->n_spots);
+            }
+            nbc=0;
+            if(strcmp(jAtom->name, "BB") == 0 && strcmp(jAtom->resID, "26 ")==0) {
+                char atomString[1024];
+                stringifyAtom(jAtom, atomString);
+                fprintf(stderr,"fibo match at %s\n", atomString);
+ 
+                for (int k = 0; k < jAtom->f_grid->n_spots ; k++)
+                    if(jAtom->f_grid->spots[k].buried)
+                        nbc++;
+                fprintf(stderr, "bc: %d / %d\n", nbc, jAtom->f_grid->n_spots);
+            }
+            */
             jAtom = jAtom->nextCellAtom;
         }
         iAtom = iAtom->nextCellAtom;

@@ -64,6 +64,7 @@ typedef struct atom {
     struct atom *nextResidueAtom;
     unsigned int index;
     struct fibo_grid *f_grid;
+    float _VDWradius; // for login purpose
 } atom_t;
 
 typedef struct atomPair {
@@ -127,8 +128,8 @@ unsigned int atomListLen(atom_t *);
 atom_t *createBareboneAtom(int n, double x, double y, double z, char chainID, char *resID, \
                            char *resName, char *name);
 void updateCoordinates(atom_t *atomList, coordinates_t *coordinates);
-atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius);
-atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius);
+atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius, bool sasaHiRes);
+atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius, bool sasaHiRes);
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
 
 sasaFrame_t *createSasaFrame(atom_t *atomList, int nbFrame);
@@ -139,12 +140,12 @@ atom_t *legacy_readCoordinates(char *fname, int *_nAtom);
 #ifdef AS_PYTHON_EXTENSION
     atom_t *readFromNumpyArrays(PyArrayObject *positions, PyArrayObject *names,\
                                 PyArrayObject *resnames,  PyArrayObject *resids,\
-                                PyArrayObject *segids, atom_map_t *aMap, float probeRadius);
+                                PyArrayObject *segids, atom_map_t *aMap, float probeRadius, bool sasaHiRes);
     coorFrame_t *createFrameFromPyArrayList(PyObject *positionArrayList);
     atom_t *readFromNumpyArraysFrame(coorFrame_t **coorFrame, PyObject *positionFrame,\
                                 PyArrayObject *_names, PyArrayObject *_resnames,\
                                 PyArrayObject *_resids, PyArrayObject *_segids,\
-                                atom_map_t *aMap, float probeRadius);
+                                atom_map_t *aMap, float probeRadius, bool sasaHiRes);
 
 #endif
 

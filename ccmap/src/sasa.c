@@ -37,6 +37,45 @@ string_t *jsonifySasaResults(sasaResults_t *sasaResults) {
 }
 
 
+/*
+    Create fibonacci grids for all atoms of the current resdue
+    and compute its sasa independently of the rest of the structure
+*/
+float selfResidueSasa(residue_t *residue, bool sasaHiRes) {
+    fibo_grid_t **fiboGridArray = malloc(sizeof(fibo_grid_t*) * (int)residue->nAtoms);
+    atom_t *curr_atom = residue->elements;
+    for (int iAtom = 0 ; iAtom < residue->nAtoms ; iAtom++) {
+        fiboGridArray[iAtom] = computeFiboGrid(curr_atom->x, curr_atom->y, \
+                                curr_atom->z, curr_atom->_radiusASA, sasaHiRes);
+        curr_atom = curr_atom->nextResidueAtom;
+    }
+    for (int i = 0; i < residue->nAtoms - 1 ; i++)
+        for (int j = i + 1; j < residue->nAtoms ; j++)
+            FiboSpherePairProcess(fiboGridArray[i], fiboGridArray[j]);
+    
+    float tSurface = 0;
+    float bSurface = 0;
+    float _tSurface = 0;
+    float _bSurface = 0;
+    for (int i = 0; i < residue->nAtoms ; i++) {        
+        computeFiboSphereASA(fiboGridArray[i], &_tSurface, &_bSurface);
+        printf("%f\n", _tSurface);
+        bSurface += _bSurface;
+        tSurface += _tSurface;
+        _bSurface = 0;
+        _tSurface = 0;
+    }
+    printf("\n--------------------\nSelf SASA of following residue is %f %f\n", tSurface, bSurface);
+    printResidue(NULL, residue);
+
+    for (int i = 0; i < residue->nAtoms ; i++)
+        destroyFiboGrid(fiboGridArray[i]);
+    free(fiboGridArray);
+
+    return tSurface - bSurface;
+}
+
+
 /* Compute freeSASA over a list of residues */
 sasaResults_t *computeSasaResults(residueList_t *residueList) {
     #ifdef DEBUG
@@ -52,7 +91,14 @@ sasaResults_t *computeSasaResults(residueList_t *residueList) {
         fprintf(stderr, "computeSasaResults: Iteration start\n");
     #endif
     residue_sasa_t *currentResidueSasa = NULL;
+    float currentSelfSasa = 0;
     while(currentResidue != NULL) {
+        // FIBO_DBG
+        /*
+        if(strcmp(currentResidue->resName, "GLY") ==0 && strcmp(currentResidue->resID, "26 ") ==0)
+            fprintf(stderr, "Hello!!");
+        */
+        //currentSelfSasa = selfResidueSasa(currentResidue);
 
         currentResidueSasa = &sasaResults->residueSasaList[iResidue];
         strcpy(currentResidueSasa->resname, currentResidue->resName);

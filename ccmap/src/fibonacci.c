@@ -1,11 +1,15 @@
 #include "fibonacci.h"
 
+
 // Compute Sphere Total and buried ASA
 // We compute by decreasing total
-
 void computeFiboSphereASA(fibo_grid_t *iFiboGrid, float *totalSurface, float *buriedSurface) {
+
     *(totalSurface)   = (float)iFiboGrid->radius * (float)iFiboGrid->radius * (float)4.00 * M_PI;
-    float spotSurface = *(totalSurface) / (float)FIBO_K14;
+
+
+  //  fprintf(stderr, "%d\n",iFiboGrid->n_spots);
+    float spotSurface = *(totalSurface) / (float)iFiboGrid->n_spots;
     *(buriedSurface)  = 0;
     #ifdef DEBUG
         int nbBuried = 0;
@@ -22,7 +26,7 @@ void computeFiboSphereASA(fibo_grid_t *iFiboGrid, float *totalSurface, float *bu
     }
     #ifdef DEBUG
         fprintf(stderr, "Computing FiboSphereASA rad = %f total = %f  buried %f [unit:%f, nb_buried:%d, total:%d]\n",\
-                iFiboGrid->radius, *totalSurface, *buriedSurface, spotSurface, nbBuried, FIBO_K14);
+                iFiboGrid->radius, *totalSurface, *buriedSurface, spotSurface, nbBuried, FIBO_K);
     #endif
     
     // Rounding up and summing can exceed exact total
@@ -62,13 +66,16 @@ void FiboSpherePairProcess(fibo_grid_t *iFiboGrid, fibo_grid_t *jFiboGrid) {
 }
 
 
-
-fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius) {
+fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius, bool hres) {
+    int FIBO_K = hres ? FIBO_K20 : FIBO_K14;
+    int FIBO_K_min1 = hres ? FIBO_K19 : FIBO_K13;
+    
     #ifdef DEBUG
     fprintf(stderr, "Starting atomicFiboGrid [%g, %g, %g] r=%f\n", x, y, z, radius);
     #endif
     //radius = 50;
-    fibo_grid_t *fibo_grid = createFiboGrid(FIBO_K14);
+  
+    fibo_grid_t *fibo_grid = createFiboGrid(FIBO_K);
     
     int phi_prime = 0;
     float theta, phi;
@@ -77,13 +84,13 @@ fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius) {
     fibo_grid->center.z = z;
     fibo_grid->radius   = radius;
 
-    for (int i_spot = 0 ; i_spot < FIBO_K14 ; i_spot++) {
-        phi_prime = phi_prime + FIBO_K13 <= FIBO_K14 ? \
-                    phi_prime + FIBO_K13 :\
-                    phi_prime + FIBO_K13 - FIBO_K14;
+    for (int i_spot = 0 ; i_spot < FIBO_K ; i_spot++) {
+        phi_prime = phi_prime + FIBO_K_min1 <= FIBO_K ? \
+                    phi_prime + FIBO_K_min1 :\
+                    phi_prime + FIBO_K_min1 - FIBO_K;
 
-		theta = acos(1.0-2.0 * i_spot / FIBO_K14);
-		phi   = 2.0 * M_PI * phi_prime / FIBO_K14;
+		theta = acos(1.0-2.0 * i_spot / FIBO_K);
+		phi   = 2.0 * M_PI * phi_prime / FIBO_K;
 		fibo_grid->spots[i_spot].x = x + radius * sin(theta)*cos(phi);
         fibo_grid->spots[i_spot].y = y + radius * sin(theta)*sin(phi);
         fibo_grid->spots[i_spot].z = z + radius * cos(theta);
@@ -93,8 +100,21 @@ fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius) {
     return fibo_grid;
 }
 
-
-void updateFiboGrid(fibo_grid_t *fibo_grid, float x, float y, float z) {
+void updateFiboGrid(fibo_grid_t *fibo_grid, float dx, float dy, float dz) {
+    fibo_grid->center.x += dx;
+    fibo_grid->center.y += dy;
+    fibo_grid->center.z += dz;
+    for (int i_spot = 0 ; i_spot < fibo_grid->n_spots ; i_spot++) {
+        fibo_grid->spots[i_spot].x += dx;
+        fibo_grid->spots[i_spot].y += dy;
+        fibo_grid->spots[i_spot].z += dz;
+        fibo_grid->spots[i_spot].buried = false;
+    }
+}
+/*
+void updateFiboGrid(fibo_grid_t *fibo_grid, float x, float y, float z, bool hres) {
+    int FIBO_K = hres ? FIBO_K20 : FIBO_K14;
+    int FIBO_K_min1 = hres ? FIBO_K19 : FIBO_K13;
     #ifdef DEBUG
     fprintf(stderr, "Starting update atomicFiboGrid [%g, %g, %g] r=%f\n", x, y, z, radius);
     #endif
@@ -108,13 +128,13 @@ void updateFiboGrid(fibo_grid_t *fibo_grid, float x, float y, float z) {
     // fibo_grid->radius; Already set
     float radius = fibo_grid->radius;
 
-    for (int i_spot = 0 ; i_spot < FIBO_K14 ; i_spot++) {
-        phi_prime = phi_prime + FIBO_K13 <= FIBO_K14 ? \
-                    phi_prime + FIBO_K13 :\
-                    phi_prime + FIBO_K13 - FIBO_K14;
+    for (int i_spot = 0 ; i_spot < FIBO_K ; i_spot++) {
+        phi_prime = phi_prime + FIBO_K_min1 <= FIBO_K ? \
+                    phi_prime + FIBO_K_min1 :\
+                    phi_prime + FIBO_K_min1 - FIBO_K;
 
-		theta = acos(1.0-2.0 * i_spot / FIBO_K14);
-		phi   = 2.0 * M_PI * phi_prime / FIBO_K14;
+		theta = acos(1.0-2.0 * i_spot / FIBO_K);
+		phi   = 2.0 * M_PI * phi_prime / FIBO_K;
 		fibo_grid->spots[i_spot].x = x + radius * sin(theta)*cos(phi);
         fibo_grid->spots[i_spot].y = y + radius * sin(theta)*sin(phi);
         fibo_grid->spots[i_spot].z = z + radius * cos(theta);
@@ -122,6 +142,7 @@ void updateFiboGrid(fibo_grid_t *fibo_grid, float x, float y, float z) {
     }
     
 }
+*/
 
 
 

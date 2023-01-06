@@ -8,6 +8,9 @@
 #define FIBO_K14 (377)
 #define FIBO_K13 (233)
 
+#define FIBO_K19 (4181)
+#define FIBO_K20 (6765)
+
 
 #include "chem_constants.h"
 
@@ -26,7 +29,7 @@ typedef struct fibo_grid {
     /* data */
 } fibo_grid_t;
 
-fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius);
+fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius, bool hres);
 
 fibo_grid_t *createFiboGrid(int n);
 fibo_grid_t *destroyFiboGrid(fibo_grid_t *fibo_grid);
@@ -35,6 +38,6 @@ void printFiboGrid(fibo_grid_t *fibo_grid);
 string_t *jsonifyFiboGrid(fibo_grid_t *fibo_grid);
 void FiboSpherePairProcess(fibo_grid_t *iFiboGrid, fibo_grid_t *jFiboGrid);
 void computeFiboSphereASA(fibo_grid_t *iFiboGrid, float *totalSurface, float *buriedSurface);
-void updateFiboGrid(fibo_grid_t *fibo_grid, float x, float y, float z);
+void updateFiboGrid(fibo_grid_t *fibo_grid, float dx, float dy, float dz);
 
 #endif

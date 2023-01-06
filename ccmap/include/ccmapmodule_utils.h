@@ -29,7 +29,7 @@ int unpackChainID(PyObject *pListChainID, char **buffer);
 int unpackString(PyObject *pListOfStrings, char ***buffer);
 double *unpackCoordinates(PyObject *pListCoor);
 void freeBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
-atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, float probeRadius, atom_map_t *aMap);
+atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, float probeRadius, atom_map_t *aMap, bool sasaHiRes);
 void setBooleanFromParsing(PyObject *, bool *);
 
 PyObject *buildPyValueSasaFrame(sasaFrame_t *sasaFrame);

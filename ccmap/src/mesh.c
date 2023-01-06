@@ -4,8 +4,6 @@
 // TO DO: implementation of atomic integer encoding
 ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded, bool bASA) {
     
-    //assert(!bEncoded); 
-    
     #ifdef DEBUG
         printOnContextStderr("Starting atomicContactMap\n");
     #endif
@@ -13,7 +11,7 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
     ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic, bASA); // <--- sasa computation inside
     
     ccmapView_t *ccmapView = createCcmapView();
-
+   
     if(bASA){
         // We steal reference to the sasa aggregated results created within ccmapCore // NOT ENOUGH as there residue reference bound to sasa results
         ccmapView->sasaResults    = ccmapResults->sasaResults;
@@ -128,10 +126,10 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
         printResidueList(fp, jResidueList);
     }
     fclose(fp);
-#endif
-
+#endif   
     double step = ctc_dist;
     meshContainer_t *meshContainer = createMeshContainer(iAtomList, iAtom, jAtomList, jAtom, step);
+    
     /* Inspecting atom projection */
     // 101_B_CE1 and 121_1_OE1 cell coordinates ?
     // printResidueCellProjection(" 101", 'B', results, iResidueList);
@@ -141,7 +139,7 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
     meshCrawler(meshContainer, cellCrawler);
     ccmapResults_t *results = createCcmapResults(cellCrawler, iResidueList, \
                                                               jResidueList != NULL ? jResidueList : NULL);
-   
+         
     if(bASA)
         results->sasaResults = computeSasaResults(iResidueList);
    
@@ -244,7 +242,7 @@ void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
     int kStart, jStart;
     bool extractBool = false;
     extractBool = cellCrawler->threshold > 0.0;
-
+   
 #ifdef DEBUG
     printf("Enumerating Distance between %d grid cells (Grid step is %g)\n", nCells, meshContainer->step);
 #endif
@@ -763,4 +761,3 @@ cell_t *selectFromSetCellByProx(setCells_t *set, cell_t *target, int mode) {
     }            
     return best;
 }
-

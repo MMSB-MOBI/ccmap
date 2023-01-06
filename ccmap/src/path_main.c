@@ -28,6 +28,7 @@ void displayHelp(){
     fprintf(stderr, "\t--pshow (show cells path in output)\n");
     fprintf(stderr, "\t--dry (Only compute the mesh)\n");
     fprintf(stderr, "\t--vshow (show voxels coordinates in output, may cause pdb numbering overflow!!!)\n");
+    fprintf(stderr, "\t--zoom (increase Fibonacci grid resolution, trading speed for accuracy)\n");
 }
 
 void main_error(char *msg){
@@ -206,11 +207,12 @@ int main (int argc, char *argv[]) {
     char defSearchType[] = "surf";
     char *searchType = NULL;
     char defaultOutFile[] = "structure_path.pdb";
-    const char    *short_opt = "hi:x:y:o:s:u:c:t:w:vpf";
+    const char    *short_opt = "hi:x:y:o:s:u:c:t:w:vpfz";
     char ERROR_LOG[1024];
     bool dry = false;
     bool vShow = false;
     bool pShow = false;
+    bool bSasaHiRes = false;
     bool noAtomCheck = false;
     char *optH20      = NULL;
     double radiusH20 = 1.4;
@@ -231,6 +233,7 @@ int main (int argc, char *argv[]) {
         {"pshow",             no_argument, NULL, 'p'},
         {"dry",               no_argument, NULL, 'd'},
         {"force",             no_argument, NULL, 'f'},
+        {"zoom",             no_argument, NULL, 'z'},
         //radiusH20
         {"water",             required_argument, NULL, 'w'},
         {NULL,            0,               NULL,  0 }
@@ -280,7 +283,10 @@ int main (int argc, char *argv[]) {
                 break;  
             case 'f':
                 noAtomCheck = true;
-                break;                          
+                break;
+            case 'z':
+                bSasaHiRes = true;
+            break;                         
             case 'h':
                 displayHelp();
                 return(0);
@@ -332,7 +338,7 @@ int main (int argc, char *argv[]) {
     pdbCoordinateContainer = pdbFileToContainer(iFile);
     int nAtoms = 0;
     // NULL -> no Fibogrid yet
-    atom_t *atomList = CreateAtomListFromPdbContainer(pdbCoordinateContainer, &nAtoms, NULL, radiusH20);
+    atom_t *atomList = CreateAtomListFromPdbContainer(pdbCoordinateContainer, &nAtoms, NULL, radiusH20, bSasaHiRes);
     printf("Applying H20 probe radius of %g A. to atomic solvant volume exclusion\n", radiusH20);
     atom_t *xAtom    =  getAtomFromList(atomList, nAtoms, x_selectorElem);
     atom_t *yAtom    =  getAtomFromList(atomList, nAtoms, y_selectorElem);

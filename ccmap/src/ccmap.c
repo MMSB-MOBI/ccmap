@@ -27,7 +27,7 @@ char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordi
                         : &residueContactMap;
     
     float probeRadius = aMap != NULL ? aMap->probeRadius : 0.0;
-
+    
     atom_t *iAtomList = NULL;
     atom_t *jAtomList = NULL;
     int iAtom = 0;

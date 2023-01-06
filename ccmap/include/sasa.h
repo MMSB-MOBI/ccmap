@@ -26,4 +26,7 @@ sasaResults_t *computeSasaResults(residueList_t *residueList);
 sasaResults_t *destroySasaResults(sasaResults_t *sasaResults);
 
 string_t      *jsonifySasaResults(sasaResults_t *sasaResults);
+
+float selfResidueSasa(residue_t *residue, bool sasaHiRes);
+
 #endif
