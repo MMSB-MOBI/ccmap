@@ -92,6 +92,9 @@ sasaResults_t *computeSasaResults(residueList_t *residueList) {
     #endif
     residue_sasa_t *currentResidueSasa = NULL;
     float currentSelfSasa = 0;
+
+    char atomBuffer[1024];
+    char residueBuffer[1024];
     while(currentResidue != NULL) {
         // FIBO_DBG
         /*
@@ -109,12 +112,15 @@ sasaResults_t *computeSasaResults(residueList_t *residueList) {
         currentResidueSasa->buried    = 0;
     
         #ifdef DEBUG
+         
             fprintf(stderr, "computeSasaResults: Positioned to residue %d over %d residues total\n", \
                             iResidue, residueList->length);
             printResidue(stderr, currentResidue);
         #endif
-    
+
         for (int iAtom = 0 ; iAtom < currentResidue->nAtoms ; iAtom++) {
+            stringifyAtom(&currentResidue->elements[iAtom], atomBuffer);
+           
             #ifdef DEBUG
                 fprintf(stderr, "computeSasaResults:%d %d [max is %d]\n", iResidue, iAtom, currentResidue->nAtoms);
             #endif
@@ -129,6 +135,7 @@ sasaResults_t *computeSasaResults(residueList_t *residueList) {
             sasaResults->residueSasaList[iResidue].nominal,\
             residueBuffer);
         #endif
+
         currentResidueSasa->frac = \
             currentResidueSasa->buried / currentResidueSasa->nominal;
 

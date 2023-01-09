@@ -208,7 +208,7 @@ float getRadius(atom_map_t *aMap, char *atom_name, char *residue_name) {
             return payloadMap->atom_payload_list[i].radius;
     }
     fprintf(stderr, "Unknown atom  >%s< within residue %s\n", stripedName, residue_name);
-    return 0.0;
+    return 1.4;
 }
 
 atom_payload_map_t *getPayloadMap(atom_map_t * aMap, char *resname) {

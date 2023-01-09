@@ -86,22 +86,22 @@ return rValue;
 }
 
 static PyObject *sasa_multi_mda_np_arrays(PyObject* self, PyObject* args, PyObject* kwargs) {
-static char *kwlist[] = {"", "", "", "", "", "rtype", "probe", "hres",  NULL};
+static char *kwlist[] = {"", "", "", "", "", "", "probe", "hres",  NULL};
 
 PyArrayObject *names, *resnames, *resids, *segids = NULL;
 float probeRadius = 1.4;
 int bHiRes = 0;
 PyObject *atomRadiiDict, *positionFrame = NULL;
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
-                            "O!O!O!O!O!|$O!fp", kwlist,\
+                            "O!O!O!O!O!O!|$fp", kwlist,\
                            &PyList_Type,  &positionFrame,
                            &PyArray_Type, &names,
                            &PyArray_Type, &resnames,
                            &PyArray_Type, &resids,
                            &PyArray_Type, &segids,
                            &PyDict_Type,  &atomRadiiDict,
-                            &probeRadius, &bHiRes)) {
-    PyErr_SetString(PyExc_TypeError, "Wrong parameters for multi_coor tests");
+                           &probeRadius, &bHiRes)) {
+    PyErr_SetString(PyExc_TypeError, "Wrong parameters for sasa_multi_mda_np_arrays");
     return NULL;
 }
 //PySys_WriteStderr("Running np_read_multicoor probe radius is %f\n", probeRadius);
@@ -153,6 +153,8 @@ return rValue;
 }
 
 //A dummy function to test numpy C-API
+
+/* Commented out for release
 static PyObject *dummy_np(PyObject* self, PyObject* args, PyObject* kwargs) {
 static char *kwlist[] = {"", NULL};
 
@@ -189,11 +191,9 @@ for (int i = 0; i < size; i++){
 Py_DECREF(arrInput_1);
 return output;
 }
+*/
 
 /* Python API exposed as sasa */
-/* This crashes after 2nd call in jupyter */
-// 1) valgrind corresponding calls in C programm
-// 2) Check XREF
 static PyObject *free_sasa_compute(PyObject* self, PyObject* args, PyObject* kwargs) {
 static char *kwlist[] = {"", "", "probe", "hres",NULL};
 
@@ -208,7 +208,7 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
                                 &PyDict_Type, &atomRadiilist,\
                                 &probeRadius,\
                                 &bHiRes)) {
-    PyErr_SetString(PyExc_TypeError, "Wrong parameters");
+    PyErr_SetString(PyExc_TypeError, "Wrong parameters for free_sasa_compute");
     return NULL;
 }
 
@@ -258,7 +258,7 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
                                 &PyList_Type, &coorDictList,\
                                 &PyDict_Type, &atomRadiilist,\
                                 &probeRadius, &bHiRes)) {
-    PyErr_SetString(PyExc_TypeError, "Wrong parameters");
+    PyErr_SetString(PyExc_TypeError, "Wrong parameters for free_sasa_many");
     return NULL;
 }
 
@@ -823,26 +823,31 @@ static PyMethodDef ccmapMethods[] = {
         "\t\"atomic\", boolean. If True compute atomic contact map else compute residue contact map. Default=False\n"\
     "\nReturn\n\tA string if Encoding flag is false, a list of list of residue/atom numbers otherwise\n"
     },
-    {"dummy_np",
-    (PyCFunction/*PyCFunctionWithKeywords*/)dummy_np, METH_VARARGS | METH_KEYWORDS,
-        "Testing numpy API\n"\
-    },    
+   // {"dummy_np",
+   // (PyCFunction/*PyCFunctionWithKeywords*/)dummy_np, METH_VARARGS | METH_KEYWORDS,
+   //    "Testing numpy API\n"\
+   //},
     {"sasa_mda",
     (PyCFunction/*PyCFunctionWithKeywords*/)sasa_single_mda_np_arrays, METH_VARARGS | METH_KEYWORDS,
         "Computing sasa over a single structure provided as MDAnalysis numpy arrays\n"\
+
     },
+
     {"sasa_multi_mda",
     (PyCFunction/*PyCFunctionWithKeywords*/)sasa_multi_mda_np_arrays, METH_VARARGS | METH_KEYWORDS,
         "Computing sasa over a several structure provided as lists of MDAnalysis numpy arrays\n"\
-    },
+    },  
+
     {
     "sasa", (PyCFunction/*PyCFunctionWithKeywords*/)free_sasa_compute, METH_VARARGS | METH_KEYWORDS,
         "Compute Free SASA\n"\
     },
+
     {
     "sasa_list", (PyCFunction/*PyCFunctionWithKeywords*/)free_sasa_many, METH_VARARGS | METH_KEYWORDS,
         "Compute Free SASA over a list of structures\n"\
     },
+    
     {
     "zmap",  (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_zdock_pose, METH_VARARGS | METH_KEYWORDS,
     "Compute a contact map from a zdock-like encoded pose\n"\
