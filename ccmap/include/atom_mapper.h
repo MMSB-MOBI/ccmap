@@ -8,7 +8,7 @@
 #include <string.h>
 #include "miscellaneous.h"
 
-#define MAX_ATOM_PAYLOAD 50 // Max number ot atom beads/atoms per residue
+#define MAX_ATOM_PAYLOAD 1024 // Max number ot atom beads/atoms per residue
 #define MAX_RESIDUE_TYPES 1024 // Max number of residue/atom groups
 #define DEFAULT_RADIUS 1.4 // default probe radius
 typedef struct {

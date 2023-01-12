@@ -31,7 +31,7 @@ struct module_state {
     2°/ PDBcoordinates as input
 */
 
-
+// This one interface is deprecated 
 static PyObject *sasa_single_mda_np_arrays(PyObject* self, PyObject* args, PyObject* kwargs) {
 static char *kwlist[] = {"", "", "", "", "", "rtype", "probe", "hres", NULL};
 
@@ -105,11 +105,9 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
     return NULL;
 }
 //PySys_WriteStderr("Running np_read_multicoor probe radius is %f\n", probeRadius);
-
 atom_map_t *aMap = NULL;
 if (atomRadiiDict != NULL)
     aMap = dictRadiiToAtomMapper(atomRadiiDict);
-
 coorFrame_t *coorFrame;
 atom_t *atomList = readFromNumpyArraysFrame(&coorFrame, positionFrame, names, resnames, resids, segids, aMap, probeRadius, bHiRes);
 
