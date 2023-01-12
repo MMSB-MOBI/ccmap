@@ -23,7 +23,7 @@ core = Extension('ccmap',
 		)
 setup (name = 'ccmap',
        install_requires=['numpy'],
-       version = '4.0.0',
+       version = '4.0.2',
        author = 'G.Launay', 
 	author_email='pitooon@gmail.com',
        description = 'A C implementation of a mesh based atomic pairwise distance computating engine, with docking pose generation capabilities and fast solvant accessible surface estimation',
@@ -38,7 +38,7 @@ setup (name = 'ccmap',
         "Programming Language :: Python :: 3",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Topic :: Software Development :: Libraries :: Python Modules",
-        "Development Status :: 5 - Production/Stable" 
+        "Development Status :: 5 - Production/Stable",
        ],
        )
 
