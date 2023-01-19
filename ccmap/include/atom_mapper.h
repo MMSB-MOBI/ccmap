@@ -31,8 +31,8 @@ typedef struct {
     float probeRadius;
 } atom_map_t;
 
-
-atom_map_t *readAtomMapperFromFile(char *filePath, float probeRadius);
+float rescueRadius(char *atom_name);
+atom_map_t *readAtomMapperFromFile(char *filePath);
 atom_map_t *destroyAtomMapper(atom_map_t *map);
 void create_buffers(char ***names_buffer/*, char ***residue_names_buffer*/, float **radii_buffer);
 void destroy_buffers(char **names_buffer/*, char ***residue_names_buffer*/, float *radii_buffer);

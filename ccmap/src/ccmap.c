@@ -308,7 +308,7 @@ int main (int argc, char *argv[]) {
         free(ccmap); 
     } else if (bASA) {
         prad = optPrad != NULL ? atof(optPrad) : prad;
-        atomMap = readAtomMapperFromFile(vradFilePath, prad);
+        atomMap = readAtomMapperFromFile(vradFilePath);
         //atomMapperPrint(atomMap);
         if (atomMap == NULL)
             exit(1);

@@ -194,6 +194,7 @@ int main (int argc, char *argv[]) {
     char necklaceID = 'P';
     char *iFile = NULL;
     char *oFile = NULL;
+    char *vMapFile = NULL;
     extern char *optarg;
     extern int optind, optopt, opterr;
     pdbCoordinateContainer_t *pdbCoordinateContainer = NULL;
@@ -207,7 +208,7 @@ int main (int argc, char *argv[]) {
     char defSearchType[] = "surf";
     char *searchType = NULL;
     char defaultOutFile[] = "structure_path.pdb";
-    const char    *short_opt = "hi:x:y:o:s:u:c:t:w:vpfz";
+    const char    *short_opt = "hi:x:y:o:s:u:c:t:w:m:vpfz";
     char ERROR_LOG[1024];
     bool dry = false;
     bool vShow = false;
@@ -216,12 +217,12 @@ int main (int argc, char *argv[]) {
     bool noAtomCheck = false;
     char *optH20      = NULL;
     double radiusH20 = 1.4;
-
+    atom_map_t * aMap = NULL;
     struct option   long_opt[] =
     {
         {"help",              no_argument, NULL, 'h'},
         {"pdb",         required_argument, NULL, 'i'},
-
+        {"map",         required_argument, NULL, 'm'},
         {"from",        required_argument, NULL, 'x'},
         {"to",          required_argument, NULL, 'y'},
         {"out",         required_argument, NULL, 'o'},
@@ -250,6 +251,9 @@ int main (int argc, char *argv[]) {
                 break;
             case 'o':
                 oFile = strdup(optarg);
+                break;
+            case 'm':
+                vMapFile = strdup(optarg);
                 break;
             case 'u':
                 optCellDim = strdup(optarg);
@@ -321,7 +325,10 @@ int main (int argc, char *argv[]) {
 
     if (iFile == NULL)
         main_error("Please specify a pdb file\n");
-
+    if (vMapFile == NULL)
+        main_error("Please specify a mapper file\n");        
+    // radius check its usage and validity w/ later usage ^^
+    aMap = readAtomMapperFromFile(vMapFile);
     x_selectorElem = splitAndCreateStringList(x_selector, ':');
     y_selectorElem = splitAndCreateStringList(y_selector, ':');
 #ifdef DEBUG
@@ -338,7 +345,7 @@ int main (int argc, char *argv[]) {
     pdbCoordinateContainer = pdbFileToContainer(iFile);
     int nAtoms = 0;
     // NULL -> no Fibogrid yet
-    atom_t *atomList = CreateAtomListFromPdbContainer(pdbCoordinateContainer, &nAtoms, NULL, radiusH20, bSasaHiRes);
+    atom_t *atomList = CreateAtomListFromPdbContainer(pdbCoordinateContainer, &nAtoms, aMap, radiusH20, bSasaHiRes);
     printf("Applying H20 probe radius of %g A. to atomic solvant volume exclusion\n", radiusH20);
     atom_t *xAtom    =  getAtomFromList(atomList, nAtoms, x_selectorElem);
     atom_t *yAtom    =  getAtomFromList(atomList, nAtoms, y_selectorElem);

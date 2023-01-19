@@ -681,7 +681,7 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
 
         if (n > 0)
             atomList[n - 1].nextAtomList = &atomList[n];
-        
+       
         atomList[n]._VDWradius = aMap != NULL ? getRadius(aMap, atomList[n].name, atomList[n].resName)\
                                       : VDW_DEFAULT; 
         atomList[n]._radiusASA = atomList[n]._VDWradius; 

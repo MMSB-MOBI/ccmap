@@ -34,9 +34,8 @@ void destroy_buffers(char **names_buffer, /*char **residue_names_buffer,*/ float
     #endif
 }
 
-atom_map_t *readAtomMapperFromFile(char *filePath, float probeRadius) {
-    fprintf(stderr, "readAtomMapperFromFile\n");
-    fprintf(stderr, "==>%s\n", filePath);
+atom_map_t *readAtomMapperFromFile(char *filePath) {
+    printf("reading atom VDW radii definitions from %s\n", filePath);
     FILE *fp;
     atom_map_t *atom_map = NULL;
     int   cur_count = 0;
@@ -188,17 +187,39 @@ void addMapGroup(atom_map_t *aMap, char **atom_names, char *residue_names, float
     aMap->length++;
 }
 
+/*
+Hydrogen	1.2 (1.09)[1]
+Carbon	1.7
+Nitrogen	1.55
+Oxygen	1.52
+Fluorine	1.47
+Phosphorus	1.8
+Sulfur	1.8
+Chlorine	1.75
+Copper	1.4
+*/
+float rescueRadius(char *atom_name) {
+    char elem = atom_name[0];
+    switch(elem) {
+        case 'N': return 1.55;
+        case 'C': return 1.7;
+        case '0': return 1.52;
+		case 'P': return 1.8;
+        case 'S': return 1.8;
+		default : return 1.8;
+    }
+}
+
 float getRadius(atom_map_t *aMap, char *atom_name, char *residue_name) {
     char stripedName[81];
     strip(stripedName, atom_name);
-
     #ifdef DEBUG
         fprintf(stderr, "getRadius for \'%s\' \'%s\'\n", residue_name, stripedName);
     #endif
     atom_payload_map_t *payloadMap = getPayloadMap(aMap, residue_name);
     if (payloadMap == NULL) {
          fprintf(stderr, "Residue %s not found in atom map atom\n", residue_name);
-            return 0.0;
+            return rescueRadius(stripedName);
     }
 
     int i;
@@ -208,7 +229,7 @@ float getRadius(atom_map_t *aMap, char *atom_name, char *residue_name) {
             return payloadMap->atom_payload_list[i].radius;
     }
     fprintf(stderr, "Unknown atom  >%s< within residue %s\n", stripedName, residue_name);
-    return 1.4;
+    return rescueRadius(stripedName);;
 }
 
 atom_payload_map_t *getPayloadMap(atom_map_t * aMap, char *resname) {
