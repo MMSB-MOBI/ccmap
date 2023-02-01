@@ -41,12 +41,12 @@ string_t *jsonifySasaResults(sasaResults_t *sasaResults) {
     Create fibonacci grids for all atoms of the current resdue
     and compute its sasa independently of the rest of the structure
 */
-float selfResidueSasa(residue_t *residue, bool sasaHiRes) {
+float selfResidueSasa(residue_t *residue, int resolutionLevel) {
     fibo_grid_t **fiboGridArray = malloc(sizeof(fibo_grid_t*) * (int)residue->nAtoms);
     atom_t *curr_atom = residue->elements;
     for (int iAtom = 0 ; iAtom < residue->nAtoms ; iAtom++) {
         fiboGridArray[iAtom] = computeFiboGrid(curr_atom->x, curr_atom->y, \
-                                curr_atom->z, curr_atom->_radiusASA, sasaHiRes);
+                                curr_atom->z, curr_atom->_radiusASA, resolutionLevel);
         curr_atom = curr_atom->nextResidueAtom;
     }
     for (int i = 0; i < residue->nAtoms - 1 ; i++)
@@ -78,8 +78,7 @@ float selfResidueSasa(residue_t *residue, bool sasaHiRes) {
 
 /* Compute freeSASA over a list of residues */
 sasaResults_t *computeSasaResults(residueList_t *residueList) {
-    #ifdef DEBUG
-        char residueBuffer[81];           
+    #ifdef DEBUG        
         fprintf(stderr, "\ncomputeSasaResults:starting\n");
     #endif
     sasaResults_t *sasaResults   = malloc(sizeof(sasaResults_t));

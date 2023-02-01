@@ -5,7 +5,7 @@ import sysconfig
 import numpy
 
 extra_compile_args = sysconfig.get_config_var('CFLAGS').split()
-extra_compile_args += ['-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic', '-D', '_DARWIN_C_SOURCE' ]#, '-D', 'DEBUG']#, '-D', 'PYMEM_CHECK']
+extra_compile_args += ['-D', 'AS_PYTHON_EXTENSION', '-std=c99', '-pedantic', '-D', '_DARWIN_C_SOURCE']#, '-D', 'DEBUG']#, '-D', 'PYMEM_CHECK']
 core = Extension('ccmap',
               libraries = ['m'],
               include_dirs = [numpy.get_include(), 'ccmap/include'],

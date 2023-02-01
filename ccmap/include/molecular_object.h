@@ -128,24 +128,27 @@ unsigned int atomListLen(atom_t *);
 atom_t *createBareboneAtom(int n, double x, double y, double z, char chainID, char *resID, \
                            char *resName, char *name);
 void updateCoordinates(atom_t *atomList, coordinates_t *coordinates);
-atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius, bool sasaHiRes);
-atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius, bool sasaHiRes);
+atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius, int sasaResLvl);
+atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, char **resID, char **resName, char **name, atom_map_t *aMap, float probeRadius, int sasaHiRes);
 void freeAtomListCreatorBuffers(double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name, int n);
 
 sasaFrame_t *createSasaFrame(atom_t *atomList, int nbFrame);
 sasaFrame_t *destroySasaFrame(sasaFrame_t *sasaFrame);
 coorFrame_t *destroyCoorFrame(coorFrame_t *coorFrame, int optIndex);
 
+int appendFiboGridToPdbContainer(pdbCoordinateContainer_t *cloudPdbContainer,\
+                                atom_t *atomList, int nbAtom, char segID, bool hiddenBuried);
+
 atom_t *legacy_readCoordinates(char *fname, int *_nAtom);
 #ifdef AS_PYTHON_EXTENSION
     atom_t *readFromNumpyArrays(PyArrayObject *positions, PyArrayObject *names,\
                                 PyArrayObject *resnames,  PyArrayObject *resids,\
-                                PyArrayObject *segids, atom_map_t *aMap, float probeRadius, bool sasaHiRes);
+                                PyArrayObject *segids, atom_map_t *aMap, float probeRadius, int resolutionLevel);
     coorFrame_t *createFrameFromPyArrayList(PyObject *positionArrayList);
     atom_t *readFromNumpyArraysFrame(coorFrame_t **coorFrame, PyObject *positionFrame,\
                                 PyArrayObject *_names, PyArrayObject *_resnames,\
                                 PyArrayObject *_resids, PyArrayObject *_segids,\
-                                atom_map_t *aMap, float probeRadius, bool sasaHiRes);
+                                atom_map_t *aMap, float probeRadius, int resolutionLevel);
 
 #endif
 

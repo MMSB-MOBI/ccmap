@@ -262,7 +262,7 @@ atom_map_t *dictRadiiToAtomMapper(PyObject *pyRadiiDictObject) {
 
 // Convert a Python dictionnarized structure into a list of atoms, expecting no hydrogens.
 // bASA Shall be a optional atomMapper pointer
-atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, float probeRadius, atom_map_t *aMap, bool sasaHiRes) {
+atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, float probeRadius, atom_map_t *aMap, int sasaResLvl) {
 #ifdef DEBUG
     char DBG_buffer[1024];
     sprintf(DBG_buffer, "Running structDictToAtoms: bASA:%s, probeRadius:%f\n", aMap != NULL ? "true": "false", probeRadius);
@@ -330,7 +330,7 @@ atom_t *structDictToAtoms(PyObject *pyDictObject, int *nAtoms, float probeRadius
     #endif
     // Safe here
     /* Create data structures and compute */
-    atom_t *atomList = readFromArrays(*nAtoms, coorX, coorY, coorZ, chainID, resSeq, resName, atomName, aMap, probeRadius, sasaHiRes);
+    atom_t *atomList = readFromArrays(*nAtoms, coorX, coorY, coorZ, chainID, resSeq, resName, atomName, aMap, probeRadius, sasaResLvl);
     
     freeBuffers(coorX, coorY, coorZ, chainID, resSeq, resName,  atomName, *nAtoms);
 

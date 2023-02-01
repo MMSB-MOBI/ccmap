@@ -373,7 +373,7 @@ unsigned int atomListLen(atom_t *atomList) {
     return n;
 }
 // Here we add 
-atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius, bool sasaHiRes) {
+atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, int *nAtom, atom_map_t *aMap, float probeRadius, int sasaResLvl) {
     #ifdef DEBUG
     fprintf(stderr, "Entering CreateAtomListFromPdbContainer bASA: %s probe radius:%g\n", aMap != NULL ?"true":"false",probeRadius);
     #endif
@@ -386,7 +386,7 @@ atom_t *CreateAtomListFromPdbContainer(pdbCoordinateContainer_t *pdbCoordinateCo
     char **atomName;
     //atom_t *atomList = NULL;
     *nAtom = pdbContainerToArrays(pdbCoordinateContainer, &x, &y, &z, &chainID, &resSeq, &resName, &atomName);
-    atom_t *atomList = readFromArrays(*nAtom, x, y, z, chainID, resSeq, resName, atomName, aMap, probeRadius, sasaHiRes);
+    atom_t *atomList = readFromArrays(*nAtom, x, y, z, chainID, resSeq, resName, atomName, aMap, probeRadius, sasaResLvl);
     
     freeAtomListCreatorBuffers(x, y, z, chainID, resSeq, resName, atomName, *nAtom);
     #ifdef DEBUG
@@ -445,7 +445,7 @@ sasaFrame_t *destroySasaFrame(sasaFrame_t *sasaFrame) {
 atom_t *readFromNumpyArraysFrame(coorFrame_t **coorFrame, PyObject *positionFrame,\
                                 PyArrayObject *names, PyArrayObject *resnames,\
                                 PyArrayObject *resids, PyArrayObject *segids,\
-                                atom_map_t *aMap, float probeRadius, bool sasaHiRes) {
+                                atom_map_t *aMap, float probeRadius, int resolutionLevel) {
     
     // We copy all coordinates frame
     *coorFrame = createFrameFromPyArrayList(positionFrame);
@@ -454,7 +454,7 @@ atom_t *readFromNumpyArraysFrame(coorFrame_t **coorFrame, PyObject *positionFram
    
     Py_INCREF(firstPositions);
     assert(PyArray_Check(firstPositions));
-    atom_t *atomList = readFromNumpyArrays((PyArrayObject*)firstPositions, names, resnames, resids, segids, aMap, probeRadius, sasaHiRes);
+    atom_t *atomList = readFromNumpyArrays((PyArrayObject*)firstPositions, names, resnames, resids, segids, aMap, probeRadius, resolutionLevel);
     Py_DECREF(firstPositions);
     return atomList;
 }
@@ -527,7 +527,7 @@ coorFrame_t *createFrameFromPyArrayList(PyObject *positionArrayList) {
 
 atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
                             PyArrayObject *_resnames,  PyArrayObject *_resids, PyArrayObject *_segids,\
-                            atom_map_t *aMap, float probeRadius, bool sasaHiRes){
+                            atom_map_t *aMap, float probeRadius, int resolutionLevel){
 
     npy_intp *shapes = PyArray_SHAPE(_names);
     int nAtoms = shapes[0];
@@ -607,7 +607,7 @@ atom_t *readFromNumpyArrays(PyArrayObject *_positions, PyArrayObject *_names,\
         atomList[i]._radiusASA += probeRadius;
 
         atomList[i].f_grid = aMap != NULL\
-            ? computeFiboGrid(atomList[i].x, atomList[i].y, atomList[i].z, atomList[i]._radiusASA, sasaHiRes)\
+            ? computeFiboGrid(atomList[i].x, atomList[i].y, atomList[i].z, atomList[i]._radiusASA, resolutionLevel)\
             : NULL;
         
     }
@@ -639,13 +639,15 @@ atom_t *createBareboneAtom(int n, double x, double y, double z, char chainID, ch
         atom->chainID     = chainID;
         atom->f_grid = NULL;
         atom->ext_chainID = NULL;
-    
+        atom->_VDWradius = 0.0;
+        atom->_radiusASA = 0.0;
+
     return atom;
 }
 // MEMORY ALLOCATION OF atom LIST
 atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainID, \
                        char **resID, char **resName, char **name, atom_map_t *aMap,\
-                       float probeRadius, bool sasaHiRes) { // Resume here
+                       float probeRadius, int resolutionLevel) { // Resume here
     #ifdef DEBUG
         char DBG_buffer[200];
         sprintf(DBG_buffer, "readFromArray: Running readFromArrays over %d atoms\n", nAtoms);
@@ -693,8 +695,8 @@ atom_t *readFromArrays(int nAtoms, double *x, double *y, double *z, char *chainI
             printOnContextStderr(DBG_buffer);
         #endif
         
-        if (aMap != NULL) {           
-            atomList[n].f_grid = computeFiboGrid(atomList[n].x, atomList[n].y, atomList[n].z, atomList[n]._radiusASA, sasaHiRes);
+        if (resolutionLevel > -1) {           
+            atomList[n].f_grid = computeFiboGrid(atomList[n].x, atomList[n].y, atomList[n].z, atomList[n]._radiusASA, resolutionLevel);
             #ifdef DEBUG
             printOnContextStderr("f_grid build succesfull\n");
             #endif
@@ -779,4 +781,120 @@ atom_t *legacy_readCoordinates(char *fname, int *_nAtom) {
 
     *_nAtom = nAtom;
     return atomArray;
+}
+int appendFiboGridToPdbContainer(pdbCoordinateContainer_t *cloudPdbContainer,\
+                                atom_t *atomList, int nbAtom, char segID, bool hiddenBuried)
+{
+    atom_t *currAtom = atomList;
+    if (currAtom == NULL) {
+        fprintf(stderr, "appendFiboGridToPdbContainer: Unexpected NULL atom pointer at atom list head\n");
+        return-1;
+    }
+    fibo_grid_t *fibo_grid = currAtom->f_grid;
+    if (fibo_grid == NULL) {
+        fprintf(stderr, "appendFiboGridToPdbContainer: Unexpected NULL fibonacci grid pointer at atom list head\n");
+        return-1;
+    }
+    /* --  Setting coordinates total arrays and buffers -- */
+    int fiboGridSize = currAtom->f_grid->n_spots;
+    // Estimating realloc chunk size as 100 * total number of points on a single fibonacci grid
+    //int coorChunk = 100 * (size_t)fiboGridSize;
+    int chunk_sz = 100;
+    int nb_chunks = 1;
+    int capacity = nb_chunks * chunk_sz;
+    double *x_total = malloc(capacity * (sizeof(double)) );
+    double *y_total = malloc(capacity * (sizeof(double)) );
+    double *z_total = malloc(capacity * (sizeof(double)) );
+   
+
+    double *x_buffer = malloc(sizeof(double) * fiboGridSize);
+    double *y_buffer = malloc(sizeof(double) * fiboGridSize);
+    double *z_buffer = malloc(sizeof(double) * fiboGridSize);
+    /* -- -- */
+
+    // Generate remaining arrays for pdb container
+    char baseResNameV[4] = "VOX" ;
+    char baseResNameS[4] = "SOX" ;
+
+   
+    char **resName_total  = malloc(capacity * sizeof(char*));
+    char **resID_total    = malloc(capacity * sizeof(char*));
+    char **atomName_total = malloc(capacity * sizeof(char*));
+    for(int  i = 0; i < capacity ; i++) {
+        resName_total[i]  = malloc(sizeof(char) * 4);
+        atomName_total[i] = malloc(sizeof(char) * 5);
+        resID_total[i]    = malloc(sizeof(char) * 5);
+    }
+    char *segID_total    = malloc(capacity * sizeof(char));
+
+
+    int curPgridCount;
+    int totPgridCount = 0;
+    int prev_capacity;
+    while(currAtom != NULL) {
+        fibo_grid = currAtom->f_grid;
+        curPgridCount = generateGridPointCartesian(fibo_grid, x_buffer, y_buffer, z_buffer, hiddenBuried);
+       // fprintf(stderr, "Testing list access %f %f %f [%d/%d]\n",
+       //         x_buffer[0], y_buffer[0], z_buffer[0], 0, curPgridCount);
+
+        if (totPgridCount + curPgridCount > capacity) {          
+           /*
+            fprintf(stderr, "Reallocating fibo grid points coordinates from %d to %d\n",\
+                capacity, (nb_chunks+1) * chunk_sz);
+            */
+            // realloc
+            nb_chunks++;
+            capacity = nb_chunks * chunk_sz;
+            x_total = realloc(x_total, capacity * sizeof(double));
+            y_total = realloc(y_total, capacity * sizeof(double));
+            z_total = realloc(z_total, capacity * sizeof(double));
+            resName_total  = realloc(resName_total, capacity * sizeof(char*));
+            resID_total    = realloc(resID_total,   capacity * sizeof(char*));
+            atomName_total = realloc(atomName_total, capacity * sizeof(char*));
+            
+            prev_capacity  = (nb_chunks-1) * chunk_sz;
+            for(int  i = prev_capacity; i < capacity ; i++) {
+                resName_total[i]  = malloc(sizeof(char) * 4);
+                atomName_total[i] = malloc(sizeof(char) * 5);
+                resID_total[i]    = malloc(sizeof(char) * 5);
+            }
+            segID_total    = realloc(segID_total, capacity * sizeof(char));
+        }
+        // Copy
+        for (int i = 0 ; i < curPgridCount ; i++) {
+            x_total[totPgridCount + i] = x_buffer[i];
+            y_total[totPgridCount + i] = y_buffer[i];
+            z_total[totPgridCount + i] = z_buffer[i];
+            strcpy(resName_total[totPgridCount + i], \
+                hiddenBuried ? baseResNameS : baseResNameV);
+            strcpy(resID_total[totPgridCount + i], currAtom->resID);
+            strcpy(atomName_total[totPgridCount + i], currAtom->name);
+            segID_total[totPgridCount + i] = segID;
+        }
+
+        totPgridCount += curPgridCount;
+        currAtom = currAtom->nextAtomList;
+    }
+
+    free(x_buffer);
+    free(y_buffer);
+    free(z_buffer);
+
+    appendArraysToPdbContainer(cloudPdbContainer, totPgridCount,\
+        x_total, y_total, z_total, segID_total, resID_total, resName_total, atomName_total);
+
+    for(int  i = 0; i < capacity ; i++) {
+        free(resName_total[i]);
+        free(atomName_total[i]);
+        free(resID_total[i]);
+    }
+    free(resName_total);
+    free(atomName_total);
+    free(resID_total);
+    free(segID_total);
+    free(x_total);
+    free(y_total);
+    free(z_total);
+
+    return totPgridCount;
 }

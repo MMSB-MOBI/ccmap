@@ -82,13 +82,13 @@ atom_map_t *destroyAtomMapper(atom_map_t *aMap){
 
     for (i = 0 ; i < MAX_RESIDUE_TYPES; i++) {
         if (i >= aMap->length)
-            continue;
-        
+            continue;       
         free(aMap->map[i].atom_payload_list);
         for(j = 0 ; j < aMap->map[i].names_length ; j++)
             free(aMap->map[i].names[j]);
         free(aMap->map[i].names);
     }
+    free(aMap->map);
     free(aMap);
 
     return NULL;
@@ -122,12 +122,6 @@ void atomMapperPrint(atom_map_t *aMap){
 }
 
 void addMapGroup(atom_map_t *aMap, char **atom_names, char *residue_names, float *radii, int nb_elem) {
-    /*
-    fprintf(stderr, "addMapGroup for following %s [%d nb_elem]:\n", residue_names, nb_elem);
-    int c = 0;
-    for (c = 0 ; c < nb_elem ; c++ )
-        fprintf(stderr, "%s\t%f\n", atom_names[c], radii[c]);  
-    */
 
     atom_payload_map_t *newGroup = &(aMap->map[aMap->length]);
     newGroup->atom_payload_length = nb_elem;

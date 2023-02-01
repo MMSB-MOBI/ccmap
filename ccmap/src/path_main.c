@@ -68,121 +68,39 @@ atom_t *getAtomFromList(atom_t *list, int i_max, stringList_t *selector) {
 }
 
 // Reconstruct a thread of CA along polyline w/ decent spacings
-void necklaceThreading(pdbCoordinateContainer_t *pdbContainer, \
+double necklaceThreading(pdbCoordinateContainer_t *pdbContainer, \
                        meshContainer_t *meshContainer, path_t *best_walk, char segID,\
-                       double euclidStep, int *newCA, double *trailDist) {
+                       double euclidStep, int *newCA, double *trailDist,\
+                       atom_t *atomStart, atom_t *atomStop) {
                         
-        double *pearl_x, *pearl_y, *pearl_z = NULL;
-        char *pearl_chainID = NULL;
-        char **pearl_resID, **pearl_resName, **pearl_name = NULL;
-        int status = createRecordArraysFromPath(best_walk, meshContainer,\
-            &pearl_x, &pearl_y, &pearl_z, &pearl_chainID, &pearl_resID, &pearl_resName, &pearl_name,\
-            segID, euclidStep, newCA, trailDist);
-            if(status == -1) {
-                fprintf(stderr, "Recaord Array Fatal Error\n");
-                exit(-1); 
-            }
-        appendArraysToPdbContainer(pdbContainer, *newCA, \
-            pearl_x, pearl_y, pearl_z, pearl_chainID, pearl_resID, pearl_resName,  pearl_name);
-        
+    double *pearl_x, *pearl_y, *pearl_z;
+    char *pearl_chainID = NULL;
+    char **pearl_resID, **pearl_resName, **pearl_name = NULL;
+    int status = createRecordArraysFromPath(best_walk, meshContainer,\
+        &pearl_x, &pearl_y, &pearl_z, &pearl_chainID, &pearl_resID, &pearl_resName, &pearl_name,\
+        segID, euclidStep, newCA, trailDist, atomStart, atomStop);
+        if(status == -1) {
+            fprintf(stderr, "Record Array Fatal Error\n");
+            exit(-1); 
+        }
+    // Compute length on this record array
+    double len = 0;
+    for (int i = 0 ; i < (*newCA) - 1; i++ )
+        len += euclideanDistance3(pearl_x[i], pearl_y[i], pearl_z[i], pearl_x[i + 1], pearl_y[i + 1], pearl_z[i + 1]);
+    
+    appendArraysToPdbContainer(pdbContainer, *newCA, \
+        pearl_x, pearl_y, pearl_z, pearl_chainID, pearl_resID, pearl_resName,  pearl_name);
+    
 #ifdef DEBUG
         char *data = pdbContainerToString(pdbContainer);
         printf("%s\n", data);
         free(data);
 #endif
-        freeAtomListCreatorBuffers(pearl_x, pearl_y, pearl_z,\
-            pearl_chainID, pearl_resID, pearl_resName,  pearl_name, *newCA);
+    freeAtomListCreatorBuffers(pearl_x, pearl_y, pearl_z,\
+        pearl_chainID, pearl_resID, pearl_resName,  pearl_name, *newCA);
+    return len;
 }
 
-// Debuging utility mapping and backmapping of arbirtray i,j,k coordinates
-void inspect(meshContainer_t *meshContainer, int _i, int _j, int _k, atom_t *iAtom) {
-    char logAtom[1024];
-    int i,j,k;
-    cell_t *pjCell = NULL;
-    if(iAtom == NULL) {
-        printf("\t  --- inspect arbitrary cell start mode---\n");
-        i = _i;
-        j = _j;
-        k = _k;
-    } else {
-        stringifyAtom(iAtom, logAtom);
-        printf("\t --- actual atom start mode ---\nGetting cell coordinates of %s\n", logAtom);
-        pjCell = getCellFromAtom(meshContainer, iAtom);
-        i = pjCell->i;
-        j = pjCell->j;
-        k = pjCell->k;
-    }
-    
-    
-    printf("\tGetting center coordinates of cell %d %d %d\n", i, j, k);
-    double x, y,z;
-    atom_t *dummy = NULL;
-    meshToCartesian(meshContainer, i, j, k, &x, &y, &z);
-    printf("\t=> %f %f %f\n", x, y, z);
-    dummy = createBareboneAtom(1, x, y, z, 'A', "   1", "DUM", "  C");
-    stringifyAtom(dummy, logAtom);
-    printf("\tCreating dummy atom object from this meshToCartesian projection:\n\t%s\n", logAtom);
-    printf("\tProjecting back in mesh space\n");
-    pjCell = getCellFromAtom(meshContainer, dummy);
-    dummy = destroyAtom(dummy);
-    printf("\t=>Lands on %d %d %d\n\n", pjCell->i, pjCell->j, pjCell->k);
-}
-
-void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer, char vID) {
-#ifdef DEBUG
-    fprintf(stderr, "appending %d voxels to pdb container\n", meshContainer->nVoxels);
-#endif
-
-    cell_t *currCell = NULL;
-    int n =  meshContainer->nVoxels;
-   
-    // Allocate space for array buffers
-    double *x_vox      = malloc(n * sizeof(double));
-    double *y_vox      = malloc(n * sizeof(double));
-    double *z_vox      = malloc(n * sizeof(double));
-    char *chainID_vox  = malloc(n * sizeof(char));
-    char **resID_vox   = malloc(n * sizeof(char*));
-    char **resName_vox = malloc(n * sizeof(char*));
-    char **name_vox   = malloc(n * sizeof(char*));
-    char baseResNameV[4] = "VOX" ;
-    char baseResNameS[4] = "SOX" ;
-    char baseName[4]    = "CA ";
-    char resSeqBuffer[81];
-    int i_v = 0;
-// Iterate over mesh elements create a VOX atom per voxel'd cell
-    for(int i = 0; i < meshContainer->mesh->iMax ; i++) {
-        for(int j = 0; j < meshContainer->mesh->jMax ; j++){ 
-            for(int k = 0; k < meshContainer->mesh->kMax ; k++) {
-                currCell = &meshContainer->mesh->grid[i][j][k];
-                if(!currCell->isInterior && !currCell->isSurface)
-                    continue;
-                meshToCartesian(meshContainer, currCell->i, currCell->j, currCell->k,\
-                                               &x_vox[i_v], &y_vox[i_v], &z_vox[i_v]);
-                chainID_vox[i_v] = vID;
-                sprintf(resSeqBuffer, "%d", i_v + 1 );
-                resID_vox[i_v] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
-                strcpy(resID_vox[i_v], resSeqBuffer);
-                resName_vox[i_v] = malloc(4 * sizeof(char));
-                strcpy(resName_vox[i_v], \
-                    currCell->isSurface ? baseResNameS : baseResNameV);
-                name_vox[i_v] = malloc((strlen(baseName) + 1) * sizeof(char));
-                strcpy(name_vox[i_v], baseName);
-                i_v++;
-    }}}
-    
-            
-    appendArraysToPdbContainer(pdbContainer, n, \
-        x_vox, y_vox, z_vox, chainID_vox, resID_vox, resName_vox,  name_vox);
-    
-#ifdef DEBUG
-        fprintf(stderr, "Voxels appended to following pdb record");
-        char *data = pdbContainerToString(pdbContainer);
-        printf("%s\n", data);
-        free(data);
-#endif
-        freeAtomListCreatorBuffers(x_vox, y_vox, z_vox,\
-            chainID_vox, resID_vox, resName_vox, name_vox, n);
-}
 
 int main (int argc, char *argv[]) {
 
@@ -213,7 +131,7 @@ int main (int argc, char *argv[]) {
     bool dry = false;
     bool vShow = false;
     bool pShow = false;
-    bool bSasaHiRes = false;
+    int SasaResLvl = 1;
     bool noAtomCheck = false;
     char *optH20      = NULL;
     double radiusH20 = 1.4;
@@ -289,7 +207,7 @@ int main (int argc, char *argv[]) {
                 noAtomCheck = true;
                 break;
             case 'z':
-                bSasaHiRes = true;
+                SasaResLvl = 2;
             break;                         
             case 'h':
                 displayHelp();
@@ -345,7 +263,7 @@ int main (int argc, char *argv[]) {
     pdbCoordinateContainer = pdbFileToContainer(iFile);
     int nAtoms = 0;
     // NULL -> no Fibogrid yet
-    atom_t *atomList = CreateAtomListFromPdbContainer(pdbCoordinateContainer, &nAtoms, aMap, radiusH20, bSasaHiRes);
+    atom_t *atomList = CreateAtomListFromPdbContainer(pdbCoordinateContainer, &nAtoms, aMap, radiusH20, SasaResLvl);
     printf("Applying H20 probe radius of %g A. to atomic solvant volume exclusion\n", radiusH20);
     atom_t *xAtom    =  getAtomFromList(atomList, nAtoms, x_selectorElem);
     atom_t *yAtom    =  getAtomFromList(atomList, nAtoms, y_selectorElem);
@@ -373,14 +291,14 @@ int main (int argc, char *argv[]) {
          meshContainer->mesh->kMax, meshContainer->nFilled);
     
 #ifdef DEBUG
-    stringifyAtom(xAtom, bufAtom);
+    /*stringifyAtom(xAtom, bufAtom);
     printf("\nForward/Backward mapping assertion w/ user start atom...\n%s\n", bufAtom);
     inspect(meshContainer, 9, 9, 9, xAtom); // Start cell
     printf("\nForward/Backward mapping assertion w/ cell 9/9/9...\n");
     inspect(meshContainer, 9, 9, 9, NULL);
     printf("\nForward/Backward mapping assertion w/ cell 35/75/33...\n");
     inspect(meshContainer, 33, 75, 33, NULL);
-    
+    */
     /*
     inspect(meshContainer, 4, 12, 8); // Start cell
     inspect(meshContainer, 5, 12, 8); // Shoud be cell +1
@@ -393,6 +311,7 @@ int main (int argc, char *argv[]) {
         destroyPdbCoordinateContainer(pdbCoordinateContainer);
         destroyAtomList(atomList, nAtoms);
         destroyMeshContainer(meshContainer);
+        destroyAtomMapper(aMap);
         exit(1);
     }
     //
@@ -400,7 +319,7 @@ int main (int argc, char *argv[]) {
         xAtom, yAtom, noAtomCheck);
     if (strcmp(searchType, "surf") == 0 && vShow ) {
         fprintf(stderr, "Trying to append voxel to pdb coordinates");
-        appendVoxelToPdbContainer(pdbCoordinateContainer, meshContainer, 'X');
+        appendVoxelToPdbContainer(pdbCoordinateContainer, meshContainer, 'X', false);
     } 
     if (best_walk == NULL) {
         printf("No pathway found connecting specified pair of atoms\n");
@@ -426,8 +345,9 @@ int main (int argc, char *argv[]) {
       
         int nPathBeads;
         double trailingDist; 
-        necklaceThreading(pdbCoordinateContainer, meshContainer, best_walk, necklaceID, spacing, &nPathBeads, &trailingDist);
-        printf("Approximate linker length %g A.\n", spacing *(nPathBeads-1) + trailingDist + xAtom->_radiusASA + yAtom->_radiusASA);
+        double necklace_len = necklaceThreading(pdbCoordinateContainer, meshContainer, best_walk, \
+        necklaceID, spacing, &nPathBeads, &trailingDist,xAtom, yAtom);
+        printf("Approximate linker length %g A.\n", necklace_len);
         best_walk = destroyPath(best_walk);
         
 #ifdef DEBUG
@@ -445,4 +365,5 @@ int main (int argc, char *argv[]) {
     destroyPdbCoordinateContainer(pdbCoordinateContainer);
     destroyAtomList(atomList, nAtoms);
     destroyMeshContainer(meshContainer);
+    destroyAtomMapper(aMap);        
 }

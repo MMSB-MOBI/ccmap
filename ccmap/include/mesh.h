@@ -96,5 +96,7 @@ void dumpCellContent(cell_t *cell);
 void meshDummy(int a, int b, int c);
 void printResidueCellProjection(char *resID, char chainID, meshContainer_t *meshContainer, residue_t *residueList);
 void atomListInContact(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, int iAtomStatus[], int jAtomStatus[]);
+void inspect(meshContainer_t *meshContainer, int _i, int _j, int _k, atom_t *iAtom);
 
+void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer, char vID, bool buriedHidden);
 #endif

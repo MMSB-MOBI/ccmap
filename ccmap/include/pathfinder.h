@@ -40,7 +40,7 @@ void reallocErrorLog(int a, int b, char type[]);
 int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer,\
                                 double **x, double **y, double **z, char **chainID,\
                                 char ***resID, char ***resName, char ***pearl_name, char segID, double spacing,\
-                                int *newCA, double *trailDist);    
+                                int *newCA, double *trailDist, atom_t *atomStart, atom_t *atomStop);    
        
 
 path_t *destroyPath(path_t *path);

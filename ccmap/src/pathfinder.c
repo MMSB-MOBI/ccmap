@@ -429,15 +429,83 @@ int cmpOffsetfunc (const void * a, const void * b) {
         return 1;
     return 0;
 }
+
+
+void writeToNecklaceBuffer(int *newCA, char ***resID, char ***resName, char ***name, char **chainID,\
+                            double **x, double **y, double **z,\
+                            float x_new, float y_new, float z_new,\
+                            char *baseResName, char *baseName, char uID) {
+        char resSeqBuffer[81];
+       // fprintf(stderr, "writeToNecklaceBuffer: %f %f %f %s %s %c\n", x_new, y_new, z_new, baseResName, baseName, uID);
+        (*chainID)[*newCA] = uID;
+        (*x)[*newCA] = x_new;
+        (*y)[*newCA] = y_new;
+        (*z)[*newCA] = z_new;
+        sprintf(resSeqBuffer, "%d", *newCA + 1 );
+        (*resID)[*newCA] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
+        strcpy((*resID)[*newCA], resSeqBuffer);
+        (*resName)[*newCA] = malloc((strlen(baseResName) + 1) * sizeof(char));
+        strcpy((*resName)[*newCA], baseResName);
+        (*name)[*newCA] = malloc((strlen(baseName) + 1) * sizeof(char));
+        strcpy((*name)[*newCA], baseName);
+
+        *newCA = *newCA +1;
+                            
+}
 // Generate a necklace of dummy atoms along the path
 // Lame code duplication from pdb_coordinates.c: pdbContainerToArrays
 // We should clean mem on realloc error exit
 int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, double **x, double **y, double **z,\
                                 char **chainID, char ***resID, char ***resName, char ***name,\
-                                char uID, double spacing, int *newCA, double *trailDist) {
-    // Theoritical max number of created particules is the length of the path
-    int maxNewAtomCount = self->len > 0 ? self->len  : 0;
+                                char uID, double spacing, int *newCA, double *trailDist, \
+                                atom_t *atomStart, atom_t *atomStop) {
     
+    // Theoritical max number of created particules is the length of the path
+    // plus start and stop + number of spacing between start_atom and start_pos
+    // plus number of spacing between stop_atom and stop_pos 
+    
+    /* 
+        Defensive strategy to allocate maximum number of beads to create to represent the path
+
+        (st_atom)--------(st_atom_surf)/\/\/\/\/\/\/\/\/\/\/\/\/\/\(end_atom_surf)-----(end_atom)
+                                            Path_cells_length  
+
+            D(st_atom,st_atom_surf)/ spacing +
+                                            Path_step_len * nb_path_steps + 2 (accounting for no modulo on both strand ends and spacing lower than unit step)
+                                             + D(end_atom,end_atom_surf)/ spacing
+    */
+
+    
+    int maxNewAtomCount = self->len > 0 ? self->len + 2  : 0;
+  
+    
+    #ifdef DEBUG
+        fprintf(stderr, "Create Necklace atomic parameter arrays over %d cells w/ %g spacing\n"\
+        , maxNewAtomCount, spacing);
+        char atomString[1024];
+        stringifyAtom(atomStart, atomString);
+        fprintf(stderr, "=>%s\n", atomString);
+        stringifyAtom(atomStop, atomString);    
+        fprintf(stderr, "=>%s\n", atomString);
+    #endif    
+    *newCA = 0;
+
+    double x_prime, y_prime, z_prime;
+    meshToCartesian(meshContainer, self->cells[0]->i, self->cells[0]->j, self->cells[0]->k,\
+                                       &x_prime             , &y_prime             , &z_prime);
+    int nb_befor = euclideanDistance3(atomStart->x, atomStart->y, atomStart->z,\
+                x_prime, y_prime, z_prime) / spacing;
+    
+    meshToCartesian(meshContainer, self->cells[self->len - 1]->i, self->cells[self->len - 1]->j,\
+                                   self->cells[self->len - 1]->k,\
+                    &x_prime             , &y_prime             , &z_prime);
+    int nb_after = euclideanDistance3(atomStop->x, atomStop->y, atomStop->z,\
+                x_prime, y_prime, z_prime) / spacing;
+    
+    //fprintf(stderr, "maNaC = b4elem (%d) + path_elem (%d) + AfterElem(%d) = %d\n", nb_befor, maxNewAtomCount, nb_after, nb_befor + maxNewAtomCount+ nb_after) ;
+    maxNewAtomCount += nb_befor + nb_after;
+   
+
     *x = malloc(maxNewAtomCount * sizeof(double));
     *y = malloc(maxNewAtomCount * sizeof(double));
     *z = malloc(maxNewAtomCount * sizeof(double));
@@ -446,28 +514,36 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
     *resName = malloc(maxNewAtomCount * sizeof(char*));
     *name = malloc(maxNewAtomCount * sizeof(char*));
 
-    double *double_swaper    = NULL;
-    char *char_swaper        = NULL;
-    char **char_array_swaper = NULL;
-
-    double x_prime, y_prime, z_prime;
-    char resSeqBuffer[81];
+  
     char baseResName[] = "DUM" ;
     char baseName[] = "CA ";
 
 
-#ifdef DEBUG
-        fprintf(stderr, "Create Necklace atomic parameter arrays over %d cells w/ %g spacing\n"\
-    , maxNewAtomCount, spacing);
-#endif
 
-    *newCA = 0;
-    
+    // Store 1st atom  
+    writeToNecklaceBuffer(newCA, resID, resName, name, chainID,\
+                            x, y, z, atomStart->x, atomStart->y, atomStart->z,\
+                            baseResName, baseName, uID);
+    meshToCartesian(meshContainer, self->cells[0]->i, self->cells[0]->j, self->cells[0]->k,\
+                                       &x_prime             , &y_prime             , &z_prime);
+        
+    for (int iElemBefore = 0; iElemBefore < nb_befor ; iElemBefore++) {
+     //   fprintf(stderr, "b4 Elem>>%d\n", iElemBefore);
+        writeToNecklaceBuffer(newCA, resID, resName, name, chainID,\
+                                x, y, z,\
+                            atomStart->x + iElemBefore * (x_prime - atomStart->x) / (double)nb_befor,\
+                            atomStart->y + iElemBefore * (y_prime - atomStart->y) / (double)nb_befor,\
+                            atomStart->z + iElemBefore * (z_prime - atomStart->z) / (double)nb_befor,\
+                            baseResName, baseName, uID);
+    }
     float last_x, last_y, last_z;
     // We consider 1st path cell as safe for particule creation   
-    for (int iElem = 0 ; iElem < maxNewAtomCount ; iElem++) {
+    for (int iElem = 0 ; iElem < self->len ; iElem++) {
+        //fprintf(stderr, "%d / %d  [%d]\n", iElem, maxNewAtomCount, self->len);
+
         meshToCartesian(meshContainer, self->cells[iElem]->i, self->cells[iElem]->j, self->cells[iElem]->k,\
                                        &x_prime             , &y_prime             , &z_prime);
+        //fprintf(stderr, "%f, %f, %f\n", x_prime, y_prime, z_prime);
         if (iElem > 0)
             if (euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z) < spacing)
                 continue;
@@ -475,30 +551,37 @@ int createRecordArraysFromPath(path_t *self, meshContainer_t *meshContainer, dou
         if (iElem > 0)
             printf("Threading based on %g distance\n", euclideanDistance3(x_prime, y_prime, z_prime, last_x, last_y, last_z));
 #endif
-        (*chainID)[*newCA] = uID;
-        (*x)[*newCA] = x_prime;
-        (*y)[*newCA] = y_prime;
-        (*z)[*newCA] = z_prime;
-        sprintf(resSeqBuffer, "%d", *newCA + 1 );
-        (*resID)[*newCA] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
-        strcpy((*resID)[*newCA], resSeqBuffer);
-        (*resName)[*newCA] = malloc((strlen(baseResName) + 1) * sizeof(char));
-        strcpy((*resName)[*newCA], baseResName);
-        (*name)[*newCA] = malloc((strlen(baseName) + 1) * sizeof(char));
-        strcpy((*name)[*newCA], baseName);
-#ifdef DEBUG
-        fprintf(stderr, "%f %f %f \'%s\' \'%s\' \'%c\' \'%s\'\n",\
-            (*x)[newAtomCount], (*y)[newAtomCount], (*z)[newAtomCount],\
-            (*resName)[newAtomCount], (*resID)[newAtomCount], \
-            (*chainID)[newAtomCount], (*name)[newAtomCount] );
-#endif
+
+        writeToNecklaceBuffer(newCA, resID, resName, name, chainID,\
+                                x, y, z, x_prime, y_prime, z_prime,\
+                            baseResName, baseName, uID);
+
         last_x = x_prime;
         last_y = y_prime;
         last_z = z_prime;
-        *newCA = *newCA +1;
+      //  *newCA = *newCA +1;
     }
+    //fprintf(stderr, "Writing trailing beads to goal\n");
+    for (int iElemAfter = 0; iElemAfter < nb_after ; iElemAfter++) {
+     //   fprintf(stderr, "trailing elem num:%d (tot_frame:%d) [max:%d]\n", iElemAfter, *newCA, maxNewAtomCount);
+        writeToNecklaceBuffer(newCA, resID, resName, name, chainID,\
+                                x, y, z,\
+                            x_prime + iElemAfter * (atomStop->x - x_prime) / (double)nb_after,\
+                            y_prime + iElemAfter * (atomStop->y - y_prime) / (double)nb_after,\
+                            z_prime + iElemAfter * (atomStop->z - z_prime) / (double)nb_after,\
+                            baseResName, baseName, uID);
+    }
+    // Store last atom  
+    writeToNecklaceBuffer(newCA, resID, resName, name, chainID,\
+                            x, y, z, atomStop->x, atomStop->y, atomStop->z,\
+                            baseResName, baseName, uID);
 
     int newAtomCount = *newCA;
+   // fprintf(stderr, "Realloc for %d elem\n", *newCA);
+    double *double_swaper    = NULL;
+    char *char_swaper        = NULL;
+    char **char_array_swaper = NULL;
+
     double_swaper = (double *) realloc(*x, sizeof(double) * newAtomCount );
     if(double_swaper == NULL) {
         reallocErrorLog(maxNewAtomCount, newAtomCount, "x coordinates");

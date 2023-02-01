@@ -26,6 +26,13 @@ COLUMNS        DATA  TYPE    FIELD        DEFINITION
 79 - 80        LString(2)    charge       Charge  on the atom.
 */
 
+
+pdbCoordinateContainer_t *newEmptyPdbContainer() {
+    pdbCoordinateContainer_t *pdbCoordinateContainer = malloc(sizeof(pdbCoordinateContainer_t));
+    pdbCoordinateContainer->atomRecordArray = malloc(0 * sizeof(atomRecord_t));
+    pdbCoordinateContainer->atomCount = 0;
+    return pdbCoordinateContainer;
+}
 // Deal w/ atom record with truncated lines by filling last position with whitespaces
 pdbCoordinateContainer_t *pdbFileToContainer(char *fileName) {
     pdbCoordinateContainer_t *pdbCoordinateContainer = malloc(sizeof(pdbCoordinateContainer_t));
@@ -283,6 +290,7 @@ void stringifyAtomRecord(atomRecord_t *atomRecord, char *atomRecordString) {
 
 char *pdbContainerToString(pdbCoordinateContainer_t *pdbCoordinateContainer) {
     char buffer[120];
+   
     stringifyAtomRecord(&pdbCoordinateContainer->atomRecordArray[0], buffer);
     int lineLen = strlen(buffer); // The '\n' while overwrite the place reserved for the '\0', strlen adds +1 for '\0'
     int nLines = pdbCoordinateContainer->atomCount;
@@ -440,11 +448,12 @@ int legacy_readFile(char *fname, double **x, double **y, double **z, char **chai
 bool appendArraysToPdbContainer(pdbCoordinateContainer_t *pdbContainer, int nbNew,\
     double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name) {
     
-#ifdef DEBUG
+//#ifdef DEBUG
     fprintf(stderr, " -- append %d new elem from arrays to a %d long pdbContainer --\n", nbNew,\
      pdbContainer->atomCount);
-#endif
-    
+//#endif
+    bool overflow = false;
+    int atomNumber;
     atomRecord_t *atomRecordTmp = (atomRecord_t *) realloc(pdbContainer->atomRecordArray,\
         sizeof(atomRecord_t) * (pdbContainer->atomCount + nbNew) );
    
@@ -457,8 +466,13 @@ bool appendArraysToPdbContainer(pdbCoordinateContainer_t *pdbContainer, int nbNe
     for(int n = pdbContainer->atomCount; n < pdbContainer->atomCount + nbNew ; n++) {
         int i = n - pdbContainer->atomCount;
         atomRecord_t *newAtom = &(pdbContainer->atomRecordArray[n]);
+        atomNumber = n + 1 <= 9999 ? n + 1 : 9999;
+        if(!overflow && atomNumber == 9999) {
+            fprintf(stderr, "PDB record creation: atom number overflow!\n");
+            overflow = true;
+        }
         if ( NULL ==\
-            createAtomRecordArrayElements(newAtom, "ATOM  ", n + 1, x[i], y[i], z[i],\
+            createAtomRecordArrayElements(newAtom, "ATOM  ", atomNumber, x[i], y[i], z[i],\
                 name[i], ' ', resName[i], chainID[i], resID[i], ' ', 1.00, 0.00, "  ", "  ")
             )   
             return false; // Probably stuff to free here

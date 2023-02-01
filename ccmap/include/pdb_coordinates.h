@@ -47,6 +47,7 @@ COLUMNS        DATA  TYPE    FIELD        DEFINITION
 
 void transformPdbCoordinateContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, float *euler, float *translation);
 
+pdbCoordinateContainer_t *newEmptyPdbContainer();
 void pdbContainerToFile(pdbCoordinateContainer_t *pdbCoordinateContainer, char *fname, char *mode);
 pdbCoordinateContainer_t *pdbFileToContainer(char *fileName);
 pdbCoordinateContainer_t *destroyPdbCoordinateContainer(pdbCoordinateContainer_t *pdbCoordinateContainer);

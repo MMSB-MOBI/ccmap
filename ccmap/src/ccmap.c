@@ -21,7 +21,7 @@
     ccmapView_t *ccmap = atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded)
 }*/
 char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordinateContainer_t *pdbCoordinateContainerJ,
-                    float dist, bool bEncode, bool bAtomic, atom_map_t *aMap) {
+                    float dist, bool bEncode, bool bAtomic, atom_map_t *aMap, int sasaResLvl) {
     ccmapView_t *(*computeMap) (atom_t *, int , atom_t *, int, double, bool, bool) = bAtomic\
                         ? &atomicContactMap
                         : &residueContactMap;
@@ -32,13 +32,13 @@ char *computeCCmap( pdbCoordinateContainer_t *pdbCoordinateContainerI, pdbCoordi
     atom_t *jAtomList = NULL;
     int iAtom = 0;
     int jAtom = 0;
-    iAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerI, &iAtom, aMap, probeRadius);
+    iAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerI, &iAtom, aMap, probeRadius, sasaResLvl);
     #ifdef DEBUG
     printAtomList(iAtomList, stderr);
     #endif
 
     if(pdbCoordinateContainerJ != NULL) 
-        jAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerJ, &jAtom, aMap, probeRadius);
+        jAtomList = CreateAtomListFromPdbContainer(pdbCoordinateContainerJ, &jAtom, aMap, probeRadius, sasaResLvl);
     printf("Computing %s ccmap with %d pdb records as %s...\n", \
                             bAtomic?"atomic":"residue",\
                             pdbCoordinateContainerJ != NULL?2:1,\
@@ -297,9 +297,11 @@ int main (int argc, char *argv[]) {
         translationLIG2[0], translationLIG2[1], translationLIG2[2]);
     #endif
 
+    //Need to rework on sasa optional treamtment
+    int sasaResLvl = -1;
     if (optDist != NULL) {
         double step = atof(optDist);
-        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, step, bEncode, bAtomic, NULL);
+        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, step, bEncode, bAtomic, NULL, sasaResLvl);
         FILE *fp = optResultFile != NULL       \
                     ? fopen(optResultFile, "w") \
                     : fopen("ccmap.json", "w");
@@ -312,7 +314,7 @@ int main (int argc, char *argv[]) {
         //atomMapperPrint(atomMap);
         if (atomMap == NULL)
             exit(1);
-        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, 2* (VDW_MAX + prad) , bEncode, bAtomic, atomMap);
+        char *ccmap = computeCCmap(pdbCoordinateContainerI, pdbCoordinateContainerJ, 2* (VDW_MAX + prad) , bEncode, bAtomic, atomMap, sasaResLvl);
         free(ccmap);
         destroyAtomMapper(atomMap);
     } else {
@@ -334,176 +336,3 @@ int main (int argc, char *argv[]) {
 
     exit(0);
 }
-/*
-    if ( errflg || optDist == NULL || iFile == NULL) {
-        fprintf(stderr, "usage: . . . ");
-        exit(2);
-    }
-
-    double step = atof(optDist);
-
-    if(jFile == NULL)
-        runSingle(iFile, step, readerFunc);
-    else
-        runDual(iFile, jFile, step, readerFunc);
-*/
-
-
-
-
-/** DUMPYARD **/
-/*
-
-void LEGACY_runDual( char *iFname, char *jFname, float dist,
-              int (*readerFunc)(char*, double**, double**, double**, char**, char***, char***, char***)
-              ) {
-    //  ONE SET OF COORDINATES  
-    double *x;
-    double *y;
-    double *z;
-    char *chainID;
-    char **resSeq;
-    char **resName;
-    char **atomName;
-    atom_t *atomList = NULL;
-    int nAtom = 0;
-    printf("Reading coordinates from %s\n", iFname);
-    nAtom = (*readerFunc)(iFname, &x, &y, &z, &chainID, &resSeq, &resName, &atomName);
-    atomList = readFromArrays(nAtom, x, y, z, chainID, resSeq, resName, atomName);
-
-    //  OPTIONAL SECOND SET OF COORDINATES 
-    double *x_other;
-    double *y_other;
-    double *z_other;
-    char *chainID_other;
-    char **resSeq_other;
-    char **resName_other;
-    char **atomName_other;
-    atom_t *atomList_other = NULL;
-    int nAtom_other = 0;
-    unsigned int finalLen=0;
-    nAtom_other = (*readerFunc)(jFname, &x_other, &y_other, &z_other, &chainID_other, &resSeq_other, &resName_other, &atomName_other);
-    atomList_other = readFromArrays(nAtom_other, x_other, y_other, z_other, chainID_other, resSeq_other, resName_other, atomName_other);
-
-    int *ccmap = residueContactMap_DUAL(atomList, nAtom, atomList_other, nAtom_other, dist, &finalLen);
-
-// CLEAR
-    atomList = destroyAtomList(atomList, nAtom);
-    atomList_other = destroyAtomList(atomList_other, nAtom_other);
-    freeBuffers(x, y, z, chainID, resSeq, resName, atomName, nAtom);
-    freeBuffers(x_other, y_other, z_other, chainID_other, resSeq_other, resName_other, atomName_other, nAtom_other);
-#ifdef DEBUG
-    fprintf(stderr, "JSON Dual ccmap\\n");
-#endif
-    for(int i = 0 ; i < finalLen ; i++)
-        printf("%d\n", ccmap[i]);
-    free(ccmap);
-}
-
-
-// This function exhausticely list atoms forming contacts
-void LEGACY_pdbContainerDualAtomList(float dist, pdbCoordinateContainer_t *pdbCoordinateContainerI,  pdbCoordinateContainer_t *pdbCoordinateContainerJ, char *iTag, char *jTag) {
-
-    fprintf(stderr,"Listing atoms\n");
-    //  ONE SET OF COORDINATES  
-    double *x;
-    double *y;
-    double *z;
-    char *chainID;
-    char **resSeq;
-    char **resName;
-    char **atomName;
-    atom_t *atomList = NULL;
-    int nAtom = 0;
-
-    nAtom = pdbContainerToArrays(pdbCoordinateContainerI, &x, &y, &z, &chainID, &resSeq, &resName, &atomName);
-    atomList = readFromArrays(nAtom, x, y, z, chainID, resSeq, resName, atomName);
-    int *atomListStatus = malloc(nAtom * sizeof(int));
-
-    //  OPTIONAL SECOND SET OF COORDINATES  
-    double *x_other;
-    double *y_other;
-    double *z_other;
-    char *chainID_other;
-    char **resSeq_other;
-    char **resName_other;
-    char **atomName_other;
-    atom_t *atomList_other = NULL;
-    int nAtom_other = 0;
-    nAtom_other = pdbContainerToArrays(pdbCoordinateContainerJ, &x_other, &y_other, &z_other, &chainID_other, &resSeq_other, &resName_other, &atomName_other);
-    atomList_other = readFromArrays(nAtom_other, x_other, y_other, z_other, chainID_other, resSeq_other, resName_other, atomName_other);
-    int *atomListStatus_other = malloc(nAtom_other * sizeof(int));
-
-
-    atomListInContact(atomList, nAtom, atomList_other, nAtom_other, dist, atomListStatus, atomListStatus_other);
-
-    char buffer[120];
-    printf("%s\n", iTag);
-    for (int i = 0; i < nAtom ; i++) {
-        if (atomListStatus[i]) {
-            stringifyAtomRecord( &pdbCoordinateContainerI->atomRecordArray[i], buffer);
-            printf("%s\n", buffer);
-        }
-    }
-    printf("%s\n", jTag);
-    for (int j = 0; j < nAtom_other ; j++) {
-        if (atomListStatus_other[j]) {
-            stringifyAtomRecord( &pdbCoordinateContainerJ->atomRecordArray[j], buffer);
-            printf("%s\n", buffer);
-        }
-    }
-
-    // CLEAR
-    atomList = destroyAtomList(atomList, nAtom);
-    atomList_other = destroyAtomList(atomList_other, nAtom_other);
-    freeBuffers(x, y, z, chainID, resSeq, resName, atomName, nAtom);
-    freeBuffers(x_other, y_other, z_other, chainID_other, resSeq_other, resName_other, atomName_other, nAtom_other);
-    free(atomListStatus);
-    free(atomListStatus_other);
-}
-
-
-void LEGACY_pdbContainerDualCcmap(float dist, pdbCoordinateContainer_t *pdbCoordinateContainerI,  pdbCoordinateContainer_t *pdbCoordinateContainerJ) {
-    //  ONE SET OF COORDINATES  
-    double *x;
-    double *y;
-    double *z;
-    char *chainID;
-    char **resSeq;
-    char **resName;
-    char **atomName;
-    atom_t *atomList = NULL;
-    int nAtom = 0;
-
-    nAtom = pdbContainerToArrays(pdbCoordinateContainerI, &x, &y, &z, &chainID, &resSeq, &resName, &atomName);
-    atomList = readFromArrays(nAtom, x, y, z, chainID, resSeq, resName, atomName);
-
-    //  OPTIONAL SECOND SET OF COORDINATES 
-    double *x_other;
-    double *y_other;
-    double *z_other;
-    char *chainID_other;
-    char **resSeq_other;
-    char **resName_other;
-    char **atomName_other;
-    atom_t *atomList_other = NULL;
-    int nAtom_other = 0;
-    nAtom_other = pdbContainerToArrays(pdbCoordinateContainerJ, &x_other, &y_other, &z_other, &chainID_other, &resSeq_other, &resName_other, &atomName_other);
-    atomList_other = readFromArrays(nAtom_other, x_other, y_other, z_other, chainID_other, resSeq_other, resName_other, atomName_other);
-
-    unsigned int finalLen=0;
-    int *ccmap = residueContactMap_DUAL(atomList, nAtom, atomList_other, nAtom_other, dist, &finalLen);
-
-// CLEAR
-    atomList = destroyAtomList(atomList, nAtom);
-    atomList_other = destroyAtomList(atomList_other, nAtom_other);
-    freeBuffers(x, y, z, chainID, resSeq, resName, atomName, nAtom);
-    freeBuffers(x_other, y_other, z_other, chainID_other, resSeq_other, resName_other, atomName_other, nAtom_other);
-#ifdef DEBUG
-    fprintf(stderr, "JSON Dual ccmap\n");
-#endif
-    for(int i = 0 ; i < finalLen ; i++)
-        printf("%d\n", ccmap[i]);
-    free(ccmap);
-}
-*/

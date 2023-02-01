@@ -24,10 +24,7 @@ void computeFiboSphereASA(fibo_grid_t *iFiboGrid, float *totalSurface, float *bu
         #endif
         *(buriedSurface) += (float)iFiboGrid->spots[k].buried * spotSurface;
     }
-    #ifdef DEBUG
-        fprintf(stderr, "Computing FiboSphereASA rad = %f total = %f  buried %f [unit:%f, nb_buried:%d, total:%d]\n",\
-                iFiboGrid->radius, *totalSurface, *buriedSurface, spotSurface, nbBuried, FIBO_K);
-    #endif
+
     
     // Rounding up and summing can exceed exact total
     *(buriedSurface) = *buriedSurface > *totalSurface ? *totalSurface : *buriedSurface;
@@ -65,13 +62,21 @@ void FiboSpherePairProcess(fibo_grid_t *iFiboGrid, fibo_grid_t *jFiboGrid) {
     #endif
 }
 
-
-fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius, bool hres) {
-    int FIBO_K = hres ? FIBO_K20 : FIBO_K14;
-    int FIBO_K_min1 = hres ? FIBO_K19 : FIBO_K13;
-    
+// resolutionLevel: (0, low_res) (1, mid_res) (2, high_res)
+fibo_grid_t *computeFiboGrid(float x, float y, float z, float radius, int resolutionLevel) {
+    //int FIBO_K = hres ? FIBO_K20 : FIBO_K14;
+   // int FIBO_K_min1 = hres ? FIBO_K19 : FIBO_K13;
+    int FIBO_K = FIBO_K14;
+    int FIBO_K_min1 = FIBO_K13;
+    if(resolutionLevel == 0) {
+        FIBO_K = FIBO_K11;
+        FIBO_K_min1 = FIBO_K10;
+    } else if(resolutionLevel == 2) {
+        FIBO_K = FIBO_K20;
+        FIBO_K_min1 = FIBO_K19;
+    }
     #ifdef DEBUG
-    fprintf(stderr, "Starting atomicFiboGrid [%g, %g, %g] r=%f\n", x, y, z, radius);
+        fprintf(stderr, "Starting atomicFiboGrid [%g, %g, %g] r=%f  >>%d<<\n", x, y, z, radius, resolutionLevel);
     #endif
     //radius = 50;
   
@@ -198,4 +203,24 @@ void printFiboGrid(fibo_grid_t *fibo_grid){
     printf( "%s", s );
     free(s);
     destroyString(stringifyFigoGrid);
+}
+
+
+/* pass same array vector3D of length K_num
+/*
+Fills x,y ,z list of Fibonacci grid points
+*/
+int generateGridPointCartesian(fibo_grid_t *self, double *x, double *y, double *z, bool surfOnly) {
+    int surf_cnt = 0;
+    spot_t *curr_spot;
+    for (int i = 0 ; i < self->n_spots ; i++) {
+        curr_spot = &self->spots[i];
+        if(curr_spot->buried && surfOnly)
+            continue;
+        x[surf_cnt] = curr_spot->x;
+        y[surf_cnt] = curr_spot->y;
+        z[surf_cnt] = curr_spot->z;
+        surf_cnt++;
+    }
+    return surf_cnt;
 }

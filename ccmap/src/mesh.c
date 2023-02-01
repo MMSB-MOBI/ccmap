@@ -275,7 +275,7 @@ void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
 #ifdef DEBUG
     uint64_t ccByAtom    = cellCrawler->updater->totalByAtom;
     uint64_t ccByResidue = cellCrawler->updater->totalByResidue;
-    printf("\n ---> %llu valid atomic distances computed for a total of %llu residue contacts\n", ccByAtom, ccByResidue);
+    printf("\n ---> %lu valid atomic distances computed for a total of %lu residue contacts\n", ccByAtom, ccByResidue);
     fprintf(stderr, "Exiting meshCrawler\n");
 #endif
     
@@ -761,3 +761,116 @@ cell_t *selectFromSetCellByProx(setCells_t *set, cell_t *target, int mode) {
     }            
     return best;
 }
+
+// Debuging utility mapping and backmapping of arbirtray i,j,k coordinates
+void inspect(meshContainer_t *meshContainer, int _i, int _j, int _k, atom_t *iAtom) {
+    char logAtom[1024];
+    int i,j,k;
+    cell_t *pjCell = NULL;
+    if(iAtom == NULL) {
+        printf("\t  --- inspect arbitrary cell start mode---\n");
+        i = _i;
+        j = _j;
+        k = _k;
+    } else {
+        stringifyAtom(iAtom, logAtom);
+        printf("\t --- actual atom start mode ---\nGetting cell coordinates of %s\n", logAtom);
+        pjCell = getCellFromAtom(meshContainer, iAtom);
+        i = pjCell->i;
+        j = pjCell->j;
+        k = pjCell->k;
+    }
+    
+    
+    printf("\tGetting center coordinates of cell %d %d %d\n", i, j, k);
+    double x, y,z;
+    atom_t *dummy = NULL;
+    meshToCartesian(meshContainer, i, j, k, &x, &y, &z);
+    printf("\t=> %f %f %f\n", x, y, z);
+    dummy = createBareboneAtom(1, x, y, z, 'A', "   1", "DUM", "  C");
+    stringifyAtom(dummy, logAtom);
+    printf("\tCreating dummy atom object from this meshToCartesian projection:\n\t%s\n", logAtom);
+    printf("\tProjecting back in mesh space\n");
+    pjCell = getCellFromAtom(meshContainer, dummy);
+    dummy = destroyAtom(dummy);
+    printf("\t=>Lands on %d %d %d\n\n", pjCell->i, pjCell->j, pjCell->k);
+}
+
+void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer,\
+             char vID, bool buriedHidden) {
+#ifdef DEBUG
+    fprintf(stderr, "appending %d voxels to pdb container\n", meshContainer->nVoxels);
+#endif
+
+    cell_t *currCell = NULL;
+    int n =  meshContainer->nVoxels;
+   
+    // Allocate space for array buffers
+    double *x_vox      = malloc(n * sizeof(double));
+    double *y_vox      = malloc(n * sizeof(double));
+    double *z_vox      = malloc(n * sizeof(double));
+    char *chainID_vox  = malloc(n * sizeof(char));
+    char **resID_vox   = malloc(n * sizeof(char*));
+    char **resName_vox = malloc(n * sizeof(char*));
+    char **name_vox   = malloc(n * sizeof(char*));
+    char baseResNameV[4] = "VOX" ;
+    char baseResNameS[4] = "SOX" ;
+    char baseName[4]    = "CA ";
+    char resSeqBuffer[81];
+    int i_v = 0;
+// Iterate over mesh elements create a VOX atom per voxel'd cell
+    for(int i = 0; i < meshContainer->mesh->iMax ; i++) {
+        for(int j = 0; j < meshContainer->mesh->jMax ; j++){ 
+            for(int k = 0; k < meshContainer->mesh->kMax ; k++) {
+                currCell = &meshContainer->mesh->grid[i][j][k];
+                
+                if(!currCell->isInterior && !currCell->isSurface)
+                    continue;
+                if (!currCell->isSurface && buriedHidden)
+                    continue;
+                meshToCartesian(meshContainer, currCell->i, currCell->j, currCell->k,\
+                                               &x_vox[i_v], &y_vox[i_v], &z_vox[i_v]);
+                chainID_vox[i_v] = vID;
+                sprintf(resSeqBuffer, "%d", i_v + 1 );
+                resID_vox[i_v] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
+                strcpy(resID_vox[i_v], resSeqBuffer);
+                resName_vox[i_v] = malloc(4 * sizeof(char));
+                strcpy(resName_vox[i_v], \
+                    currCell->isSurface ? baseResNameS : baseResNameV);
+                name_vox[i_v] = malloc((strlen(baseName) + 1) * sizeof(char));
+                strcpy(name_vox[i_v], baseName);
+                i_v++;
+    }}}
+    
+            
+    appendArraysToPdbContainer(pdbContainer, n, \
+        x_vox, y_vox, z_vox, chainID_vox, resID_vox, resName_vox,  name_vox);
+    
+#ifdef DEBUG
+        fprintf(stderr, "Voxels appended to following pdb record");
+        char *data = pdbContainerToString(pdbContainer);
+        printf("%s\n", data);
+        free(data);
+#endif
+        freeAtomListCreatorBuffers(x_vox, y_vox, z_vox,\
+            chainID_vox, resID_vox, resName_vox, name_vox, n);
+}
+
+
+void generateSasaCloudToPdb(pdbCoordinateContainer_t **cloudPdbContainer, atom_t *iAtomList, int iAtom, double cellDim) {
+    bool bAtomic = true;
+    bool dual    = false;
+    bool bASA       = true;
+    cellCrawler_t *cellCrawler     = createCellCrawler(bAtomic, dual, cellDim, bASA);
+    meshContainer_t *meshContainer = createMeshContainer(iAtomList, iAtom, NULL, 0, cellDim);
+    printf("Mesh [%dx%dx%d] created: %d cells contain atoms u=%f\n",\
+         meshContainer->mesh->iMax, meshContainer->mesh->jMax,\
+         meshContainer->mesh->kMax, meshContainer->nFilled, cellDim);
+    meshCrawler(meshContainer, cellCrawler);
+    *cloudPdbContainer = newEmptyPdbContainer();
+    
+    appendFiboGridToPdbContainer(*cloudPdbContainer, iAtomList, iAtom, 'X', true);
+    destroyMeshContainer(meshContainer);
+
+}
+
