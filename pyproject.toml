@@ -1,0 +1,16 @@
+[build-system]
+requires = [
+    "setuptools>=61",
+    "wheel",
+    "numpy"
+]
+build-backend = "setuptools.build_meta"
+
+
+[tool.cibuildwheel]
+
+# Target Python versions: 3.9 to 3.14
+build = ["cp39-macosx_arm64", "cp310-macosx_arm64", "cp311-macosx_arm64", "cp312-macosx_arm64", "cp313-macosx_arm64", "cp314-macosx_arm64"]
+
+# Skip unsupported platforms
+skip = ["*-manylinux_*", "*-musllinux_*", "*-win_*", "*-macosx_x86_64"]

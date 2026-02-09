@@ -198,3 +198,59 @@ C executable can be generated with the provided makefile. The low-level function
 * One computation per executable call
 * No multithreading.
 
+# Finding the optimal molecular path connecting two atoms
+Using a thiner mesh size, it is possible to obtain the shortest path connecting two atoms.
+The atoms to connect must be solvent accessible and path search will operate over the surface and solvant accessible cells. The solvent excluded volume is computed for each atom as the sum of of its Van Der Waals radius and the radius of water molecule.
+## install
+```sh
+ git clone -b fibonacci git@github.com:MMSB-MOBI/ccmap.git
+ cd ccmap/ccmap
+ make pathfinder
+```
+## Usage
+
+<!--
+`./bin/linky -x 'ILE:A:1:CA' -y 'LYS:A:13:N' -i ../tests/structures/small_peptide_noH_1model.pdb`
+-->
+
+`./bin/linky -i ../tests/structures/gil_input.pdb  -x 'LI1:B:502:CA' -y 'LI2:C:502:CA' -s 1`
+
+will display:
+
+```shell
+Applying H20 probe radius of 1.4 A. to atomic solvant volume exclusion
+User atom selection:
+	Start atom:	" CA  LI1  502 B 14.024000 15.909000 -5.891000"
+	End atom :	" CA  LI2  502 C 8.770000 25.230000 -5.380000"
+Mesh [459x408x316] created: 3959 cells contain atoms
+Building surfaces w/ mesh unit of 0.2 A. ...
+	Total of 12749100 voxels constructed
+Searching for start/stop cells at start/stop atoms surfaces...
+	start/stop surfaces contain 391/1058 voxels, picking closest to the other volume center cell ...
+Starting from cell (240,281, 134) (b=0)
+Trying to reachcell (230,307, 139) (b=0)
+	---Best walk is made of 47 moves---
+Theoritical distance from 1st vox_path to start atom
+	voxel [240 281 134] 11.018,16.813,-6.889
+	atom:  CA  LI1  502 B 14.024000 15.909000 -5.891000
+	d=3.29382 A.
+Start/Stop atoms exclusion radius: 3.2 / 3.2 A.
+Best pathway -- aprox. polyline lengths 15.8 A
+Trailing space equals 0.2A
+Threading of 7 atoms w/ 1A spacing completed
+Approximate linker length 12.6 A.
+```
+
+Where last line is fair approximation of the shortest curve linking desired atoms.
+
+## Effect of parameters on search
+The path is guaranteed to be optimal but may take some time to run depending on structure topology and command line parameters.
+
+### cell size
+Too large value may lead irrealistic path. Smaller values are better but increase path search space and therefore the computation time.
+
+### water probe
+Water probe radius affect the solvant volume and therefore the path
+
+### bead spacing
+Doesn't affect the optimal path, but will affect the evaluation of the linker length.

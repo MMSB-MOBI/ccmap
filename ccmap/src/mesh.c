@@ -1,16 +1,22 @@
 #include "mesh.h"
 
+#define MAX_VDW_RADIUS //required to estime voxel_shell as (MAX_VDW_RADIUS + PROBE_RADIUS) / step
 // TO DO: implementation of atomic integer encoding
-ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded) {
-    
-    //assert(!bEncoded); 
+ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded, bool bASA) {
     
     #ifdef DEBUG
-    fprintf(stderr, "Starting atomicContactMap\n");
+        printOnContextStderr("Starting atomicContactMap\n");
     #endif
     bool bAtomic = true;
-    ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic);
+    ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic, bASA); // <--- sasa computation inside
+    
     ccmapView_t *ccmapView = createCcmapView();
+   
+    if(bASA){
+        // We steal reference to the sasa aggregated results created within ccmapCore // NOT ENOUGH as there residue reference bound to sasa results
+        ccmapView->sasaResults    = ccmapResults->sasaResults;
+        ccmapResults->sasaResults = NULL;     
+    }
     /* ----- HERE  TO TEST ----- */
     if (bEncoded) {
         unsigned int finalLen;
@@ -35,12 +41,12 @@ ccmapView_t *atomicContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, i
 }
 
 // ENCODED single residue set currently DISABLED SHOULD BE ENABLED, REALLY ?
-ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded) {
+ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bEncoded, bool bASA) {
     #ifdef DEBUG
-    fprintf(stderr, "Starting residueContactMap\n");
+        printOnContextStderr("Starting atomicContactMap\n");
     #endif
     bool bAtomic = false;
-    ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic);
+    ccmapResults_t *ccmapResults = ccmapCore(iAtomList, iAtom, jAtomList, jAtom, ctc_dist, bAtomic, bASA);
     ccmapView_t *ccmapView = createCcmapView();
 
     if (bEncoded) {
@@ -62,11 +68,14 @@ ccmapView_t *residueContactMap(atom_t *iAtomList, int iAtom, atom_t *jAtomList, 
 
 ccmapView_t *createCcmapView() {
     ccmapView_t *ccmapView = malloc( sizeof(ccmapView_t) );
-    ccmapView->asJSON = NULL;
-    ccmapView->asENCODE = NULL;
+    ccmapView->asJSON      = NULL;
+    ccmapView->asENCODE    = NULL;
+    ccmapView->sasaResults = NULL; // Used to steal reference created in ccmapResults;
     return ccmapView;
 }
 ccmapView_t *destroyCcmapView(ccmapView_t *ccmapView) {
+    if (ccmapView->sasaResults != NULL) 
+        destroySasaResults(ccmapView->sasaResults);
     if (ccmapView->asJSON != NULL)
         free(ccmapView->asJSON);
     else
@@ -75,13 +84,14 @@ ccmapView_t *destroyCcmapView(ccmapView_t *ccmapView) {
     return ccmapView;
 }
 
-ccmapResults_t *createCcmapResults(cellCrawler_t *cellCrawler, residue_t *iResidueList , residue_t *jResidueList) {
+// Create Contact map results w/ optional field for sasa
+ccmapResults_t *createCcmapResults(cellCrawler_t *cellCrawler, residueList_t *iResidueList , residueList_t *jResidueList) {
     ccmapResults_t *results = malloc(sizeof(ccmapResults_t));
     results->iResidueList = iResidueList;
     results->jResidueList = jResidueList;
     results->cellCrawler = cellCrawler;
     results->fused = jResidueList != NULL;
-    
+    results->sasaResults = NULL;
     return results;
 }
 // IS IT SAFE TO DESTROY jResidue after fusion?
@@ -92,16 +102,19 @@ ccmapResults_t *destroyCcmapResults (ccmapResults_t *results){
         results->jResidueList = destroyResidueList(results->jResidueList);
         
     destroyCellCrawler(results->cellCrawler);
+    if(results->sasaResults != NULL)
+        results->sasaResults = destroySasaResults(results->sasaResults);
     free(results);
+    
     return results;
 }
 
-ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bAtomic) {
+ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAtom, double ctc_dist, bool bAtomic, bool bASA) {
 #ifdef DEBUG
     printf("Starting ccmapCore %s mode\n", bAtomic?"atomic":"not atomic");
 #endif
-    residue_t *iResidueList                     = createResidueList(iAtomList);
-    residue_t *jResidueList = jAtomList != NULL ? createResidueList(jAtomList) : NULL;
+    residueList_t *iResidueList                     = createResidueList(iAtomList);
+    residueList_t *jResidueList = jAtomList != NULL ? createResidueList(jAtomList) : NULL;
 
 #ifdef DEBUG
     printf("Computing residue contact map w/ %.2g Angstrom step\n", ctc_dist);
@@ -113,18 +126,23 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
         printResidueList(fp, jResidueList);
     }
     fclose(fp);
-#endif
-
+#endif   
     double step = ctc_dist;
     meshContainer_t *meshContainer = createMeshContainer(iAtomList, iAtom, jAtomList, jAtom, step);
+    
     /* Inspecting atom projection */
     // 101_B_CE1 and 121_1_OE1 cell coordinates ?
     // printResidueCellProjection(" 101", 'B', results, iResidueList);
     //printResidueCellProjection(" 121", 'A', results, jResidueList);
     bool dual = jResidueList != NULL;
-    cellCrawler_t *cellCrawler = createCellCrawler(bAtomic, dual, ctc_dist);
+    cellCrawler_t *cellCrawler = createCellCrawler(bAtomic, dual, ctc_dist, bASA);
     meshCrawler(meshContainer, cellCrawler);
-    ccmapResults_t *results = createCcmapResults(cellCrawler, iResidueList, jResidueList);
+    ccmapResults_t *results = createCcmapResults(cellCrawler, iResidueList, \
+                                                              jResidueList != NULL ? jResidueList : NULL);
+         
+    if(bASA)
+        results->sasaResults = computeSasaResults(iResidueList);
+   
     meshContainer = destroyMeshContainer(meshContainer);
 
 #ifdef DEBUG
@@ -133,9 +151,9 @@ ccmapResults_t *ccmapCore(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int j
     return results;
 }
 // Old string-less implementation
-char *jsonifyContactList(residue_t *residueList) {
+char *jsonifyContactList(residueList_t *residueList) {
     //residueList = iterate over residue list, iterate over its contact jsonIfy;
-    residue_t *residue_curr = residueList;
+    residue_t *residue_curr = residueList->root;
     residue_t *residue_partner = NULL;
     char residueJsonString_current[81];
     char residueJsonString_partner[81];
@@ -212,7 +230,8 @@ string_t *jsonifyAtomPairList(ccmapResults_t *ccmapResults) {
 // Get its following cells neighbours
 void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
 #ifdef DEBUG
-    fprintf(stderr, "Starting meshCrawler %s\n", cellCrawler->dual?"dual mode":"not dual mode");
+    if (cellCrawler != NULL)
+        fprintf(stderr, "Starting meshCrawler %s\n", cellCrawler->dual?"dual mode":"not dual mode");
 #endif
     mesh_t *mesh = meshContainer->mesh;
     cell_t **cellList = meshContainer->filledCells;
@@ -221,8 +240,9 @@ void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
     cell_t ***grid = mesh->grid;
     cell_t *cur_cell;
     int kStart, jStart;
-    bool extractBool = cellCrawler->threshold > 0.0;
-
+    bool extractBool = false;
+    extractBool = cellCrawler->threshold > 0.0;
+   
 #ifdef DEBUG
     printf("Enumerating Distance between %d grid cells (Grid step is %g)\n", nCells, meshContainer->step);
 #endif
@@ -255,8 +275,8 @@ void meshCrawler(meshContainer_t *meshContainer, cellCrawler_t *cellCrawler) {
 #ifdef DEBUG
     uint64_t ccByAtom    = cellCrawler->updater->totalByAtom;
     uint64_t ccByResidue = cellCrawler->updater->totalByResidue;
-    printf("\n ---> %llu valid atomic distances computed for a total of %llu residue contacts\n", ccByAtom, ccByResidue);
-    fprintf(stderr, "Exiting meshCrawler");
+    printf("\n ---> %lu valid atomic distances computed for a total of %lu residue contacts\n", ccByAtom, ccByResidue);
+    fprintf(stderr, "Exiting meshCrawler\n");
 #endif
     
 }
@@ -282,36 +302,73 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
     atom_t minCoor;
     atom_t maxCoor;
     bool dualMode = jAtomList != NULL ? true : false;
-    if (dualMode)
+    float maxASA_radius = 0;
+    for(int i = 0; i < iAtom ; i++)
+        maxASA_radius = iAtomList[i]._radiusASA  > maxASA_radius?\
+            iAtomList[i]._radiusASA : maxASA_radius;
+    if (dualMode) {
         getBoundariesCartesian_DUAL(iAtomList, iAtom, jAtomList, jAtom, &minCoor, &maxCoor);
-    else
+        for(int j = 0; j < jAtom ; j++)
+            maxASA_radius = jAtomList[jAtom]._radiusASA ?\
+            jAtomList[jAtom]._radiusASA > maxASA_radius:maxASA_radius;
+    } else {
         getBoundariesCartesian(iAtomList, iAtom, &minCoor, &maxCoor);
+    }
+    
+    int voxel_shell_thickness = (int) (maxASA_radius / step + 0.5);
+
 
 #ifdef DEBUG
     printf("Minimal Coordinates %g %g %g\n", minCoor.x, minCoor.y, minCoor.z);
     printf("Maximal Coordinates %g %g %g\n", maxCoor.x, maxCoor.y, maxCoor.z);
+    printf("Maximal ASA radius %g => %d voxel shell thickness\n", \
+        maxASA_radius, voxel_shell_thickness);
 #endif
 
+   /*
     int iDim = (maxCoor.x - minCoor.x);
     iDim = (iDim + step - 1) / step + 1;
     int jDim = (maxCoor.y - minCoor.y);
     jDim = (jDim + step - 1) / step + 1;
     int kDim = (maxCoor.z - minCoor.z);
     kDim = (kDim + step - 1) / step + 1;
-
+    */
+    //         span coordinates range  + "zerocase" + 1 both ends path + voxel on both ends
+    int iDim = (maxCoor.x - minCoor.x) / step  + 3 + 2 * voxel_shell_thickness;
+    int jDim = (maxCoor.y - minCoor.y) / step  + 3 + 2 * voxel_shell_thickness;
+    int kDim = (maxCoor.z - minCoor.z) / step  + 3 + 2 * voxel_shell_thickness;
     mesh_t *i_mesh = createMesh(iDim, jDim, kDim);
     cell_t ***grid = i_mesh->grid;
 
 #ifdef DEBUG
-    printf("Projecting ... \n");
+    printf("Projecting %d atoms ... into %d x %d x %d mesh dimensions\n", iAtom, iDim, jDim, kDim);
+    printf("Indexing theoritical max total %d non empty cells\n", i_mesh->n);
 #endif
     // We store the non-empty cells
     cell_t **filledCells = malloc(i_mesh->n * sizeof(cell_t*));
     int nFilled = 0;
 
     for (int c = 0 ; c < iAtom ; c++) {
+#ifdef DEBUG
+    printf("Projecting atom number %d\n", c);
+#endif 
         int i, j, k;
-        cartesianToMesh(&iAtomList[c], &i, &j, &k, step, minCoor);
+        cartesianToMesh(&iAtomList[c], &i, &j, &k, step, minCoor, voxel_shell_thickness);
+        if ( (i == 0 || i == iDim - 1)||
+             (j == 0 || j == jDim - 1)||
+             (k == 0 || k == kDim - 1)
+        ) {
+            fprintf(stderr, "Projection error: landing into border cell (%f %f %f) => [%d %d %d]\n",\
+                           iAtomList[i].x, iAtomList[i].y, iAtomList[i].z, i, j, k\
+                    );
+            exit(1);
+        }
+
+#ifdef DEBUG
+    printf("(%f, %f, %f) Landing at [%d, %d, %d]\n",\
+    iAtomList[c].x, iAtomList[c].y, iAtomList[c].z,\
+    i, j, k);
+#endif        
         if (grid[i][j][k].memberCount == 0) {
             /*This cell is non-empty
             register its adress*/
@@ -334,7 +391,7 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
     if (dualMode) {
         for (int c = 0 ; c < jAtom ; c++) {
             int i, j, k;
-            cartesianToMesh(&jAtomList[c], &i, &j, &k, step, minCoor);
+            cartesianToMesh(&jAtomList[c], &i, &j, &k, step, minCoor, voxel_shell_thickness);
             if (grid[i][j][k].memberCount == 0) {
                 /*This cell is non-empty
                 register its adress*/
@@ -363,17 +420,21 @@ meshContainer_t *createMeshContainer(atom_t *iAtomList, int iAtom, atom_t *jAtom
 #ifdef DEBUG
     printf("%d atoms projected onto %d cells\n", iAtom + jAtom, nFilled);
 #endif
-    meshContainer_t *results = malloc (sizeof(meshContainer_t));
-    results->mesh = i_mesh;
-    results->filledCells = filledCells;
-    results->nFilled = nFilled;
-    results->step = step;
-
+    meshContainer_t *meshContainer = malloc (sizeof(meshContainer_t));
+    meshContainer->mesh = i_mesh;
+    meshContainer->filledCells = filledCells;
+    meshContainer->nFilled = nFilled;
+    meshContainer->step = step;
+    meshContainer->x_min = minCoor.x;
+    meshContainer->y_min = minCoor.y;
+    meshContainer->z_min = minCoor.z;
+    meshContainer->voxel_shell_thickness = voxel_shell_thickness;
+    meshContainer->nVoxels = 0;
 #ifdef DEBUG
     fprintf(stderr, "Exiting createMeshContainer\n");
 #endif
 
-    return results;
+    return meshContainer;
 }
 mesh_t *createMesh(int iDim, int jDim, int kDim) {
 #ifdef DEBUG
@@ -399,7 +460,6 @@ mesh_t *createMesh(int iDim, int jDim, int kDim) {
                 i_mesh->grid[i][j][k].j = j;
                 i_mesh->grid[i][j][k].k = k;
                 i_mesh->grid[i][j][k].memberCount = 0;
-                i_mesh->grid[i][j][k].neighbourCount = 0;
                 i_mesh->grid[i][j][k].members = NULL;
 
                 i_mesh->grid[i][j][k].iMembers = NULL;
@@ -407,6 +467,11 @@ mesh_t *createMesh(int iDim, int jDim, int kDim) {
 
                 i_mesh->grid[i][j][k].iMemberCount = 0;
                 i_mesh->grid[i][j][k].jMemberCount = 0;
+                i_mesh->grid[i][j][k].bwfs = iDim * jDim * kDim; // Pathfinder longest possible road 
+                i_mesh->grid[i][j][k].isInterior = false;
+                i_mesh->grid[i][j][k].isSurface  = false;
+                i_mesh->grid[i][j][k].isStart     = false;
+                i_mesh->grid[i][j][k].isStop      = false;
             }
         }
     }
@@ -487,12 +552,33 @@ void getBoundariesCartesian(atom_t * atomList, int nAtom, atom_t *minCoor, atom_
 
 }
 
-void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t minCoor) {
-    *i = (int) floor( (atom->x - minCoor.x) / step);
-    *j = (int) floor( (atom->y - minCoor.y) / step);
-    *k = (int) floor( (atom->z - minCoor.z) / step);
+void cartesianToMesh(atom_t *atom, int *i, int *j, int *k, float step, atom_t minCoor, int vxsthickness) {
+    *i = (int) floor( /*fabs*/(atom->x - minCoor.x) / step) + 1 + vxsthickness; // Adding one to skip 1st outer shell cell
+    *j = (int) floor( /*fabs*/(atom->y - minCoor.y) / step) + 1 + vxsthickness;
+    *k = (int) floor( /*fabs*/(atom->z - minCoor.z) / step) + 1 + vxsthickness;
+
+    /*
+    printf("<%f, %f, %f>\n", atom->x, atom->y, atom->z);
+    printf("*i = (int) floor( (%f - %f) / %f) + 1 + %d = %d\n",\
+        atom->x, minCoor.x, step, vxsthickness, *i);
+    */
+    
 }
 
+// Returns the x,y,z coordinates of the center of the i,j,k cell
+void meshToCartesian(meshContainer_t *meshContainer, int i, int j, int k, double *x, double *y, double *z) {
+    double uc = meshContainer->step;
+    int vxsthickness = meshContainer->voxel_shell_thickness;
+    *x           = meshContainer->x_min + uc * (i - 1 - vxsthickness) + uc / 2;
+    *y           = meshContainer->y_min + uc * (j - 1 - vxsthickness) + uc / 2;
+    *z           = meshContainer->z_min + uc * (k - 1 - vxsthickness) + uc / 2;
+#ifdef DEBUG
+    fprintf(stderr, "BackProjection [%d %d %d]=>(%f %f %f)\n",\
+            i, j, k, *x, *y, *z);
+#endif
+    
+    return;
+}
 /* -----------------   DEBUGING FN  ----------------- */
 void printContactList(residue_t *residueList) {
     //residueList = iterate over residue list, iterate over its contact -> stringify residue pair;
@@ -552,6 +638,9 @@ void dumpCellContent(cell_t *cell) {
         printf("\t%s\n", atomString);
         atom = atom->nextCellAtom;
     }
+    printf("Cells generic info: isInterior/isSurface %s/%s bwfs:%d:\n",\
+    cell->isInterior ? "true":"false", cell->isSurface ? "true":"false",\
+    cell->bwfs);
 }
 
 // Debugging function to list the cell coordinates of a specified residues projected atoms
@@ -567,7 +656,7 @@ void meshDummy(int a, int b, int c) {
     dummyMeshContainer->filledCells = dummy_filledCells;
     dummyMeshContainer->nFilled = dum_mesh->n;
 
-    cellCrawler_t *dummyCellCrawler = createCellCrawler(true, true, -1); //just filled it, TO CHECK TEST
+    cellCrawler_t *dummyCellCrawler = createCellCrawler(true, true, -1, false); //just filled it, TO CHECK TEST
     meshCrawler(dummyMeshContainer, dummyCellCrawler);
 
     dummyMeshContainer = destroyMeshContainer(dummyMeshContainer);
@@ -614,5 +703,174 @@ void atomListInContact(atom_t *iAtomList, int iAtom, atom_t *jAtomList, int jAto
     }
 
     results = destroyMeshContainer(results);
+}
+
+cell_t *getCellFromAtom(meshContainer_t *meshContainer, atom_t *atom) {
+    atom_t minCoor;
+    minCoor.x = meshContainer->x_min;
+    minCoor.y = meshContainer->y_min;
+    minCoor.z = meshContainer->z_min;
+    int i,j,k;
+    cartesianToMesh(atom, &i, &j, &k, meshContainer->step, minCoor, meshContainer->voxel_shell_thickness);
+    cell_t *cell = &meshContainer->mesh->grid[i][j][k];
+    
+    return cell;
+}
+
+float c_dist(cell_t *a, cell_t *b) {
+    return sqrt(  ( a->i - b->i ) * ( a->i - b->i ) \
+                + ( a->j - b->j ) * ( a->j - b->j ) \
+                + ( a->k - b->k ) * ( a->k - b->k ) \
+            );
+}
+
+int manh_dist(cell_t *a, cell_t *b) {
+    return abs(a->i - b->i) + abs(a->j - b->j) + abs( a->k - b->k);
+}
+
+// Minimal number of moves from a to reach b
+// Move in diagonal until the last we are on the same row / column then move in straight line
+int mv_dist(cell_t *a, cell_t *b) {
+    return 0; // TODO ??
+}
+
+setCells_t *destroySetCells(setCells_t *setCells){
+    free(setCells->cells);
+    free(setCells);
+    return NULL;
+}
+
+/*
+return the member ot the set, the closest to provided cell
+mode = 1 euclidean cell dist
+mode = 2 manh      dist 
+*/
+cell_t *selectFromSetCellByProx(setCells_t *set, cell_t *target, int mode) {
+    assert(set->size > 0);
+    cell_t *best = set->cells[0];
+    float best_c_dist = c_dist(set->cells[0], target);
+    float curr_c_dist;
+    if(mode == 1) {
+        for(int i = 1 ; i < set->size ; i++) {
+            curr_c_dist = c_dist(set->cells[i], target);
+            if (curr_c_dist < best_c_dist) {
+               best = set->cells[i];
+               best_c_dist = curr_c_dist;        
+            }
+        }
+    }            
+    return best;
+}
+
+// Debuging utility mapping and backmapping of arbirtray i,j,k coordinates
+void inspect(meshContainer_t *meshContainer, int _i, int _j, int _k, atom_t *iAtom) {
+    char logAtom[1024];
+    int i,j,k;
+    cell_t *pjCell = NULL;
+    if(iAtom == NULL) {
+        printf("\t  --- inspect arbitrary cell start mode---\n");
+        i = _i;
+        j = _j;
+        k = _k;
+    } else {
+        stringifyAtom(iAtom, logAtom);
+        printf("\t --- actual atom start mode ---\nGetting cell coordinates of %s\n", logAtom);
+        pjCell = getCellFromAtom(meshContainer, iAtom);
+        i = pjCell->i;
+        j = pjCell->j;
+        k = pjCell->k;
+    }
+    
+    
+    printf("\tGetting center coordinates of cell %d %d %d\n", i, j, k);
+    double x, y,z;
+    atom_t *dummy = NULL;
+    meshToCartesian(meshContainer, i, j, k, &x, &y, &z);
+    printf("\t=> %f %f %f\n", x, y, z);
+    dummy = createBareboneAtom(1, x, y, z, 'A', "   1", "DUM", "  C");
+    stringifyAtom(dummy, logAtom);
+    printf("\tCreating dummy atom object from this meshToCartesian projection:\n\t%s\n", logAtom);
+    printf("\tProjecting back in mesh space\n");
+    pjCell = getCellFromAtom(meshContainer, dummy);
+    dummy = destroyAtom(dummy);
+    printf("\t=>Lands on %d %d %d\n\n", pjCell->i, pjCell->j, pjCell->k);
+}
+
+void appendVoxelToPdbContainer(pdbCoordinateContainer_t *pdbContainer, meshContainer_t *meshContainer,\
+             char vID, bool buriedHidden) {
+#ifdef DEBUG
+    fprintf(stderr, "appending %d voxels to pdb container\n", meshContainer->nVoxels);
+#endif
+
+    cell_t *currCell = NULL;
+    int n =  meshContainer->nVoxels;
+   
+    // Allocate space for array buffers
+    double *x_vox      = malloc(n * sizeof(double));
+    double *y_vox      = malloc(n * sizeof(double));
+    double *z_vox      = malloc(n * sizeof(double));
+    char *chainID_vox  = malloc(n * sizeof(char));
+    char **resID_vox   = malloc(n * sizeof(char*));
+    char **resName_vox = malloc(n * sizeof(char*));
+    char **name_vox   = malloc(n * sizeof(char*));
+    char baseResNameV[4] = "VOX" ;
+    char baseResNameS[4] = "SOX" ;
+    char baseName[4]    = "CA ";
+    char resSeqBuffer[81];
+    int i_v = 0;
+// Iterate over mesh elements create a VOX atom per voxel'd cell
+    for(int i = 0; i < meshContainer->mesh->iMax ; i++) {
+        for(int j = 0; j < meshContainer->mesh->jMax ; j++){ 
+            for(int k = 0; k < meshContainer->mesh->kMax ; k++) {
+                currCell = &meshContainer->mesh->grid[i][j][k];
+                
+                if(!currCell->isInterior && !currCell->isSurface)
+                    continue;
+                if (!currCell->isSurface && buriedHidden)
+                    continue;
+                meshToCartesian(meshContainer, currCell->i, currCell->j, currCell->k,\
+                                               &x_vox[i_v], &y_vox[i_v], &z_vox[i_v]);
+                chainID_vox[i_v] = vID;
+                sprintf(resSeqBuffer, "%d", i_v + 1 );
+                resID_vox[i_v] = malloc((strlen(resSeqBuffer) + 1) * sizeof(char));
+                strcpy(resID_vox[i_v], resSeqBuffer);
+                resName_vox[i_v] = malloc(4 * sizeof(char));
+                strcpy(resName_vox[i_v], \
+                    currCell->isSurface ? baseResNameS : baseResNameV);
+                name_vox[i_v] = malloc((strlen(baseName) + 1) * sizeof(char));
+                strcpy(name_vox[i_v], baseName);
+                i_v++;
+    }}}
+    
+            
+    appendArraysToPdbContainer(pdbContainer, n, \
+        x_vox, y_vox, z_vox, chainID_vox, resID_vox, resName_vox,  name_vox);
+    
+#ifdef DEBUG
+        fprintf(stderr, "Voxels appended to following pdb record");
+        char *data = pdbContainerToString(pdbContainer);
+        printf("%s\n", data);
+        free(data);
+#endif
+        freeAtomListCreatorBuffers(x_vox, y_vox, z_vox,\
+            chainID_vox, resID_vox, resName_vox, name_vox, n);
+}
+
+
+void generateSasaCloudToPdb(pdbCoordinateContainer_t **cloudPdbContainer, atom_t *iAtomList, int iAtom, double cellDim) {
+    bool bAtomic = true;
+    bool dual    = false;
+    bool bASA       = true;
+    cellCrawler_t *cellCrawler     = createCellCrawler(bAtomic, dual, cellDim, bASA);
+    meshContainer_t *meshContainer = createMeshContainer(iAtomList, iAtom, NULL, 0, cellDim);
+    printf("Mesh [%dx%dx%d] created: %d cells contain atoms u=%f\n",\
+         meshContainer->mesh->iMax, meshContainer->mesh->jMax,\
+         meshContainer->mesh->kMax, meshContainer->nFilled, cellDim);
+    meshCrawler(meshContainer, cellCrawler);
+    *cloudPdbContainer = newEmptyPdbContainer();
+    
+    appendFiboGridToPdbContainer(*cloudPdbContainer, iAtomList, iAtom, 'X', true);
+    destroyMeshContainer(meshContainer);
+
 }
 

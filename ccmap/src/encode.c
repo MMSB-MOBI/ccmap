@@ -67,7 +67,7 @@ while(currAtomPair != NULL){
 }
 
 #ifdef DEBUG
-for (int i = 0 ; i < *totalContacts ; i++)
+for (uint16_t i = 0 ; i < *totalContacts ; i++)
   fprintf(fp, "(%d)%d\n", i, table[i]);
 fclose(fp); 
 #endif
@@ -77,8 +77,8 @@ fclose(fp);
 /*
 By convention the number of columns is taken from the len of jResidueList if it is not NULL
 */
-unsigned int *encodeContactMapResidue(residue_t *iResidueList,         \
-                               residue_t *jResidueList, unsigned int *totalContacts
+unsigned int *encodeContactMapResidue(residueList_t *iResidueList,\
+                                      residueList_t *jResidueList, unsigned int *totalContacts
 ){
 
 unsigned int *table    = NULL;
@@ -88,9 +88,9 @@ residue_t *srcResidue = NULL;
 residue_t *tgtResidue = NULL;
 size_t tableCapacity = TABLE_CHUNCK_SZ;
 
-unsigned int jLen = jResidueList != NULL ?         \
-                    residueListLen(jResidueList) : \
-                    residueListLen(iResidueList);
+unsigned int jLen = jResidueList != NULL ?\
+                    jResidueList->length :\
+                    iResidueList->length; \
 
 table = malloc( tableCapacity * sizeof(int));
 *totalContacts = 0;
@@ -101,7 +101,7 @@ char res1[81];
 char res2[81];
 #endif
 
-srcResidue = iResidueList;
+srcResidue = iResidueList->root;
 while (srcResidue != NULL){
   #ifdef DEBUG
     stringifyResidue(srcResidue, res1);
@@ -128,7 +128,7 @@ while (srcResidue != NULL){
 
 if(jResidueList != NULL) {
   // Now we browse through the ligand, we swap the call to ENCODE
-    srcResidue = jResidueList;
+    srcResidue = jResidueList->root;
     while (srcResidue != NULL){
         #ifdef DEBUG
         stringifyResidue(srcResidue, res2);

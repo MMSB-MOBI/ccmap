@@ -1,6 +1,7 @@
 //File: pdb_coordinates.h
 #ifndef PDB_COORDINATES_H
 #define PDB_COORDINATES_H
+#include "miscellaneous.h"
 
 typedef struct atomRecord {
     char recordName[7];
@@ -46,15 +47,22 @@ COLUMNS        DATA  TYPE    FIELD        DEFINITION
 
 void transformPdbCoordinateContainer(pdbCoordinateContainer_t *pdbCoordinateContainer, float *euler, float *translation);
 
+pdbCoordinateContainer_t *newEmptyPdbContainer();
 void pdbContainerToFile(pdbCoordinateContainer_t *pdbCoordinateContainer, char *fname, char *mode);
 pdbCoordinateContainer_t *pdbFileToContainer(char *fileName);
 pdbCoordinateContainer_t *destroyPdbCoordinateContainer(pdbCoordinateContainer_t *pdbCoordinateContainer);
-void createAtomRecord(char *recordString, atomRecord_t *newAtom);
+void createAtomRecordFromPdbLine(char *recordString, atomRecord_t *newAtom);
+atomRecord_t *createAtomRecordArrayElements(atomRecord_t *newAtom,\
+    char *recordType, int recordNumber,\
+    double x, double y, double z,\
+    char *name, char altloc, char *resName, char chainID, char *resSeq,\
+    char iCode, double occupancy, double tFactor, char *element, char *charge);
 void stringifyAtomRecord(atomRecord_t *atomRecord, char *atomRecordString);
-int pdbContainerToArrays(pdbCoordinateContainer_t *pdbCoordinateContainer, double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name);
+int pdbContainerToArrays(pdbCoordinateContainer_t *pdbCoordinateContainer,\
+    double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name);
 char *pdbContainerToString(pdbCoordinateContainer_t *pdbCoordinateContainer);
-
-
+bool appendArraysToPdbContainer(pdbCoordinateContainer_t *pdbCoordinateContainer,int nb,\
+        double *x, double *y, double *z, char *chainID, char **resID, char **resName,  char **name);
 // Unused kept just in case
 int legacy_readPdbFile(char *fname, double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name);
 int legacy_readFile(char *fname, double **x, double **y, double **z, char **chainID, char ***resID, char ***resName,  char ***name);
