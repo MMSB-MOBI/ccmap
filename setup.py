@@ -12,7 +12,7 @@ core = Extension('ccmap',
               extra_compile_args=extra_compile_args
 		)
 setup (name = 'ccmap',
-       version = '2.1.3',
+       version = '2.1.4',
        author = 'G.Launay', 
 	author_email='pitooon@gmail.com',
        description = 'A C implementation of a mesh based atomic pairwise distance computating engine, with docking pose generation capabilities',
