@@ -42,7 +42,7 @@ core = Extension(
 setup(
     name="ccmap",
     install_requires=["numpy"],
-    version="4.1",
+    version="4.1.1",
     author="G.Launay",
     author_email="pitooon@gmail.com",
     description="A C implementation of a mesh based atomic pairwise distance computating engine, with docking pose generation capabilities and fast solvant accessible surface estimation",
@@ -51,9 +51,9 @@ setup(
     long_description=open("README.md").read(),
     url="https://github.com/MMSB-MOBI/ccmap",
     keywords="protein docking bioinformatics structure",
+    license="MIT",
     classifiers=[
         "Intended Audience :: Science/Research",
-        "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Topic :: Software Development :: Libraries :: Python Modules",

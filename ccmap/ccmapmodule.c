@@ -23,6 +23,18 @@ struct module_state {
 
 #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
 
+/* --  WARNING LOG  -- */
+/*
+PyObject *msg = PyUnicode_FromFormat(
+    "Number of object in 1st array: %d",
+    structFrameLen
+);
+if (!msg)
+    return NULL;
+PyErr_WarnEx(PyExc_UserWarning, PyUnicode_AsUTF8(msg), 1);
+Py_DECREF(msg);
+*/
+
 
 /*
             ----- SASA module functions -----
@@ -31,7 +43,7 @@ struct module_state {
     2°/ PDBcoordinates as input
 */
 
-// This one interface is deprecated 
+// This one interface is deprecated
 static PyObject *sasa_single_mda_np_arrays(PyObject* self, PyObject* args, PyObject* kwargs) {
 static char *kwlist[] = {"", "", "", "", "", "rtype", "probe", "hres", NULL};
 
@@ -165,7 +177,7 @@ PyArrayObject *arrInput_1 = (PyArrayObject *) PyArray_FROM_OTF(arg1, NPY_DOUBLE,
 if (arrInput_1 == NULL){
     Py_DECREF(arrInput_1);
     return NULL;
-} 
+}
 
 int ndim = PyArray_NDIM(arrInput_1);
 npy_intp *shape = PyArray_DIMS(arrInput_1);
@@ -189,7 +201,7 @@ return output;
 /* Python API exposed as sasa_cloud */
 /*
 
- (VDW+H20) < sqrt(3) * u   
+ (VDW+H20) < sqrt(3) * u
  (VDW+H20) / sqrt(3) < u
 u = (VDW+H20) / sqrt(3) + 0.1
 */
@@ -197,7 +209,7 @@ static PyObject *sasa_cloud(PyObject* self, PyObject* args, PyObject* kwargs) {
     static char *kwlist[] = {"", "", "probe", NULL};
     PyObject *coorDict, *atomRadiilist;
     atom_t *atomList    = NULL;
-  
+
     float probeRadius  = 1.4;
    // double cellDim     = 0.2;
     int iLen           = 0;
@@ -217,7 +229,7 @@ static PyObject *sasa_cloud(PyObject* self, PyObject* args, PyObject* kwargs) {
     float u = ((aMap->maxRadius + probeRadius) / sqrt(3) ) + 0.1;
     pdbCoordinateContainer_t *pdbSasaCloud;
     generateSasaCloudToPdb(&pdbSasaCloud, atomList, iLen, u);
- 
+
     char *sasaCloudAsPdbChar = pdbContainerToString(pdbSasaCloud);
 
     PyObject *rValue =  Py_BuildValue("s", sasaCloudAsPdbChar);
@@ -226,7 +238,7 @@ static PyObject *sasa_cloud(PyObject* self, PyObject* args, PyObject* kwargs) {
     destroyAtomList(atomList, iLen);
     aMap   = destroyAtomMapper(aMap);
     destroyPdbCoordinateContainer(pdbSasaCloud);
-    
+
     free(sasaCloudAsPdbChar);
     return rValue;
 }
@@ -315,11 +327,11 @@ ccmap_compute_list_allocate( &ccmapViewList,\
                              NULL, NULL, \
                              structFrameLen, false);
 
-// Loop over 
+// Loop over
 for (int iStruct = 0 ; iStruct < (int)structFrameLen ; iStruct++) {
     pyStructAsDict            = MyPyArray_GetItem(coorDictList, iStruct);
     Py_INCREF(pyStructAsDict);
-    atomListList[iStruct]     = structDictToAtoms(pyStructAsDict, &nAtomsList[iStruct], probeRadius, aMap, bHiRes ? 2 : 1);    
+    atomListList[iStruct]     = structDictToAtoms(pyStructAsDict, &nAtomsList[iStruct], probeRadius, aMap, bHiRes ? 2 : 1);
     //iAtomList = structDictToAtoms(coorDictI, &iLen, probeRadius, aMap);
     Py_DECREF(pyStructAsDict);
 }
@@ -418,7 +430,7 @@ PySys_FormatStdout( "%s", s );
 free(s);
 destroyString(fg);
 
-// Cleaning 
+// Cleaning
 destroyAtomList(iAtomList, iLen);
 if(coorDictJ != NULL)
     destroyAtomList(jAtomList, jLen);
@@ -467,8 +479,8 @@ ccmapView_t **ccmapViewList;
 float dummyProbeRadius = 2.0;
 
 if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OfOO", kwlist,\
-                    &pyDictArray_I, \
-                    &pyDictArray_J,\
+                     &pyDictArray_I, \
+                     &pyDictArray_J,\
                     &userThreshold, &atomicBool, &encodeBool)) {
     PyErr_SetString(PyExc_TypeError, "parameters must be a list of dictionnaries and a distance value.");
     return NULL;
@@ -487,11 +499,11 @@ if (!MyPyArray_Check(pyDictArray_I)) {
 
 dual = pyDictArray_J != NULL;
 if(dual) {
-    if (!MyPyArray_Check(pyDictArray_J)) {
+    if (!PyList_Check(pyDictArray_J)) {
         PyErr_SetString(PyExc_TypeError, "Optional coordinates set is not iterable");
         return NULL;
-    }  
-    if( !PyArray_Equal(pyDictArray_I, pyDictArray_J) ) {
+    }
+    if( PyList_Size(pyDictArray_I) != PyList_Size(pyDictArray_J) )  {
         PyErr_SetString(PyExc_TypeError, "Coordinates lists must have same sizes");
         return NULL;
     }
@@ -500,7 +512,7 @@ if(dual) {
 setBooleanFromParsing(encodeBool, &bEncode);
 setBooleanFromParsing(atomicBool, &bAtomic);
 
-structFrameLen = PyArray_Size(pyDictArray_I);
+structFrameLen = PyList_Size(pyDictArray_I);
 
 ccmap_compute_list_allocate(&ccmapViewList, \
                             &atomListList_I, &nAtomsList_I, \
@@ -508,17 +520,17 @@ ccmap_compute_list_allocate(&ccmapViewList, \
                             structFrameLen, dual);
 
     bool bASA = false; // TO DO
-    // We off load from threads the loading of coordinates 
+    // We off load from threads the loading of coordinates
     for (int iStructPair = 0 ; iStructPair < (int)structFrameLen ; iStructPair++) {
         pStructAsDict_I                 = MyPyArray_GetItem(pyDictArray_I, iStructPair);
         Py_INCREF(pStructAsDict_I);
-        atomListList_I[iStructPair]     = structDictToAtoms(pStructAsDict_I, &nAtomsList_I[iStructPair], dummyProbeRadius, NULL, -1);    
+        atomListList_I[iStructPair]     = structDictToAtoms(pStructAsDict_I, &nAtomsList_I[iStructPair], dummyProbeRadius, NULL, -1);
         Py_DECREF(pStructAsDict_I);
 
         if(dual) {
             pStructAsDict_J             = MyPyArray_GetItem(pyDictArray_J, iStructPair);
             Py_INCREF(pStructAsDict_J);
-            atomListList_J[iStructPair] = structDictToAtoms(pStructAsDict_J, &nAtomsList_J[iStructPair], dummyProbeRadius, NULL, -1);    
+            atomListList_J[iStructPair] = structDictToAtoms(pStructAsDict_J, &nAtomsList_J[iStructPair], dummyProbeRadius, NULL, -1);
             Py_DECREF(pStructAsDict_J);
         }
     }
@@ -573,7 +585,7 @@ return PyListResults;
 Python API : "zmap"
 */
 
-static PyObject *ccmap_compute_zdock_pose(PyObject *self, PyObject *args, PyObject* kwargs) 
+static PyObject *ccmap_compute_zdock_pose(PyObject *self, PyObject *args, PyObject* kwargs)
 {
 static char *kwlist[] = {"", "", "", "", "offsetRec", "offsetLig", "d", "encode", "atomic", "apply", NULL};
 PyObject *eulerArray         = NULL;
@@ -594,7 +606,7 @@ PyObject *pyDictRec          = NULL;
 PyObject *pyDictLig          = NULL;
 
 bool bEncode, bAtomic, bApply;
-atom_t *atomListRec          = NULL; 
+atom_t *atomListRec          = NULL;
 atom_t *atomListLig          = NULL;
 int nAtomsRec, nAtomsLig;
 
@@ -609,7 +621,7 @@ if (!PyArg_ParseTupleAndKeywords(args, kwargs, \
                                   &offsetRecArray,   \
                                   &offsetLigArray,   \
                     &userThreshold,
-                    &encodeBool,                   
+                    &encodeBool,
                     &atomicBool,
                     &applyBool               )) {
     PyErr_SetString(PyExc_TypeError, "Wrong parameters");
@@ -632,9 +644,9 @@ offsetRecVector   = unpackVector3(offsetRecArray); // translation to center rece
 
 if (eulerAngle == NULL)
         PyErr_SetString(PyExc_TypeError, "Fail to unpack euler triplet");
-if (translation == NULL) 
-        PyErr_SetString(PyExc_TypeError, "Fail to unpack translation triplet");        
-if (offsetLigVector == NULL) 
+if (translation == NULL)
+        PyErr_SetString(PyExc_TypeError, "Fail to unpack translation triplet");
+if (offsetLigVector == NULL)
         PyErr_SetString(PyExc_TypeError, "Fail to unpack ligand offset triplet");
 if (offsetRecVector == NULL)
         PyErr_SetString(PyExc_TypeError, "Fail to unpack receptor offset triplet");
@@ -643,7 +655,7 @@ if (offsetRecVector == NULL || offsetLigVector == NULL || translation == NULL ||
     destroyVector3(translation);
     destroyVector3(offsetLigVector);
     destroyVector3(offsetRecVector);
-}    
+}
 
 Py_BEGIN_ALLOW_THREADS
 transformAtomList(atomListRec, NULL, offsetRecVector);
@@ -687,7 +699,7 @@ Python API lzmap
 
 */
 
-static PyObject *ccmap_compute_zdock_pose_list(PyObject *self, PyObject *args, PyObject* kwargs) 
+static PyObject *ccmap_compute_zdock_pose_list(PyObject *self, PyObject *args, PyObject* kwargs)
 {
 #ifdef DEBUG
 PySys_WriteStderr("ccmap_compute_zdock_pose_list");
@@ -740,15 +752,15 @@ if( !PyArray_Equal(eulerArrayArray, transArrayArray) ) {
     PyErr_SetString(PyExc_TypeError, "Transformations tuples lists are of unequal length");
     return NULL;
 }
-if (offsetLigArray != NULL) {  
-    offsetLigVector =  unpackVector3(offsetLigArray);    
+if (offsetLigArray != NULL) {
+    offsetLigVector =  unpackVector3(offsetLigArray);
     if (offsetLigVector == NULL ) {
         PySys_WriteStderr("Fail to unpack ligand offset triplet");
         return NULL;
     }
 }
-if (offsetRecArray != NULL) {  
-    offsetRecVector =  unpackVector3(offsetRecArray);    
+if (offsetRecArray != NULL) {
+    offsetRecVector =  unpackVector3(offsetRecArray);
     if (offsetRecVector == NULL ) {
         destroyVector3(offsetLigVector);
         PySys_WriteStderr("Fail to unpack receptor offset triplet");
@@ -872,7 +884,7 @@ static PyMethodDef ccmapMethods[] = {
     {"sasa_multi_mda",
     (PyCFunction/*PyCFunctionWithKeywords*/)sasa_multi_mda_np_arrays, METH_VARARGS | METH_KEYWORDS,
         "Computing sasa over a several structure provided as lists of MDAnalysis numpy arrays\n"\
-    },  
+    },
 
     {
     "sasa", (PyCFunction/*PyCFunctionWithKeywords*/)free_sasa_compute, METH_VARARGS | METH_KEYWORDS,
@@ -883,7 +895,7 @@ static PyMethodDef ccmapMethods[] = {
     "sasa_list", (PyCFunction/*PyCFunctionWithKeywords*/)free_sasa_many, METH_VARARGS | METH_KEYWORDS,
         "Compute Free SASA over a list of structures\n"\
     },
-    
+
     {
     "zmap",  (PyCFunction/*PyCFunctionWithKeywords*/)ccmap_compute_zdock_pose, METH_VARARGS | METH_KEYWORDS,
     "Compute a contact map from a zdock-like encoded pose\n"\
@@ -951,4 +963,3 @@ PyInit_ccmap(void)
     import_array(); // Must be called to setup numpy
     return module;
 }
-

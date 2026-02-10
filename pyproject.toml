@@ -6,7 +6,6 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
-
 [tool.cibuildwheel]
 
 # Target Python versions: 3.9 to 3.14
